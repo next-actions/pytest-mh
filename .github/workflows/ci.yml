@@ -1,0 +1,112 @@
+name: CI
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup virtual environment
+      run: |
+        pip3 install virtualenv
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip3 install -r ./requirements.txt
+        pip3 install flake8 pycodestyle isort mypy black
+        mypy --install-types --non-interactive pytest_mh example tests
+
+    - name: flake8
+      run: source .venv/bin/activate && flake8 .
+
+    - name: pycodestyle
+      run: source .venv/bin/activate && pycodestyle .
+
+    - name: isort
+      run: source .venv/bin/activate && isort --check-only .
+
+    - name: black
+      run: source .venv/bin/activate && black --check -
+
+    - name: mypy
+      run: source .venv/bin/activate && mypy pytest_mh example tests
+
+  tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup virtual environment
+      run: |
+        pip3 install virtualenv
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip3 install -r ./requirements.txt
+
+    - name: Run tests
+      run: source .venv/bin/activate && pytest --color=yes -vv
+
+  example:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup containers
+      uses: SSSD/sssd-ci-containers/actions/setup@master
+      with:
+        path: sssd-ci-containers
+        limit: dns client kdc
+
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install -y gcc python3-dev libldap2-dev libsasl2-dev sshpass
+
+        pip3 install virtualenv
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip3 install -r ./requirements.txt
+
+    - name: Run example tests
+      run: |
+        source .venv/bin/activate
+        pytest --color=yes --mh-config=./example/mhc.yaml -vv ./example
+
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup virtual environment
+      run: |
+        pip3 install virtualenv
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip3 install -r ./requirements.txt
+        pip3 install -r ./docs/requirements.txt
+
+    - name: Build docs
+      run: |
+        source .venv/bin/activate
+        cd docs
+        make html SPHINXOPTS="-W --keep-going"

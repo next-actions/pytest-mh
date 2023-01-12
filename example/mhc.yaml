@@ -1,0 +1,18 @@
+domains:
+- type: test
+  hosts:
+  - hostname: client.test
+    role: client
+    username: root
+    password: Secret123
+    config:
+      realm: TEST
+      krbdomain: test
+      kdc: kdc.test
+
+  - hostname: kdc.test
+    role: kdc
+    username: root
+    password: Secret123
+    artifacts:
+    - /var/log/krb5kdc.log

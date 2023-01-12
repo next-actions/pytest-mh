@@ -1,0 +1,4 @@
+colorama
+parallel-ssh
+pytest
+PyYAML

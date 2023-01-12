@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling", "hatch-requirements-txt"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-mh"
+version = "1.0.0"
+authors = [
+  { name="Pavel Březina", email="pbrezina@redhat.com" },
+]
+description = "Pytest multihost plugin"
+readme = "readme.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+"Homepage" = "https://github.com/next-actions/pytest-mh"
+"Bug Tracker" = "https://github.com/next-actions/pytest-mh/issues"
+
+[tool.hatch.build]
+include = [
+  "/pytest_mh",
+  "/pytest_mh/py.typed",
+  "requirements.txt",
+]
+
+[tool.hatch.metadata.hooks.requirements_txt]
+files = ["requirements.txt"]
+
+[[tool.mypy.overrides]]
+module = "pssh.*"
+ignore_missing_imports = true
+
+[tool.isort]
+line_length = 119
+profile = "black"
+add_imports = "from __future__ import annotations"
+
+[tool.black]
+line-length = 119
