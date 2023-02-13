@@ -13,10 +13,11 @@ Basic definition
     domains:
     - type: <domain type>
       hosts:
-      - hostname: <resolvable dns host name>
+      - hostname: <host name>
         role: <host role>
         username: <ssh username>
         password: <ssh password>
+        ip: <ip address> (optional)
         config: <additional configuration> (optional)
         artifacts: <list of produced artifacts> (optional)
 
@@ -25,11 +26,11 @@ has ``type`` attribute and defines the list of available hosts.
 
 * ``type``: domain identifier which is used in the path inside ``mh`` fixture, see :ref:`mh-fixture`
 * ``hosts``: list of available hosts and their roles
-
-  * ``hostname``: DNS host name, must be resolvable
+  * ``hostname``: DNS host name, must be resolvable if ip or external_hostname is no present
   * ``role``: host role
   * ``username``: ssh username, usually ``root``
   * ``password``: ssh password for the user
+  * ``ip``: IP address of the machine
   * ``config``: additional configuration, place for custom options, see :ref:`custom-config`
   * ``artifacts``: list of artifacts that are automatically downloaded, see :ref:`gathering-artifacts`
 

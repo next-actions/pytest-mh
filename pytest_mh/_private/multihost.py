@@ -240,6 +240,9 @@ class MultihostHost(Generic[DomainType]):
         """SSH passowrd."""
 
         # Optional
+        self.ip: str = confdict["ip"] if "ip" in confdict else ""
+        """Host IP address."""
+
         self.config: dict[str, Any] = confdict.get("config", {})
         """Custom configuration."""
 
@@ -268,7 +271,7 @@ class MultihostHost(Generic[DomainType]):
 
         # SSH connection
         self.ssh: SSHClient = SSHClient(
-            host=self.hostname,
+            host=self._get_ssh_host(),
             user=self.username,
             password=self.password,
             logger=self.logger,
@@ -345,6 +348,16 @@ class MultihostHost(Generic[DomainType]):
         Called after execution of each test.
         """
         pass
+
+    def _get_ssh_host(self) -> str:
+        """
+        Returns host for ssh with the priority ip, hostname
+        :return: host to be used for ssh
+        :rtype: str
+        """
+        if self.ip:
+            return self.ip
+        return self.hostname
 
 
 HostType = TypeVar("HostType", bound=MultihostHost)
