@@ -21,8 +21,6 @@ class ClientHost(MultihostHost[ExampleMultihostDomain]):
 
         - hostname: client.test
           role: client
-          username: root
-          password: Secret123
           config:
             realm: TEST
             krbdomain: test

@@ -108,7 +108,7 @@ it reads additional configuration values from the multihost configuration
 
 .. literalinclude:: ../example/lib/hosts/client.py
     :caption: /lib/hosts/client.py
-    :emphasize-lines: 39-41
+    :emphasize-lines: 37-39
     :language: python
     :linenos:
 
@@ -205,7 +205,7 @@ of artifacts that are automatically fetched from the remote host.
 .. literalinclude:: ../example/mhc.yaml
     :caption: /mhc.yaml
     :language: yaml
-    :emphasize-lines: 8-11, 17-18
+    :emphasize-lines: 6-9, 13-14
     :linenos:
 
 .. note::
@@ -247,19 +247,15 @@ Now we can run them. Notice how the topology name is mentioned in the test name.
     - type: test
         hosts:
         - hostname: client.test
-        role: client
-        username: root
-        password: Secret123
-        config:
+          role: client
+          config:
             realm: TEST
             krbdomain: test
             kdc: kdc.test
         - hostname: kdc.test
-        role: kdc
-        username: root
-        password: Secret123
-        artifacts:
-        - /var/log/krb5kdc.log
+          role: kdc
+          artifacts:
+          - /var/log/krb5kdc.log
 
     Detected topology:
     - type: test

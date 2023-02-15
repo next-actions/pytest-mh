@@ -182,8 +182,6 @@ class MultihostHost(Generic[DomainType]):
 
         - hostname: dc.ad.test
           role: ad
-          username: Administrator@ad.test
-          password: vagrant
           config:
             binddn: Administrator@ad.test
             bindpw: vagrant
@@ -227,17 +225,11 @@ class MultihostHost(Generic[DomainType]):
         self.logger: MultihostLogger = domain.logger
         """Multihost logger."""
 
-        self.hostname: str = confdict["hostname"]
-        """Host hostname."""
-
         self.role: str = confdict["role"]
         """Host role."""
 
-        self.username: str = confdict["username"]
-        """SSH username."""
-
-        self.password: str = confdict["password"]
-        """SSH passowrd."""
+        self.hostname: str = confdict["hostname"]
+        """Host hostname."""
 
         # Optional
         self.config: dict[str, Any] = confdict.get("config", {})
@@ -245,6 +237,21 @@ class MultihostHost(Generic[DomainType]):
 
         self.artifacts: list[str] = confdict.get("artifacts", [])
         """Host artifacts produced during tests."""
+
+        # SSH
+        ssh = confdict.get("ssh", {})
+
+        self.ssh_host: str = ssh.get("host", self.hostname)
+        """SSH host (resolvable hostname or IP address), defaults to :attr:`hostname`."""
+
+        self.ssh_port: int = int(ssh.get("port", 22))
+        """SSH port, defaults to ``22``."""
+
+        self.ssh_username: str = ssh.get("username", "root")
+        """SSH username, defaults to ``root``."""
+
+        self.ssh_password: str = ssh.get("password", "Secret123")
+        """SSH password, defaults to ``Secret123``."""
 
         # Not configurable
         self.shell: Type[SSHProcess] = SSHBashProcess
@@ -268,9 +275,10 @@ class MultihostHost(Generic[DomainType]):
 
         # SSH connection
         self.ssh: SSHClient = SSHClient(
-            host=self.hostname,
-            user=self.username,
-            password=self.password,
+            host=self.ssh_host,
+            user=self.ssh_username,
+            password=self.ssh_password,
+            port=self.ssh_port,
             logger=self.logger,
             shell=self.shell,
         )
@@ -286,7 +294,7 @@ class MultihostHost(Generic[DomainType]):
 
     @property
     def required_fields(self) -> list[str]:
-        return ["hostname", "role", "username", "password"]
+        return ["role", "hostname"]
 
     def collect_artifacts(self, dest: str) -> None:
         """
@@ -396,7 +404,14 @@ class MultihostRole(Generic[HostType]):
         :return: SSH client connection.
         :rtype: SSHClient
         """
-        return SSHClient(self.host.hostname, user=user, password=password, shell=shell, logger=self.mh.logger)
+        return SSHClient(
+            self.host.ssh_host,
+            user=self.host.ssh_username,
+            password=self.host.ssh_password,
+            port=self.host.ssh_port,
+            shell=shell,
+            logger=self.mh.logger,
+        )
 
 
 class MultihostUtility(Generic[HostType]):

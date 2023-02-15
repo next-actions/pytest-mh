@@ -13,12 +13,15 @@ Basic definition
     domains:
     - type: <domain type>
       hosts:
-      - hostname: <resolvable dns host name>
+      - hostname: <dns host name>
         role: <host role>
-        username: <ssh username>
-        password: <ssh password>
-        config: <additional configuration> (optional)
-        artifacts: <list of produced artifacts> (optional)
+        ssh:
+          host: <ssh host> (optional, defaults to host name)
+          port: <ssh port> (optional, defaults to 22)
+          username: <ssh username> (optional, defaults to "root")
+          password: <ssh password> (optional, defaults to "Secret123")
+        config: <additional configuration> (optional, defaults to {})
+        artifacts: <list of produced artifacts> (optional, defaults to {})
 
 The top level element of the configuration is list of ``domains``. Each domain
 has ``type`` attribute and defines the list of available hosts.
@@ -26,10 +29,13 @@ has ``type`` attribute and defines the list of available hosts.
 * ``type``: domain identifier which is used in the path inside ``mh`` fixture, see :ref:`mh-fixture`
 * ``hosts``: list of available hosts and their roles
 
-  * ``hostname``: DNS host name, must be resolvable
+  * ``hostname``: DNS host name, it may not necessarily be resolvable from the machine that runs pytest
   * ``role``: host role
-  * ``username``: ssh username, usually ``root``
-  * ``password``: ssh password for the user
+  * ``ssh.host``: ssh host to connect to (it may be a resolvable host name or an
+    IP address), defaults to the value of ``hostname``
+  * ``ssh.port``: ssh port, defaults to 22
+  * ``ssh.username``: ssh username, defaults to ``root``
+  * ``ssh.password``: ssh password for the user, defaults to ``Secret123``
   * ``config``: additional configuration, place for custom options, see :ref:`custom-config`
   * ``artifacts``: list of artifacts that are automatically downloaded, see :ref:`gathering-artifacts`
 
@@ -41,8 +47,10 @@ has ``type`` attribute and defines the list of available hosts.
       hosts:
       - hostname: client.test
         role: client
-        username: root
-        password: Secret123
+        ssh:
+          host: 192.168.100.10
+          user: root
+          password: MySecret123
         artifacts:
         - /etc/sssd/*
         - /var/log/sssd/*
@@ -50,8 +58,6 @@ has ``type`` attribute and defines the list of available hosts.
 
       - hostname: master.ldap.test
         role: ldap
-        username: root
-        password: Secret123
         config:
           binddn: cn=Directory Manager
           bindpw: Secret123
@@ -93,13 +99,13 @@ the multihost configuration in the ``config`` field.
       hosts:
       - hostname: client.test
         role: client
-        username: root
-        password: Secret123
+        ssh:
+          host: 192.168.100.10
+          user: root
+          password: MySecret123
 
       - hostname: master.ldap.test
         role: ldap
-        username: root
-        password: Secret123
         config:
           binddn: cn=Directory Manager
           bindpw: Secret123
@@ -118,8 +124,10 @@ artifacts with a possible wildcard character. For example:
 
   - hostname: client.test
     role: client
-    username: root
-    password: Secret123
+    ssh:
+      host: 192.168.100.10
+      user: root
+      password: MySecret123
     config:
       artifacts:
       - /etc/sssd/*

@@ -132,11 +132,11 @@ class Topology(object):
           type: sssd
           hosts:
           - name: client
-            external_hostname: client.ldap.test
+            hostname: client.test
             role: client
 
           - name: ldap
-            external_hostname: master.ldap.test
+            hostname: master.ldap.test
             role: ldap
     """
 
