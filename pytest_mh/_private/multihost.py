@@ -168,7 +168,11 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 DomainType = TypeVar("DomainType", bound=MultihostDomain)
 
 
-class MultihostHostOS(Enum):
+class MultihostHostOSFamily(Enum):
+    """
+    Host operating system family.
+    """
+
     Linux = "linux"
     Windows = "windows"
 
@@ -257,21 +261,24 @@ class MultihostHost(Generic[DomainType]):
         self.shell: Type[SSHProcess] = SSHBashProcess
         """Shell used in SSH session."""
 
-        # Determine host system and shell
-        os = str(confdict.get("os", MultihostHostOS.Linux.value)).lower()
-        try:
-            self.os: MultihostHostOS = MultihostHostOS(os)
-            """Host operating system."""
-        except ValueError:
-            raise ValueError(f'Value "{os}" is not supported in os field of host configuration')
+        # Get host operating system information
+        os = confdict.get("os", {})
 
-        match self.os:
-            case MultihostHostOS.Linux:
+        os_family = str(os.get("family", MultihostHostOSFamily.Linux.value)).lower()
+        try:
+            self.os_family: MultihostHostOSFamily = MultihostHostOSFamily(os_family)
+            """Host operating system os_family."""
+        except ValueError:
+            raise ValueError(f'Value "{os_family}" is not supported in os_family field of host configuration')
+
+        # Set host shell based on the operating system
+        match self.os_family:
+            case MultihostHostOSFamily.Linux:
                 self.shell = SSHBashProcess
-            case MultihostHostOS.Windows:
+            case MultihostHostOSFamily.Windows:
                 self.shell = SSHPowerShellProcess
             case _:
-                raise ValueError(f"Unknown operating system: {self.os}")
+                raise ValueError(f"Unknown operating system os_family: {self.os_family}")
 
         # SSH connection
         self.ssh: SSHClient = SSHClient(
@@ -310,8 +317,8 @@ class MultihostHost(Generic[DomainType]):
         Path(dest).mkdir(parents=True, exist_ok=True)
 
         # Fetch artifacts
-        match self.os:
-            case MultihostHostOS.Linux:
+        match self.os_family:
+            case MultihostHostOSFamily.Linux:
                 command = f"""
                     tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
                     tar -czvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in self.artifacts])} &> /dev/null
@@ -319,10 +326,10 @@ class MultihostHost(Generic[DomainType]):
                     rm -f "$tmp" &> /dev/null
                 """
                 ext = "tgz"
-            case MultihostHostOS.Windows:
+            case MultihostHostOSFamily.Windows:
                 raise NotImplementedError("Artifacts are not supported on Windows machine")
             case _:
-                raise ValueError(f"Unknown operating system: {self.os}")
+                raise ValueError(f"Unknown operating system: {self.os_family}")
 
         result = self.ssh.run(command, log_level=SSHLog.Error)
 

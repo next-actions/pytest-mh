@@ -15,6 +15,8 @@ Basic definition
       hosts:
       - hostname: <dns host name>
         role: <host role>
+        os:
+          family: <host operating system family> (optional, defaults to "linux")
         ssh:
           host: <ssh host> (optional, defaults to host name)
           port: <ssh port> (optional, defaults to 22)
@@ -31,6 +33,7 @@ has ``type`` attribute and defines the list of available hosts.
 
   * ``hostname``: DNS host name, it may not necessarily be resolvable from the machine that runs pytest
   * ``role``: host role
+  * ``os.family``: host operating system family, defaults to "linux", see :class:`~pytest_mh.MultihostHostOSFamily`
   * ``ssh.host``: ssh host to connect to (it may be a resolvable host name or an
     IP address), defaults to the value of ``hostname``
   * ``ssh.port``: ssh port, defaults to 22
