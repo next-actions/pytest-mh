@@ -11,6 +11,7 @@ from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
 from .logging import MultihostLogger
 from .marks import TopologyMark
+from .utils import validate_configuration
 
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
@@ -22,6 +23,10 @@ class MultihostConfig(ABC):
     """
 
     def __init__(self, confdict: dict[str, Any], *, logger: MultihostLogger, lazy_ssh: bool = False) -> None:
+        validate_configuration(
+            self.required_fields, confdict, error_fmt='"{key}" property is missing in configuration'
+        )
+
         self.logger: MultihostLogger = logger
         """Multihost logger"""
 
@@ -31,11 +36,18 @@ class MultihostConfig(ABC):
         self.domains: list[MultihostDomain] = []
         """Available domains"""
 
-        if "domains" not in confdict:
-            raise ValueError('"domains" property is missing in multihost configuration')
-
         for domain in confdict["domains"]:
             self.domains.append(self.create_domain(domain))
+
+    @property
+    def required_fields(self) -> list[str]:
+        """
+        Fields that must be set in the host configuration. An error is raised
+        if any field is missing.
+
+        The field name may contain a ``.`` to check nested fields.
+        """
+        return ["domains"]
 
     @property
     def TopologyMarkClass(self) -> Type[TopologyMark]:
@@ -66,11 +78,9 @@ class MultihostDomain(ABC, Generic[ConfigType]):
     """
 
     def __init__(self, config: ConfigType, confdict: dict[str, Any]) -> None:
-        if "type" not in confdict:
-            raise ValueError('"type" property is missing in domain configuration')
-
-        if "hosts" not in confdict:
-            raise ValueError('"hosts" property is missing in domain configuration')
+        validate_configuration(
+            self.required_fields, confdict, error_fmt='"{key}" property is missing in domain configuration'
+        )
 
         self.config: ConfigType = config
         """Multihost configuration"""
@@ -86,6 +96,16 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 
         for host in confdict["hosts"]:
             self.hosts.append(self.create_host(host))
+
+    @property
+    def required_fields(self) -> list[str]:
+        """
+        Fields that must be set in the domain configuration. An error is raised
+        if any field is missing.
+
+        The field name may contain a ``.`` to check nested fields.
+        """
+        return ["type", "hosts"]
 
     @property
     def roles(self) -> list[str]:
@@ -213,20 +233,9 @@ class MultihostHost(Generic[DomainType]):
         :param shell: Shell used in SSH connection, defaults to '/usr/bin/bash -c'.
         :type shell: str
         """
-
-        def is_present(property: str, confdict: dict[str, Any]) -> bool:
-            if "/" in property:
-                (key, subpath) = property.split("/", maxsplit=1)
-                if not confdict.get(key, None):
-                    return False
-
-                return is_present(subpath, confdict[key])
-
-            return property in confdict and confdict[property]
-
-        for required in self.required_fields:
-            if not is_present(required, confdict):
-                raise ValueError(f'"{required}" property is missing in host configuration')
+        validate_configuration(
+            self.required_fields, confdict, error_fmt='"{key}" property is missing in host configuration'
+        )
 
         # Required
         self.domain: DomainType = domain
@@ -307,6 +316,12 @@ class MultihostHost(Generic[DomainType]):
 
     @property
     def required_fields(self) -> list[str]:
+        """
+        Fields that must be set in the host configuration. An error is raised
+        if any field is missing.
+
+        The field name may contain a ``.`` to check nested fields.
+        """
         return ["role", "hostname"]
 
     def collect_artifacts(self, dest: str) -> None:
