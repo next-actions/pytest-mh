@@ -186,6 +186,12 @@ class MultihostHost(Generic[DomainType]):
 
         - hostname: dc.ad.test
           role: ad
+          os:
+            family: linux
+          ssh:
+            host: 1.2.3.4
+            username: root
+            password: Secret123
           config:
             binddn: Administrator@ad.test
             bindpw: vagrant
@@ -194,8 +200,8 @@ class MultihostHost(Generic[DomainType]):
               krb5_keytab: /enrollment/ad.keytab
               ldap_krb5_keytab: /enrollment/ad.keytab
 
-    * Required fields: ``hostname``, ``role``, ``username``, ``password``
-    * Optional fields: ``config``
+    * Required fields: ``hostname``, ``role``
+    * Optional fields: ``artifacts``, ``config``, ``os``, ``ssh``
     """
 
     def __init__(self, domain: DomainType, confdict: dict[str, Any]):
