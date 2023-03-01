@@ -119,11 +119,17 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 
     def create_host(self, confdict: dict[str, Any]) -> MultihostHost:
         """
-        Find desired host class by role.
+        Create host object from role.
+
+        It maps the role name to a Python class using
+        :attr:`role_to_host_class`. If the role is not found in the property, it
+        fallbacks to ``*``. If even asterisk is not found, it fallbacks to
+        :class:`MultiHost`.
 
         :param confdict: Host configuration as a dictionary.
         :type confdict: dict[str, Any]
-        :raises ValueError: If role property is missing in the host configuration.
+        :raises ValueError: If role property is missing in the host
+            configuration.
         :return: Host instance.
         :rtype: MultihostHost
         """
@@ -131,13 +137,18 @@ class MultihostDomain(ABC, Generic[ConfigType]):
             raise ValueError('"role" property is missing in host configuration')
 
         role = confdict["role"]
-        cls = self.role_to_host_type[role] if role in self.role_to_host_type else MultihostHost
+        cls = self.role_to_host_class.get(role, self.role_to_host_class.get("*", MultihostHost))
 
         return cls(self, confdict)
 
     def create_role(self, mh: MultihostFixture, host: MultihostHost) -> MultihostRole:
         """
         Create role object from given host.
+
+        It maps the role name to a Python class using
+        :attr:`role_to_role_class`. If the role is not found in the property, it
+        fallbacks to ``*``. If even asterisk is not found, it raises
+        ``ValueError``.
 
         :param mh: Multihost instance.
         :type mh: Multihost
@@ -147,17 +158,17 @@ class MultihostDomain(ABC, Generic[ConfigType]):
         :return: Role instance.
         :rtype: MultihostRole
         """
-        if host.role not in self.role_to_role_class:
+        cls = self.role_to_role_class.get(host.role, self.role_to_role_class.get("*", None))
+        if cls is None:
             raise ValueError(f"Unexpected role: {host.role}")
 
-        cls = self.role_to_role_class[host.role]
         return cls(mh, host.role, host)
 
     @property
     @abstractmethod
     def role_to_host_class(self) -> dict[str, Type[MultihostHost]]:
         """
-        Map role to host class.
+        Map role to host class. Asterisk ``*`` can be used as fallback value.
 
         :rtype: Class name.
         """
@@ -167,7 +178,7 @@ class MultihostDomain(ABC, Generic[ConfigType]):
     @abstractmethod
     def role_to_role_class(self) -> dict[str, Type[MultihostRole]]:
         """
-        Map role to role class.
+        Map role to role class. Asterisk ``*`` can be used as fallback value.
 
         :rtype: Class name.
         """

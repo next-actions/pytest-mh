@@ -14,7 +14,7 @@ class ExampleMultihostDomain(MultihostDomain[ExampleMultihostConfig]):
     @property
     def role_to_host_class(self) -> dict[str, Type[MultihostHost]]:
         """
-        Map role to host class.
+        Map role to host class. Asterisk ``*`` can be used as fallback value.
 
         :rtype: Class name.
         """
@@ -29,7 +29,7 @@ class ExampleMultihostDomain(MultihostDomain[ExampleMultihostConfig]):
     @property
     def role_to_role_class(self) -> dict[str, Type[MultihostRole]]:
         """
-        Map role to role class.
+        Map role to role class. Asterisk ``*`` can be used as fallback value.
 
         :rtype: Class name.
         """
