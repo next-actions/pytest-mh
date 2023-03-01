@@ -8,7 +8,7 @@ from pytest_mh import TopologyDomain
 def test_topology_domain__init():
     obj = TopologyDomain("test", master=1, client=1)
 
-    assert obj.type == "test"
+    assert obj.id == "test"
     assert obj.roles == {"master": 1, "client": 1}
 
 
@@ -24,7 +24,7 @@ def test_topology_domain__get():
 
 def test_topology_domain__export():
     obj = TopologyDomain("test", master=1, client=1)
-    expected = {"type": "test", "hosts": {"master": 1, "client": 1}}
+    expected = {"id": "test", "hosts": {"master": 1, "client": 1}}
 
     assert obj.export() == expected
 

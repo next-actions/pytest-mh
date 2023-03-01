@@ -244,7 +244,7 @@ Now we can run them. Notice how the topology name is mentioned in the test name.
     $ pytest --mh-config=./mhc.yaml -vv
     Multihost configuration:
     domains:
-    - type: test
+    - id: test
         hosts:
         - hostname: client.test
           role: client
@@ -258,7 +258,7 @@ Now we can run them. Notice how the topology name is mentioned in the test name.
           - /var/log/krb5kdc.log
 
     Detected topology:
-    - type: test
+    - id: test
         hosts:
         client: 1
         kdc: 1

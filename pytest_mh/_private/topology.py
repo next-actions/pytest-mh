@@ -7,38 +7,38 @@ class TopologyDomain(object):
     """
     Create a new topology domain.
 
-    Topology domain specifies domain type required by the topology as well as
+    Topology domain specifies domain id required by the topology as well as
     required roles and number of hosts that must implement these roles. See
     :class:`Topology` for more information.
 
-    The following example defines a topology domain of type ``sssd`` that
+    The following example defines a topology domain of id ``test`` that
     requires two roles: ``client`` and ``ldap`` each provided by one host.
 
     .. code-block:: python
 
         TopologyDomain(
-            'sssd',
+            'test',
             client=1, ldap=1
         )
     """
 
-    def __init__(self, type: str, **kwargs: int) -> None:
+    def __init__(self, id: str, **kwargs: int) -> None:
         """
-        :param type: Domain type.
-        :type type: str
+        :param id: Domain id.
+        :type id: str
         :param `*kwargs`: Required roles.
         :type `*kwargs`: dict[str, int]
         """
 
-        self.type: str = type
+        self.id: str = id
         self.roles: dict[str, int] = kwargs
 
     def get(self, role: str) -> int:
         """
         Find role and return the number of hosts that must implement this role.
 
-        :param type: Host role to lookup.
-        :type type: str
+        :param role: Host role to lookup.
+        :type rol: str
         :raises KeyError: The domain was not found.
         :rtype: int
         """
@@ -53,7 +53,7 @@ class TopologyDomain(object):
         .. code-block:: python
 
             {
-                'type': 'sssd',
+                'id': 'test',
                 'roles': {
                     'client': 1,
                     'ldap': 1
@@ -63,13 +63,13 @@ class TopologyDomain(object):
         :rtype: dict
         """
 
-        return {"type": self.type, "hosts": self.roles}
+        return {"id": self.id, "hosts": self.roles}
 
     def satisfies(self, other: "TopologyDomain") -> bool:
         """
         Check if the topology domain satisfies the ``other`` domain.
 
-        Returns ``True`` if the domain types match and this domain contains all
+        Returns ``True`` if the domain ids match and this domain contains all
         required roles defined in the ``other`` topology and ``False``
         otherwise.
 
@@ -78,7 +78,7 @@ class TopologyDomain(object):
         :rtype: bool
         """
 
-        if self.type != other.type:
+        if self.id != other.id:
             return False
 
         for role, value in other.roles.items():
@@ -110,14 +110,14 @@ class Topology(object):
     implemented.
 
     The following example defines an ldap topology that consist of one domain of
-    type ``sssd`` and requires two roles: ``client`` and ``ldap`` each provided
+    id ``test`` and requires two roles: ``client`` and ``ldap`` each provided
     by one host.
 
     .. code-block:: python
 
         Topology(
             TopologyDomain(
-                'sssd',
+                'test',
                  client=1, ldap=1
             )
         )
@@ -129,7 +129,7 @@ class Topology(object):
 
         domains:
         - name: ldap.test
-          type: sssd
+          id: test
           hosts:
           - name: client
             hostname: client.test
@@ -148,21 +148,21 @@ class Topology(object):
 
         self.domains = list(domains)
 
-    def get(self, type: str) -> TopologyDomain:
+    def get(self, id: str) -> TopologyDomain:
         """
-        Find topology domain of the given type and return it.
+        Find topology domain of the given id and return it.
 
-        :param type: Topology domain type to lookup.
-        :type type: str
+        :param id: Topology domain id to lookup.
+        :type id: str
         :raises KeyError: The domain was not found.
         :rtype: TopologyDomain
         """
 
         for domain in self.domains:
-            if domain.type == type:
+            if domain.id == id:
                 return domain
 
-        raise KeyError(f'Domain "{type}" was not found.')
+        raise KeyError(f'Domain "{id}" was not found.')
 
     def export(self) -> list[dict]:
         """
@@ -173,7 +173,7 @@ class Topology(object):
 
             [
                 {
-                    'type': 'sssd',
+                    'id': 'test',
                     'roles': {
                         'client': 1,
                         'ldap': 1
@@ -201,10 +201,10 @@ class Topology(object):
         :rtype: bool
         """
         for domain in other.domains:
-            if domain.type not in self:
+            if domain.id not in self:
                 return False
 
-            if not self.get(domain.type).satisfies(domain):
+            if not self.get(domain.id).satisfies(domain):
                 return False
 
         return True
@@ -243,7 +243,7 @@ class Topology(object):
 
         topology = []
         for domain in mhc.get("domains", []):
-            topology.append({"type": domain["type"], "hosts": dict(Counter([x["role"] for x in domain["hosts"]]))})
+            topology.append({"id": domain["id"], "hosts": dict(Counter([x["role"] for x in domain["hosts"]]))})
 
-        domains = [TopologyDomain(x.get("type", "default"), **x["hosts"]) for x in topology]
+        domains = [TopologyDomain(x.get("id", "default"), **x["hosts"]) for x in topology]
         return cls(*domains)

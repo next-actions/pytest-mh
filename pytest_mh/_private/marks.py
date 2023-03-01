@@ -26,8 +26,8 @@ class TopologyMark(object):
             assert True
 
     Fixture path points to a host in the multihost configuration and can be
-    either in the form of ``$domain-type.$role`` (all host of given role) or
-    ``$domain-type.$role[$index]`` (specific host on given index).
+    either in the form of ``$domain-id.$role`` (all host of given role) or
+    ``$domain-id.$role[$index]`` (specific host on given index).
 
     The ``name`` is visible in verbose pytest output after the test name, for example:
 
@@ -98,10 +98,10 @@ class TopologyMark(object):
 
             {
                 'name': 'client',
-                'fixtures': { 'client': 'sssd.client[0]' },
+                'fixtures': { 'client': 'test.client[0]' },
                 'topology': [
                     {
-                        'type': 'sssd',
+                        'id': 'test',
                         'hosts': { 'client': 1 }
                     }
                 ]

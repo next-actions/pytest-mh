@@ -88,8 +88,8 @@ class MultihostDomain(ABC, Generic[ConfigType]):
         self.logger: MultihostLogger = config.logger
         """Multihost logger"""
 
-        self.type: str = confdict["type"]
-        """Domain type"""
+        self.id: str = confdict["id"]
+        """Domain id"""
 
         self.hosts: list[MultihostHost] = []
         """Available hosts in this domain"""
@@ -105,7 +105,7 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 
         The field name may contain a ``.`` to check nested fields.
         """
-        return ["type", "hosts"]
+        return ["id", "hosts"]
 
     @property
     def roles(self) -> list[str]:

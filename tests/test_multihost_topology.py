@@ -117,14 +117,14 @@ def test_topology__FromMultihostConfig():
     mhc = {
         "domains": [
             {
-                "type": "test",
+                "id": "test",
                 "hosts": [
                     {"name": "ipa", "external_hostname": "ipa.test", "role": "master"},
                     {"name": "client", "external_hostname": "client.test", "role": "client"},
                 ],
             },
             {
-                "type": "test2",
+                "id": "test2",
                 "hosts": [
                     {"name": "client", "external_hostname": "client.test", "role": "client"},
                     {"name": "client2", "external_hostname": "client2.test", "role": "client"},

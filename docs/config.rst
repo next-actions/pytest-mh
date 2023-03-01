@@ -11,7 +11,7 @@ Basic definition
 .. code-block:: yaml
 
     domains:
-    - type: <domain type>
+    - id: <domain id>
       hosts:
       - hostname: <dns host name>
         role: <host role>
@@ -26,9 +26,9 @@ Basic definition
         artifacts: <list of produced artifacts> (optional, defaults to {})
 
 The top level element of the configuration is list of ``domains``. Each domain
-has ``type`` attribute and defines the list of available hosts.
+has ``id`` attribute and defines the list of available hosts.
 
-* ``type``: domain identifier which is used in the path inside ``mh`` fixture, see :ref:`mh-fixture`
+* ``id``: domain identifier which is used in the path inside ``mh`` fixture, see :ref:`mh-fixture`
 * ``hosts``: list of available hosts and their roles
 
   * ``hostname``: DNS host name, it may not necessarily be resolvable from the machine that runs pytest
@@ -46,7 +46,7 @@ has ``type`` attribute and defines the list of available hosts.
     :caption: Sample configuration file
 
     domains:
-    - type: test
+    - id: test
       hosts:
       - hostname: client.test
         role: client
@@ -98,7 +98,7 @@ the multihost configuration in the ``config`` field.
 .. code-block:: yaml
 
     domains:
-    - type: test
+    - id: test
       hosts:
       - hostname: client.test
         role: client

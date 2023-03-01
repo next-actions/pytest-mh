@@ -1,5 +1,5 @@
 domains:
-- type: test
+- id: test
   hosts:
   - hostname: client.test
     role: client

@@ -26,7 +26,7 @@ class MultihostFixture(object):
         :caption: Example multihost configuration
 
         domains:
-        - type: test
+        - id: test
           hosts:
           - name: client
             hostname: client.test
@@ -36,7 +36,7 @@ class MultihostFixture(object):
             hostname: master.ldap.test
             role: ldap
 
-    The configuration above creates one domain of type ``sssd`` with two hosts.
+    The configuration above creates one domain of id ``test`` with two hosts.
     The following example shows how to access the hosts:
 
     .. code-block:: python
@@ -85,8 +85,8 @@ class MultihostFixture(object):
         self._paths: dict[str, list[MultihostRole] | MultihostRole] = {}
 
         for domain in self.multihost.domains:
-            if domain.type in topology:
-                setattr(self, domain.type, self._domain_to_namespace(domain, topology.get(domain.type)))
+            if domain.id in topology:
+                setattr(self, domain.id, self._domain_to_namespace(domain, topology.get(domain.id)))
 
     def _domain_to_namespace(self, domain: MultihostDomain, topology_domain: TopologyDomain) -> SimpleNamespace:
         ns = SimpleNamespace()
@@ -97,9 +97,9 @@ class MultihostFixture(object):
             count = topology_domain.get(role_name)
             roles = [domain.create_role(self, host) for host in domain.hosts_by_role(role_name)[:count]]
 
-            self._paths[f"{domain.type}.{role_name}"] = roles
+            self._paths[f"{domain.id}.{role_name}"] = roles
             for index, role in enumerate(roles):
-                self._paths[f"{domain.type}.{role_name}[{index}]"] = role
+                self._paths[f"{domain.id}.{role_name}[{index}]"] = role
 
             setattr(ns, role_name, roles)
 

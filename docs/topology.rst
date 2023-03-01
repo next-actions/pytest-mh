@@ -7,14 +7,14 @@ topology. If the requirements defined by the topology are not met by current
 multihost configuration then the test is skipped. The requirements are:
 
 * How many domains are needed
-* What domain types are needed
+* What domain IDs are needed
 * How many hosts with given role are needed inside the domain
 
 .. code-block:: yaml
     :caption: Example topology
 
     domains:
-    - type: test
+    - id: test
       hosts:
         client: 1
         ldap: 1
@@ -22,19 +22,23 @@ multihost configuration then the test is skipped. The requirements are:
 Topologies can be nicely written in YAML. The above example describes the
 following requirements:
 
-* One domain of type ``test``
+* One domain of id ``test``
 * The ``test`` domain has two hosts
 * One host implements ``client`` role and the other host implements ``ldap`` role
 
-The meaning of the roles and domain type is defined by your own extensions of
-``pytest-mh`` plugin. You define the meaning by extending particular multihost
-clases. See :doc:`classes` for more information.
+The meaning of the roles and is defined by your own extensions of ``pytest-mh``
+plugin. You define the meaning by extending particular multihost clases. See
+:doc:`classes` for more information.
+
+It is expected that all hosts that implements the same role within a single
+domain are interchangeable. Domain ``id`` must be unique and it is used to
+access the hosts, see :ref:`mh-fixture`.
 
 .. note::
 
     For the purpose of this article we will assume that ``ldap`` represents an
     LDAP server and ``client`` represents the client that talks to the server.
-    The domain type ``test`` is used only as a way to group and access the roles
+    The domain id ``test`` is used only as a way to group and access the roles
     and hosts and does not have any further meaning.
 
 Using the topology marker
@@ -110,8 +114,8 @@ domains (:class:`~pytest_mh.MultihostDomain`) and hosts (as
 
 To access the hosts through the :func:`~pytest_mh.mh` fixture use:
 
-* ``mh.<domain-type>.<role>`` to access list of all hosts that implements given role
-* ``mh.<domain-type>.<role>[<index>]`` to access specific host through index starting from 0
+* ``mh.<domain-id>.<role>`` to access list of all hosts that implements given role
+* ``mh.<domain-id>.<role>[<index>]`` to access specific host through index starting from 0
 
 The following snippet shows how to access hosts from our topology:
 
