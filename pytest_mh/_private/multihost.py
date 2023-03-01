@@ -56,15 +56,39 @@ class MultihostConfig(ABC):
         """
         return TopologyMark
 
-    @abstractmethod
     def create_domain(self, domain: dict[str, Any]) -> MultihostDomain:
         """
         Create new multihost domain from dictionary.
 
+        It maps the role name to a Python class using
+        :attr:`id_to_domain_class`. If the role is not found in the property, it
+        fallbacks to ``*``. If even asterisk is not found, it raises
+        ``ValueError``.
+
         :param domain: Domain in dictionary form.
         :type domain: dict[str, Any]
+        :raises ValueError: If domain does not have id or mapping to Python class is not found.
         :return: New multihost domain.
         :rtype: MultihostDomain
+        """
+        id = domain.get("id", None)
+        if id is None:
+            raise ValueError("Invalid configuration, domain is missing 'id'")
+
+        cls = self.id_to_domain_class.get(id, self.id_to_domain_class.get("*", None))
+        if cls is None:
+            raise ValueError(f"Unexpected domain id: {id}")
+
+        return cls(self, domain)
+
+    @property
+    @abstractmethod
+    def id_to_domain_class(self) -> dict[str, Type[MultihostDomain]]:
+        """
+        Map domain id to domain class. Asterisk ``*`` can be used as fallback
+        value.
+
+        :rtype: Class name.
         """
         pass
 

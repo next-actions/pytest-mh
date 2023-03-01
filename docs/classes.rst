@@ -60,7 +60,7 @@ and creates the domain objects.
 
 You must provide your own class that extends :class:`~pytest_mh.MultihostConfig`
 in order to use the plugin. Your class must override
-:meth:`~pytest_mh.MultihostConfig.create_domain` which creates your own
+:attr:`~pytest_mh.MultihostConfig.id_to_domain_class` which creates your own
 :class:`~pytest_mh.MultihostDomain` object.
 
 Optionally, you can override
@@ -75,8 +75,15 @@ information to the topology marker as needed by your project.
         def TopologyMarkClass(self) -> Type[TopologyMark]:
             return ExampleTopologyMark
 
-        def create_domain(self, domain: dict[str, Any]) -> ExampleMultihostDomain:
-            return ExampleMultihostDomain(self, domain)
+        @property
+        def id_to_domain_class(self) -> dict[str, Type[MultihostDomain]]:
+            """
+            Map domain id to domain class. Asterisk ``*`` can be used as fallback
+            value.
+
+            :rtype: Class name.
+            """
+            return {"*": ExampleMultihostDomain}
 
 MultihostDomain
 ===============

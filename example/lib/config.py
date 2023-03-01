@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Type
 
 from pytest_mh import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole
 
 
 class ExampleMultihostConfig(MultihostConfig):
-    def create_domain(self, domain: dict[str, Any]) -> ExampleMultihostDomain:
-        return ExampleMultihostDomain(self, domain)
+    @property
+    def id_to_domain_class(self) -> dict[str, Type[MultihostDomain]]:
+        """
+        Map domain id to domain class. Asterisk ``*`` can be used as fallback
+        value.
+
+        :rtype: Class name.
+        """
+        return {"*": ExampleMultihostDomain}
 
 
 class ExampleMultihostDomain(MultihostDomain[ExampleMultihostConfig]):
