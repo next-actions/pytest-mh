@@ -12,7 +12,7 @@ class ExampleMultihostConfig(MultihostConfig):
 
 class ExampleMultihostDomain(MultihostDomain[ExampleMultihostConfig]):
     @property
-    def role_to_host_type(self) -> dict[str, Type[MultihostHost]]:
+    def role_to_host_class(self) -> dict[str, Type[MultihostHost]]:
         """
         Map role to host class.
 
@@ -27,7 +27,7 @@ class ExampleMultihostDomain(MultihostDomain[ExampleMultihostConfig]):
         }
 
     @property
-    def role_to_role_type(self) -> dict[str, Type[MultihostRole]]:
+    def role_to_role_class(self) -> dict[str, Type[MultihostRole]]:
         """
         Map role to role class.
 

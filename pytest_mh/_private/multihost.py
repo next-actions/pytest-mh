@@ -147,15 +147,15 @@ class MultihostDomain(ABC, Generic[ConfigType]):
         :return: Role instance.
         :rtype: MultihostRole
         """
-        if host.role not in self.role_to_role_type:
+        if host.role not in self.role_to_role_class:
             raise ValueError(f"Unexpected role: {host.role}")
 
-        cls = self.role_to_role_type[host.role]
+        cls = self.role_to_role_class[host.role]
         return cls(mh, host.role, host)
 
     @property
     @abstractmethod
-    def role_to_host_type(self) -> dict[str, Type[MultihostHost]]:
+    def role_to_host_class(self) -> dict[str, Type[MultihostHost]]:
         """
         Map role to host class.
 
@@ -165,7 +165,7 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 
     @property
     @abstractmethod
-    def role_to_role_type(self) -> dict[str, Type[MultihostRole]]:
+    def role_to_role_class(self) -> dict[str, Type[MultihostRole]]:
         """
         Map role to role class.
 

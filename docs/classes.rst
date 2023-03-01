@@ -93,7 +93,7 @@ giving them meaning.
             super().__init__(config, confdict)
 
         @property
-        def role_to_host_type(self) -> dict[str, Type[MultihostHost]]:
+        def role_to_host_class(self) -> dict[str, Type[MultihostHost]]:
             """
             Map role to host class.
 
@@ -105,7 +105,7 @@ giving them meaning.
             }
 
         @property
-        def role_to_role_type(self) -> dict[str, Type[MultihostRole]]:
+        def role_to_role_class(self) -> dict[str, Type[MultihostRole]]:
             """
             Map role to role class.
 
@@ -122,7 +122,7 @@ MultihostHost
 One :class:`~pytest_mh.MultihostHost` object is created per each host defined in
 your multihost configuration. Each host is created as an instance of a class
 that is determined by the role to host mapping in
-:meth:`~pytest_mh.MultihostDomain.role_to_host_type`.
+:meth:`~pytest_mh.MultihostDomain.role_to_host_class`.
 
 This object gives you access to SSH connection to the remote host. The object
 lives for the whole pytest session which makes it a good place to put
