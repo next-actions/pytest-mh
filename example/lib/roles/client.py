@@ -82,7 +82,7 @@ class Client(MultihostRole[ClientHost]):
         self.fs.write("/etc/krb5.conf", config, user="root", group="root", mode="0644")
 
     def kinit(
-        self, principal: str, *, password: str, realm: str | None = None, args: list[str] = list()
+        self, principal: str, *, password: str, realm: str | None = None, args: list[str] | None = None
     ) -> SSHProcessResult:
         """
         Run ``kinit`` command.
@@ -99,17 +99,20 @@ class Client(MultihostRole[ClientHost]):
         :type password: str
         :param realm: Kerberos realm that is appended to the principal (``$principal@$realm``), defaults to None
         :type realm: str | None, optional
-        :param args: Additional parameters to ``klist``, defaults to list()
-        :type args: list[str], optional
+        :param args: Additional parameters to ``klist``, defaults to None
+        :type args: list[str] | None, optional
         :return: Command result.
         :rtype: SSHProcessResult
         """
+        if args is None:
+            args = []
+
         if realm is not None:
             principal = f"{principal}@{realm}"
 
         return self.host.ssh.exec(["kinit", *args, principal], input=password)
 
-    def kvno(self, principal: str, *, realm: str | None = None, args: list[str] = list()) -> SSHProcessResult:
+    def kvno(self, principal: str, *, realm: str | None = None, args: list[str] | None = None) -> SSHProcessResult:
         """
         Run ``kvno`` command.
 
@@ -123,25 +126,31 @@ class Client(MultihostRole[ClientHost]):
         :type principal: str
         :param realm: Kerberos realm that is appended to the principal (``$principal@$realm``), defaults to None
         :type realm: str | None, optional
-        :param args: Additional parameters to ``klist``, defaults to list()
-        :type args: list[str], optional
+        :param args: Additional parameters to ``klist``, defaults to None
+        :type args: list[str] | None, optional
         :return: Command result.
         :rtype: SSHProcessResult
         """
+        if args is None:
+            args = []
+
         if realm is not None:
             principal = f"{principal}@{realm}"
 
         return self.host.ssh.exec(["kvno", *args, principal])
 
-    def klist(self, *, args: list[str] = list()) -> SSHProcessResult:
+    def klist(self, *, args: list[str] | None = None) -> SSHProcessResult:
         """
         Run ``klist`` command.
 
-        :param args: Additional parameters to ``klist``, defaults to list()
-        :type args: list[str], optional
+        :param args: Additional parameters to ``klist``, defaults to None
+        :type args: list[str] | None, optional
         :return: Command result.
         :rtype: SSHProcessResult
         """
+        if args is None:
+            args = []
+
         return self.host.ssh.exec(["klist", *args])
 
     def kswitch(self, principal: str, realm: str) -> SSHProcessResult:

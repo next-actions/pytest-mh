@@ -60,7 +60,7 @@ class SSHProcess(object):
         *,
         command: str,
         cwd: str | None = None,
-        env: dict[str, Any] = dict(),
+        env: dict[str, Any] | None = None,
         input: str | None = None,
         shell: str | None = None,
         conn: pssh.clients.ssh.SSHClient,
@@ -74,8 +74,8 @@ class SSHProcess(object):
         :type command: str
         :param cwd: Working directory, defaults to None
         :type cwd: str | None, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
+        :param env: Additional environment variables, defaults to None
+        :type env: dict[str, Any] | None, optional
         :param input: Content of standard input, defaults to None
         :type input: str | None, optional
         :param shell: Shell used to execute the command, defaults to None (use user's login shell)
@@ -102,7 +102,7 @@ class SSHProcess(object):
         self.id = next(self.__genid) + 1
         self.command: str = textwrap.dedent(command).strip()
         self.cwd: str | None = cwd
-        self.env: dict[str, Any] = env
+        self.env: dict[str, Any] = env if env is not None else {}
         self.input: str | None = input
         self.shell: str | None = shell
         self.read_timeout: float = read_timeout
@@ -693,7 +693,7 @@ class SSHClient(object):
         command: str,
         *,
         cwd: str | None = None,
-        env: dict[str, Any] = dict(),
+        env: dict[str, Any] | None = None,
         input: str | None = None,
         read_timeout: float = 30,
         log_level: SSHLog = SSHLog.Full,
@@ -708,8 +708,8 @@ class SSHClient(object):
         :type command: str
         :param cwd: Working directory, defaults to None (= do not change)
         :type cwd: str | None, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
+        :param env: Additional environment variables, defaults to None
+        :type env: dict[str, Any] | None, optional
         :param input: Content of standard input, defaults to None
         :type input: str | None, optional
         :param read_timeout: Timeout in seconds, how long should the client wait for output, defaults to 30 seconds
@@ -744,7 +744,7 @@ class SSHClient(object):
         command: str,
         *,
         cwd: str | None = None,
-        env: dict[str, Any] = dict(),
+        env: dict[str, Any] | None = None,
         input: str | None = None,
         read_timeout: float = 2,
         log_level: SSHLog = SSHLog.Full,
@@ -761,8 +761,8 @@ class SSHClient(object):
         :type command: str
         :param cwd: Working directory, defaults to None (= do not change)
         :type cwd: str | None, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
+        :param env: Additional environment variables, defaults to None
+        :type env: dict[str, Any] | None, optional
         :param input: Content of standard input, defaults to None
         :type input: str | None, optional
         :param read_timeout: Timeout in seconds, how long should the client wait
@@ -803,7 +803,7 @@ class SSHClient(object):
         argv: list[Any],
         *,
         cwd: str | None = None,
-        env: dict[str, Any] = dict(),
+        env: dict[str, Any] | None = None,
         input: str | None = None,
         read_timeout: float = 2,
         log_level: SSHLog = SSHLog.Full,
@@ -820,8 +820,8 @@ class SSHClient(object):
         :type argv: list[Any]
         :param cwd: Working directory, defaults to None (= do not change)
         :type cwd: str | None, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
+        :param env: Additional environment variables, defaults to None
+        :type env: dict[str, Any] | None, optional
         :param input: Content of standard input, defaults to None
         :type input: str | None, optional
         :param read_timeout: Timeout in seconds, how long should the client wait for output, defaults to 30 seconds
@@ -851,7 +851,7 @@ class SSHClient(object):
         argv: list[Any],
         *,
         cwd: str | None = None,
-        env: dict[str, Any] = dict(),
+        env: dict[str, Any] | None = None,
         input: str | None = None,
         read_timeout: float = 2,
         log_level: SSHLog = SSHLog.Full,
@@ -870,8 +870,8 @@ class SSHClient(object):
         :type argv: list[Any]
         :param cwd: Working directory, defaults to None (= do not change)
         :type cwd: str | None, optional
-        :param env: Additional environment variables, defaults to dict()
-        :type env: dict[str, Any], optional
+        :param env: Additional environment variables, defaults to None
+        :type env: dict[str, Any] | None, optional
         :param input: Content of standard input, defaults to None
         :type input: str | None, optional
         :param read_timeout: Timeout in seconds, how long should the client wait

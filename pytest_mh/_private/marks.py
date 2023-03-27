@@ -40,24 +40,23 @@ class TopologyMark(object):
         self,
         name: str,
         topology: Topology,
-        fixtures: dict[str, str] = dict(),
+        fixtures: dict[str, str] | None = None,
     ) -> None:
         """
         :param name: Topology name used in pytest output.
         :type name: str
         :param topology: Topology required to run the test.
         :type topology: Topology
-        :param fixtures: Dynamically created fixtures available during the test run.
-        :type fixtures: dict[str, str], optional
+        :param fixtures: Dynamically created fixtures available during the test run, defaults to None
+        :type fixtures: dict[str, str] | None, optional
         """
-
         self.name: str = name
         """Topology name."""
 
         self.topology: Topology = topology
         """Multihost topology."""
 
-        self.fixtures: dict[str, str] = fixtures
+        self.fixtures: dict[str, str] = fixtures if fixtures is not None else {}
         """Dynamic fixtures mapping."""
 
         self.mapping: dict[str, list[str]] = {}
