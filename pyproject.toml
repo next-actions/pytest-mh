@@ -33,7 +33,7 @@ include = [
 files = ["requirements.txt"]
 
 [[tool.mypy.overrides]]
-module = "pssh.*"
+module = ["pssh.*", "pytest_output.*"]
 ignore_missing_imports = true
 
 [tool.isort]

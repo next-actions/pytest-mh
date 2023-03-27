@@ -301,6 +301,23 @@ class MultihostPlugin(object):
 
         data.outcome = result.outcome
 
+    # Hook from pytest-output plugin
+    @pytest.hookimpl(optionalhook=True)
+    def pytest_output_item_collected(self, config: pytest.Config, item) -> None:
+        try:
+            from pytest_output.output import OutputDataItem
+        except ImportError:
+            pass
+
+        if not isinstance(item, OutputDataItem):
+            raise ValueError(f"Unexpected item type: {type(item)}")
+
+        data: MultihostItemData | None = MultihostItemData.GetData(item.item)
+        if data is None or data.topology_mark is None:
+            return
+
+        item.extra.setdefault("pytest-mh", {})["Topology"] = data.topology_mark.name
+
     def _fmt_color(self, text: str, color: str) -> str:
         if sys.stdout.isatty():
             reset = "\033[0m"
