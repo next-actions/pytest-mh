@@ -1,10 +1,9 @@
 [build-system]
-requires = ["hatchling", "hatch-requirements-txt"]
+requires = ["hatchling", "hatch-requirements-txt", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "pytest-mh"
-version = "1.0.0"
 authors = [
   { name="Pavel Březina", email="pbrezina@redhat.com" },
 ]
@@ -16,7 +15,7 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
 ]
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "version"]
 
 [project.urls]
 "Homepage" = "https://github.com/next-actions/pytest-mh"
@@ -31,6 +30,9 @@ include = [
 
 [tool.hatch.metadata.hooks.requirements_txt]
 files = ["requirements.txt"]
+
+[tool.hatch.version]
+source = "vcs"
 
 [[tool.mypy.overrides]]
 module = ["pssh.*", "pytest_output.*"]
