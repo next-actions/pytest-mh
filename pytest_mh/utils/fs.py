@@ -92,16 +92,28 @@ class LinuxFileSystem(MultihostUtility):
         if result.stdout:
             self.__rollback.append(f"rm --force --recursive '{result.stdout}'")
 
-    def mktmp(self, *, mode: str | None = None, user: str | None = None, group: str | None = None) -> str:
+    def mktmp(
+        self,
+        contents: str | None = None,
+        *,
+        mode: str | None = None,
+        user: str | None = None,
+        group: str | None = None,
+        dedent: bool = True,
+    ) -> str:
         """
         Create temporary file on remote host.
 
+        :param contents: File contents to write.
+        :type contents: str | None
         :param mode: Access mode (chmod value), defaults to None
         :type mode: str | None, optional
         :param user: Owner, defaults to None
         :type user: str | None, optional
         :param group: Group, defaults to None
         :type group: str | None, optional
+        :param dedent: Automatically dedent and strip file contents, defaults to True
+        :type dedent: bool, optional
         :raises OSError: If the file can not be created.
         :return: Temporary file path.
         :rtype: str
@@ -122,6 +134,15 @@ class LinuxFileSystem(MultihostUtility):
             raise OSError("Temporary file was not created")
 
         self.__rollback.append(f"rm --force '{tmpfile}'")
+
+        if contents is not None:
+            if dedent:
+                contents = textwrap.dedent(contents).strip()
+
+            self.logger.info(
+                f'Writing file "{tmpfile}" on {self.host.hostname}', extra={"data": {"Contents": contents}}
+            )
+            self.host.ssh.run(f"cat > '{tmpfile}'", input=contents, log_level=SSHLog.Error)
 
         attrs = self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group)
         if attrs:
