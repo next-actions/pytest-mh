@@ -306,6 +306,38 @@ class LinuxFileSystem(MultihostUtility):
         )
         self.__rollback.append(f"rm --force '{remote_path}'")
 
+    def upload_to_tmp(
+        self,
+        local_path: str,
+        *,
+        mode: str | None = None,
+        user: str | None = None,
+        group: str | None = None,
+    ) -> str:
+        """
+        Upload local file to a new temporary file on remote host.
+
+        :param local_path: Source local path.
+        :type local_path: str
+        :param mode: Access mode (chmod value), defaults to None
+        :type mode: str | None, optional
+        :param user: Owner, defaults to None
+        :type user: str | None, optional
+        :param group: Group, defaults to None
+        :type group: str | None, optional
+        :return: Temporary file path.
+        :rtype: str
+        """
+        tmp_path = self.mktmp(mode=mode, user=user, group=group)
+
+        self.logger.info(f'Uploading file "{local_path}" to "{self.host.hostname}:{tmp_path}"')
+        with open(local_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("utf-8")
+
+        self.host.ssh.run(f"base64 --decode > '{tmp_path}'", input=encoded, log_level=SSHLog.Error)
+
+        return tmp_path
+
     def download(self, remote_path: str, local_path: str) -> None:
         """
         Download file from remote host to local machine.
