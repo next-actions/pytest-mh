@@ -902,18 +902,21 @@ class SSHClient(object):
             raise_on_error=raise_on_error,
         )
 
-    def expect(self, expect_script: str) -> SSHProcessResult:
+    def expect(self, expect_script: str, raise_on_error: bool = False) -> SSHProcessResult:
         """
         Run expect script.
 
         :param expect_script: Expect script.
         :type expect_script: str
+        :param raise_on_error: If True, raise :class:`SSHProcessError` if
+            command exited with non-zero return code, defaults to False
+        :type raise_on_error: bool, optional
         :return: Expect script result.
         :rtype: SSHProcessResult
         """
-        return self.run("/bin/expect -d", input=expect_script, raise_on_error=False)
+        return self.run("/bin/expect -d", input=expect_script, raise_on_error=raise_on_error)
 
-    def expect_nobody(self, expect_script: str) -> SSHProcessResult:
+    def expect_nobody(self, expect_script: str, raise_on_error: bool = False) -> SSHProcessResult:
         """
         Run expect script as user nobody.
 
@@ -922,10 +925,15 @@ class SSHClient(object):
 
         :param expect_script: Expect script.
         :type expect_script: str
+        :param raise_on_error: If True, raise :class:`SSHProcessError` if
+            command exited with non-zero return code, defaults to False
+        :type raise_on_error: bool, optional
         :return: Expect return code.
         :rtype: SSHProcessResult
         """
-        return self.run('su --shell /bin/sh nobody -c "/bin/expect -d"', input=expect_script, raise_on_error=False)
+        return self.run(
+            'su --shell /bin/sh nobody -c "/bin/expect -d"', input=expect_script, raise_on_error=raise_on_error
+        )
 
     def __enter__(self) -> SSHClient:
         """
