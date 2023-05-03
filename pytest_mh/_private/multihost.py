@@ -4,6 +4,7 @@ import inspect
 from abc import ABC, abstractmethod
 from base64 import b64decode
 from enum import Enum
+from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
 
@@ -494,7 +495,29 @@ class MultihostUtility(Generic[HostType]):
         :type host: HostType
         """
         self.host: HostType = host
+        """Multihost host."""
+
         self.logger: MultihostLogger = self.host.logger
+        """Multihost logger."""
+
+        self.used: bool = False
+        """Indicate if this utility instance was already used or not within current test."""
+
+        # Enable first use setup
+        disallowed = [
+            "setup",
+            "teardown",
+            "setup_when_used",
+            "teardown_when_used",
+            "GetUtilityAttributes",
+            "SetupUtilityAttributes",
+            "TeardownUtilityAttributes",
+        ]
+        for name, method in inspect.getmembers(self, inspect.ismethod):
+            if name in disallowed or name.startswith("_") or hasattr(method, "__mh_ignore_call"):
+                continue
+
+            setattr(self, name, self.__setup_when_used(method))
 
     def setup(self) -> None:
         """
@@ -507,6 +530,29 @@ class MultihostUtility(Generic[HostType]):
         Teardown object.
         """
         pass
+
+    def setup_when_used(self) -> None:
+        """
+        Setup the object when it is used for the first time.
+        """
+        pass
+
+    def teardown_when_used(self) -> None:
+        """
+        Teardown the object only if it was used.
+        """
+        pass
+
+    def __setup_when_used(self, method):
+        @wraps(method)
+        def wrapper(*args, **kwargs):
+            if not self.used:
+                self.setup_when_used()
+
+            self.used = True
+            return method(*args, **kwargs)
+
+        return wrapper
 
     @staticmethod
     def GetUtilityAttributes(o: object) -> dict[str, MultihostUtility]:
@@ -544,6 +590,12 @@ class MultihostUtility(Generic[HostType]):
         """
         errors = []
         for util in cls.GetUtilityAttributes(o).values():
+            if util.used:
+                try:
+                    util.teardown_when_used()
+                except Exception as e:
+                    errors.append(e)
+
             try:
                 util.teardown()
             except Exception as e:
@@ -551,3 +603,13 @@ class MultihostUtility(Generic[HostType]):
 
         if errors:
             raise Exception(errors)
+
+    @classmethod
+    def IgnoreCall(cls, method):
+        """
+        Calling a method decorated with IgnoreCall does not execute neither
+        :meth:`setup_when_used` nor :meth:`teardown_when_used`. It does not
+        count as "using" the class.
+        """
+        method.__mh_ignore_call = True
+        return method
