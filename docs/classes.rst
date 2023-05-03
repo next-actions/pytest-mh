@@ -183,6 +183,20 @@ that can be used to share functionality between individual roles. A
 :meth:`~pytest_mh.MultihostUtility.teardown` methods are automatically called
 after the role is setup and before the role teardown is executed.
 
+.. note::
+
+    :class:`~pytest_mh.MultihostUtility` also contains
+    :meth:`~pytest_mh.MultihostUtility.setup_when_used` which is called only
+    after the class is first used inside the test (after
+    :meth:`~pytest_mh.MultihostUtility.setup`) and
+    :meth:`~pytest_mh.MultihostUtility.teardown_when_used` which is called only
+    if the class was used (before :meth:`~pytest_mh.MultihostUtility.teardown`).
+
+    This can be especially useful if the utility class is used only sporadically
+    but the setup and teardown are quite expensive. In such case, you probably
+    want to perform the setup and teardown only if the class was actually used
+    in the test.
+
 There are already some utility classes implemented in ``pytest-mh``. See
 :mod:`pytest_mh.utils` for more information on them.
 
