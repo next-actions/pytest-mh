@@ -71,7 +71,8 @@ class CLIBuilder(object):
                     if self.__match_shell(SSHPowerShellProcess):
                         argv.append(f'{_get_option(key)}:{"$True" if value else "$False"}')
                     else:
-                        argv.append(_get_option(key))
+                        if value:
+                            argv.append(_get_option(key))
                 case self.option.VALUE:
                     argv.append(_get_option(key))
                     argv.append(_get_value(value))
