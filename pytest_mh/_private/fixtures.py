@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Generator
 
+import colorama
 import pytest
 
 from .data import MultihostItemData
@@ -138,17 +139,21 @@ class MultihostFixture(object):
         Setup multihost. A setup method is called on each host and role
         to initialize the test environment to expected state.
         """
-        setup_ok: list[MultihostHost | MultihostRole] = []
-        for item in self._hosts_and_roles:
-            try:
-                item.setup()
-            except Exception:
-                # Teardown hosts and roles that were successfully setup before this error
-                for i in reversed(setup_ok):
-                    i.teardown()
-                raise
+        mh_log_phase(self.logger, self.request, "SETUP")
+        try:
+            setup_ok: list[MultihostHost | MultihostRole] = []
+            for item in self._hosts_and_roles:
+                try:
+                    item.setup()
+                except Exception:
+                    # Teardown hosts and roles that were successfully setup before this error
+                    for i in reversed(setup_ok):
+                        i.teardown()
+                    raise
 
-            setup_ok.append(item)
+                setup_ok.append(item)
+        finally:
+            mh_log_phase(self.logger, self.request, "SETUP DONE")
 
     def _teardown(self) -> None:
         """
@@ -156,21 +161,25 @@ class MultihostFixture(object):
         that were made during a test run. It is automatically called when the
         test is finished.
         """
-        errors = []
-        for item in reversed(self._hosts_and_roles):
-            try:
-                # Try to collect artifacts from host before the role is teared down.
-                # We need to do it before the role object is teardown as it may
-                # potentially remove some of the requested artifacts.
-                if isinstance(item, MultihostRole):
-                    self._collect_artifacts(item.host)
+        mh_log_phase(self.logger, self.request, "TEARDOWN")
+        try:
+            errors = []
+            for item in reversed(self._hosts_and_roles):
+                try:
+                    # Try to collect artifacts from host before the role is teared down.
+                    # We need to do it before the role object is teardown as it may
+                    # potentially remove some of the requested artifacts.
+                    if isinstance(item, MultihostRole):
+                        self._collect_artifacts(item.host)
 
-                item.teardown()
-            except Exception as e:
-                errors.append(e)
+                    item.teardown()
+                except Exception as e:
+                    errors.append(e)
 
-        if errors:
-            raise Exception(errors)
+            if errors:
+                raise Exception(errors)
+        finally:
+            mh_log_phase(self.logger, self.request, "TEARDOWN DONE")
 
     def _collect_artifacts(self, host: MultihostHost) -> None:
         """
@@ -225,5 +234,19 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
     if data.topology_mark is None:
         raise ValueError("data.topology_mark must not be None")
 
-    with MultihostFixture(request, data, data.multihost, data.topology_mark.topology) as mh:
-        yield mh
+    mh_log_phase(data.multihost.logger, request, "BEGIN")
+    try:
+        with MultihostFixture(request, data, data.multihost, data.topology_mark.topology) as mh:
+            mh_log_phase(data.multihost.logger, request, "TEST")
+            yield mh
+            mh_log_phase(data.multihost.logger, request, "TEST DONE")
+    finally:
+        mh_log_phase(data.multihost.logger, request, "END")
+
+
+def mh_log_phase(logger: MultihostLogger, request: pytest.FixtureRequest, phase: str) -> None:
+    logger.info(
+        logger.colorize(
+            f"{phase} :: {request.node.nodeid}", colorama.Style.BRIGHT, colorama.Back.BLACK, colorama.Fore.WHITE
+        )
+    )
