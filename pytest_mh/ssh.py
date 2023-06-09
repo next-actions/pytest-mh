@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import os
 import shlex
 import textwrap
 from enum import Enum, auto
@@ -96,7 +97,7 @@ class SSHProcess(object):
         self.__process: pssh.output.HostOutput | None = None
 
         self.__logger: MultihostLogger = logger
-        self.__log_level: SSHLog = log_level
+        self.__log_level: SSHLog = self._get_log_level(log_level)
         self.__sync_exec: bool = sync_exec
 
         self.id = next(self.__genid) + 1
@@ -374,6 +375,13 @@ class SSHProcess(object):
         """
         return command.replace("'", "'\"'\"'")
 
+    def _get_log_level(self, input_log_level: SSHLog) -> SSHLog:
+        debug = os.getenv("MH_SSH_DEBUG", "no")
+        if debug.lower() in ["true", "yes", "1"]:
+            return SSHLog.Full
+
+        return input_log_level
+
     def __msg_id(self) -> str:
         return self.__logger.colorize(f"#{self.id}", c.Style.BRIGHT, c.Fore.BLUE)
 
@@ -587,6 +595,12 @@ class SSHClient(object):
 
                 process.stdin.write('echo This works as well\\n')
                 print(next(process.stdout))
+
+    .. note::
+
+        It is possible to set ``MH_SSH_DEBUG=yes`` environment variable to
+        log output and exist status to from commands, regardless of what log
+        level is used. This essentially enforces the :attr:`SSHLog.Full` level.
     """
 
     def __init__(
