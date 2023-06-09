@@ -413,7 +413,7 @@ class LinuxFileSystem(MultihostUtility):
             tmp=`mktemp -d /tmp/mh.fs.rollback.XXXXXXXXX`
             cp --force --archive '{path}/.' "$tmp"
             echo "rm --force --recursive '{path}' && mv --force '$tmp' '{path}'"
-        elif [ ! -d a ] && [ ! -f a ]; then
+        elif [ ! -d '{path}' ] && [ ! -f '{path}' ]; then
             echo "rm --force --recursive '{path}'"
         fi
         """,
