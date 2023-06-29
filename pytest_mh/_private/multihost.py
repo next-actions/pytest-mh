@@ -470,8 +470,8 @@ class MultihostRole(Generic[HostType]):
         """
         return SSHClient(
             self.host.ssh_host,
-            user=self.host.ssh_username,
-            password=self.host.ssh_password,
+            user=self.host.ssh_username if user is None else user,
+            password=self.host.ssh_password if password is None else password,
             port=self.host.ssh_port,
             shell=shell,
             logger=self.mh.logger,
