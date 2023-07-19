@@ -4,7 +4,7 @@ import base64
 import textwrap
 
 from .. import MultihostHost, MultihostUtility
-from ..ssh import SSHLog
+from ..ssh import SSHLog, SSHProcessResult
 
 __all__ = ["LinuxFileSystem"]
 
@@ -442,3 +442,39 @@ class LinuxFileSystem(MultihostUtility):
             cmds.append(f"chgrp '{group}' '{path}'")
 
         return " && ".join(cmds)
+
+    def wc(
+        self, file: str, lines: bool = False, word: bool = False, bytes: bool = False, chars: bool = False
+    ) -> SSHProcessResult:
+        """
+        Print newline, word, and byte counts for specific file.
+
+        Output example without additional arguments: ``67 564 3514 file_name``
+
+        :param file: File whose content is counted
+        :type file: str
+        :param lines: Print the newline counts, defaults to False
+        :type lines: bool, optional
+        :param word: Print the word counts, defaults to False
+        :type word: bool, optional
+        :param bytes: Print the byte counts, defaults to False
+        :type bytes: bool, optional
+        :param chars: Print the character counts, defaults to False
+        :type chars: bool, optional
+        :return: Result of process
+        :rtype: SSHProcessResult
+        """
+        args = []
+        if lines:
+            args.append("-l")
+
+        if word:
+            args.append("-w")
+
+        if bytes:
+            args.append("-b")
+
+        if chars:
+            args.append("-m")
+
+        return self.host.ssh.exec(["wc", *args, file])
