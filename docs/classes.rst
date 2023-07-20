@@ -3,7 +3,7 @@ Extending pytest-mh
 
 There are five main classes that are used by the ``pytest-mh`` plugin that give
 you access to remote hosts and provide you tools to build your own API that
-fulfils your specific requirements.
+fulfills specific requirements.
 
 By extending these classes, you can provide your own functionality and
 configuration options.
@@ -41,15 +41,15 @@ as well to provide high-level API for your tests.
     :class:`~pytest_mh.MultihostHost`, :class:`~pytest_mh.MultihostRole` and
     :class:`~pytest_mh.MultihostUtility` **have setup and teardown methods**
     that you can use to properly initialize the host and also **to clean up**
-    after the test is finish.
+    after the test is finished.
 
     By extending these classes, you can give test writers a well-defined,
-    unified API that can automate lots of tasks and make sure the hosts are
+    unified API that can automate several tasks and make sure the hosts are
     properly setup before the test starts and all changes are correctly reverted
     once the test is finished.
 
-    This way, it will be easier to write new tests and you can be sure that the
-    tests start with fresh setup every time.
+    This makes it easier to write new tests and ensure that the tests start
+    with a fresh setup every time.
 
 MultihostConfig
 ===============
@@ -90,8 +90,8 @@ MultihostDomain
 
 :class:`~pytest_mh.MultihostDomain` is created by
 :class:`~pytest_mh.MultihostConfig` and it allows you to associate roles from
-your multihost configuration to your own hosts and roles Python classes and thus
-giving them meaning.
+your multihost configuration to your own hosts, roles, and Python classes to give
+them meaning.
 
 .. code-block:: python
 
@@ -131,7 +131,7 @@ your multihost configuration. Each host is created as an instance of a class
 that is determined by the role to host mapping in
 :meth:`~pytest_mh.MultihostDomain.role_to_host_class`.
 
-This object gives you access to SSH connection to the remote host. The object
+This object gives you access to a SSH connection to the remote host. The object
 lives for the whole pytest session which makes it a good place to put
 functionality and data that must be available across all tests. For example, it
 can perform an initial backup of the host.
@@ -216,7 +216,7 @@ Setup and teardown
 ==================
 
 The following schema shows how individual setup and teardown methods of host,
-role and utility objects are executed.
+role, and utility objects are executed.
 
 .. mermaid::
     :caption: Setup and teardown
