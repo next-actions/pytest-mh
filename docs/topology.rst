@@ -1,9 +1,9 @@
 Multihost topology
 ##################
 
-Topology, in the sense of ``pytest-mh`` plugin, defines what domains, hosts and
-roles are required to run a test. Each test is associated with particular
-topology. If the requirements defined by the topology are not met by current
+Topology, in the sense of the ``pytest-mh`` plugin, defines what domains, hosts,
+and roles are required to run a test. Each test is associated with a particular
+topology. If the requirements defined by the topology are not met by the current
 multihost configuration then the test is skipped. The requirements are:
 
 * How many domains are needed
@@ -24,13 +24,13 @@ following requirements:
 
 * One domain of id ``test``
 * The ``test`` domain has two hosts
-* One host implements ``client`` role and the other host implements ``ldap`` role
+* One host implements the ``client`` role and the other host implements the ``ldap`` role
 
-The meaning of the roles and is defined by your own extensions of ``pytest-mh``
-plugin. You define the meaning by extending particular multihost clases. See
+The meaning of the roles is defined by your own extensions of the ``pytest-mh``
+plugin. You define the meaning by extending particular multihost classes. See
 :doc:`classes` for more information.
 
-It is expected that all hosts that implements the same role within a single
+It is expected that all hosts implementing the same role within a single
 domain are interchangeable. Domain ``id`` must be unique and it is used to
 access the hosts, see :ref:`mh-fixture`.
 
@@ -44,7 +44,7 @@ access the hosts, see :ref:`mh-fixture`.
 Using the topology marker
 *************************
 
-The topology marker ``@pytest.mark.topology`` is used to associate particular
+The topology marker ``@pytest.mark.topology`` is used to associate a particular
 topology with given tests. This marker provides information about the topology
 that is required to run the test and defines fixture mapping between a short
 pytest fixture name and a specific host and role from the topology (this is
@@ -114,8 +114,8 @@ domains (:class:`~pytest_mh.MultihostDomain`) and hosts (as
 
 To access the hosts through the :func:`~pytest_mh.mh` fixture use:
 
-* ``mh.<domain-id>.<role>`` to access list of all hosts that implements given role
-* ``mh.<domain-id>.<role>[<index>]`` to access specific host through index starting from 0
+* ``mh.<domain-id>.<role>`` to access a list of all hosts that implements given role
+* ``mh.<domain-id>.<role>[<index>]`` to access a specific host through index starting from 0
 
 The following snippet shows how to access hosts from our topology:
 
@@ -127,7 +127,7 @@ The following snippet shows how to access hosts from our topology:
         assert mh.test.ldap[0].role == 'ldap'
 
 Since the role objects are instances of your own classes (``LDAP`` and
-``Client`` for our example), you can also set the type to get advantage of
+``Client`` for our example), you can also set the type to get the advantage of
 Python type hinting.
 
 .. code-block:: python
@@ -208,7 +208,7 @@ benefit from it.
 
 .. note::
 
-    We don't have to provide mapping for every single host, it is up to us
+    We don't have to provide a mapping for every single host, it is up to us
     which hosts will be used. It is even possible to combine fixture mapping
     and at the same time use :func:`~pytest_mh.mh` fixture as well:
 
@@ -313,10 +313,10 @@ topologies so it is simple to share the markers between tests.
     class KnownTopologyGroup(KnownTopologyGroupBase):
         AnyProvider = [KnownTopology.AD, KnownTopology.IPA, KnownTopology.LDAP]
 
-Now we can write a parametrized test, the test will be run for all providers.
+Now we can write a parameterized test, the test will be run for all providers.
 Notice, how we added the ``provider`` fixture mapping so the host can be
 accessed with the provider name (like ``ldap``) or through a generic name
-``provider`` that will be used in topology parametrization. The roles need to
+``provider`` that will be used in topology parameterization. The roles need to
 implement a common interface so they can be used in tests interchangeably.
 
 .. code-block:: python

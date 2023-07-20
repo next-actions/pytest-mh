@@ -1,7 +1,7 @@
 Multihost configuration
 #######################
 
-The multihost configuration file contains definition of the domains, hosts and
+The multihost configuration file contains definition of the domains, hosts, and
 their roles that are available to run the tests. It uses the `YAML
 <https://en.wikipedia.org/wiki/YAML>`__ language.
 
@@ -25,16 +25,16 @@ Basic definition
         config: <additional configuration> (optional, defaults to {})
         artifacts: <list of produced artifacts> (optional, defaults to {})
 
-The top level element of the configuration is list of ``domains``. Each domain
+The top level element of the configuration is a list of ``domains``. Each domain
 has ``id`` attribute and defines the list of available hosts.
 
 * ``id``: domain identifier which is used in the path inside ``mh`` fixture, see :ref:`mh-fixture`
 * ``hosts``: list of available hosts and their roles
 
-  * ``hostname``: DNS host name, it may not necessarily be resolvable from the machine that runs pytest
+  * ``hostname``: DNS host name, may not necessarily be resolvable from the machine that runs pytest
   * ``role``: host role
   * ``os.family``: host operating system family, defaults to "linux", see :class:`~pytest_mh.MultihostHostOSFamily`
-  * ``ssh.host``: ssh host to connect to (it may be a resolvable host name or an
+  * ``ssh.host``: ssh host to connect to (may be a resolvable host name or an
     IP address), defaults to the value of ``hostname``
   * ``ssh.port``: ssh port, defaults to 22
   * ``ssh.username``: ssh username, defaults to ``root``
@@ -92,7 +92,7 @@ To make a new configuration option available, simply inherit from
         """Bind password ``config.bindpw``, defaults to ``Secret123``"""
 
 The example above adds two new options ``binddn`` and ``bindpw``. Since the
-options provide default values, they are only optional. You can set them in
+options provide default values, they are optional. You can set them in
 the multihost configuration in the ``config`` field.
 
 .. code-block:: yaml

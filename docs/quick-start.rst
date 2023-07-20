@@ -1,7 +1,7 @@
 Quick Start Guide
 #################
 
-This guide will show you how to setup and extend ``pytest-mh`` plugin. We will
+This guide will show you how to setup and extend the ``pytest-mh`` plugin. We will
 write a simple test of Kerberos authentication that spans over two separate
 hosts - one host has the Kerberos KDC running and the other host will be used as
 a client machine.
@@ -30,12 +30,12 @@ your own configuration options and different domain types by extending
 :class:`~pytest_mh.MultihostConfig` and :class:`~pytest_mh.MultihostDomain`.
 This step is actually required as the base classes are abstract and you have to
 overwrite specific methods and properties in order to give a list of your own
-domain, host and role classes that will be automatically instantiated by the
+domain, host and role classes that will be automatically be instantiated by the
 plugin.
 
 .. note::
 
-    The difference between host, roles and utility classes:
+    The difference between host, roles, and utility classes:
 
     * Host classes are created only once before the first test is executed and
       exist during the whole pytest session. They can be used to setup
@@ -123,8 +123,8 @@ KDC Role
 
 The ``KDC`` class implements the functionality desired for "kdc" role. In this
 example, we focus on adding the Kerberos principal (or *Kerberos user* if you
-are not familiar with Kerberos terminology) and querying kadmin tool to get some
-additional information.
+are not familiar with Kerberos terminology) and querying the kadmin tool to get
+some additional information.
 
 .. literalinclude:: ../example/lib/roles/kdc.py
     :caption: /lib/roles/kdc.py
@@ -149,7 +149,7 @@ original content or remove the file if it was not present before.
 Define multihost topology
 =========================
 
-Each test is associate with one or more topologies. Topology define multihost
+Each test is associated with one or more topologies. A topology defines multihost
 requirements that must be met in order to run the test. If the requirements are
 not met, the test will not run. These requirements are:
 
@@ -171,7 +171,7 @@ fixtures.
         pass
 
 However, this can be little bit cumbersome, therefore it is good practice to
-define list of known topologies first.
+define a list of known topologies first.
 
 .. literalinclude:: ../example/lib/topology.py
     :caption: /lib/topology.py
@@ -189,14 +189,14 @@ Now we can shorten the topology marker like this:
 
 .. seealso::
 
-    There is also :class:`~pytest_mh.KnownTopologyGroupBase` to define list of
+    There is also :class:`~pytest_mh.KnownTopologyGroupBase` to define a list of
     topologies that should be assigned to the test case and thus create topology
-    parametrization.
+    parameterization.
 
 Create multihost configuration
 ==============================
 
-Now, are test framework is ready to use. We just need to provide multihost
+Now, our test framework is ready to use. We just need to provide multihost
 configuration file that defines available hosts.
 
 We set custom fields that are required by ``ClientHost`` and we also define list
@@ -225,8 +225,8 @@ needs to know the configuration class that should be instantiated.
     :emphasize-lines: 10, 14-16
     :linenos:
 
-Write and run simple test
-=========================
+Write and run a simple test
+===========================
 
 All the pieces are now available. We have successfully setup the ``pytest-mh``
 plugin, created our own test framework API. Now it is time to write some tests.
