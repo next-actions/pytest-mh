@@ -193,7 +193,11 @@ class MultihostFixture(object):
         if mode == "never" or (mode == "on-failure" and self.data.outcome != "failed"):
             return
 
-        host.collect_artifacts(f"{dir}/{self.request.node.name}")
+        name = self.request.node.name
+        for c in list('":<>|*?'):
+            name = name.replace(c, "-")
+
+        host.collect_artifacts(f"{dir}/{name}")
 
     def __enter__(self) -> MultihostFixture:
         self._setup()
