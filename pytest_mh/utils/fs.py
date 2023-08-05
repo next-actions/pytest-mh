@@ -207,6 +207,38 @@ class LinuxFileSystem(MultihostUtility):
             log_level=SSHLog.Error,
         )
 
+    def append(
+        self,
+        path: str,
+        contents: str,
+        *,
+        dedent: bool = True,
+    ) -> None:
+        """
+        Append to a remote file.
+
+        :param path: File path.
+        :type path: str
+        :param contents: File contents to write.
+        :type contents: str
+        :param dedent: Automatically dedent and strip file contents, defaults to True
+        :type dedent: bool, optional
+        """
+        if dedent:
+            contents = textwrap.dedent(contents).strip()
+
+        self.backup(path)
+        self.logger.info(f'Appending to file "{path}" on {self.host.hostname}', extra={"data": {"Contents": contents}})
+
+        self.host.ssh.run(
+            f"""
+                set -ex
+                cat >> '{path}'
+            """,
+            input=contents,
+            log_level=SSHLog.Error,
+        )
+
     def touch(
         self,
         path: str,
