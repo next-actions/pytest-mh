@@ -432,4 +432,10 @@ def pytest_configure(config: pytest.Config):
         + "*, fixture1=target1, ...): topology required to run the test",
     )
 
+    config.addinivalue_line(
+        "markers",
+        "require(condition, reason): evaluate condition, parameters may be topology fixture, "
+        "the test is skipped if condition is not met",
+    )
+
     config.pluginmanager.register(MultihostPlugin(config), "MultihostPlugin")
