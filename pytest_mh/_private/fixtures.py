@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import inspect
-from functools import partial
 from types import SimpleNamespace
 from typing import Generator
 
@@ -86,7 +84,6 @@ class MultihostFixture(object):
         """
 
         self._paths: dict[str, list[MultihostRole] | MultihostRole] = {}
-        self._skipped: bool = False
 
         for domain in self.multihost.domains:
             if domain.id in topology:
@@ -137,66 +134,11 @@ class MultihostFixture(object):
 
         return list(set([*hosts, *roles]))
 
-    def _skip(self) -> bool:
-        if self.data.topology_mark is None:
-            raise ValueError("Multihost fixture is available but no topology mark was set")
-
-        self._skipped = False
-
-        fixtures = self.request.node.funcargs
-        self.data.topology_mark.apply(self, fixtures)
-
-        for mark in self.request.node.iter_markers("require"):
-            if len(mark.args) not in [1, 2]:
-                raise ValueError(
-                    f"{self.request.node.nodeid}::{self.request.node.originalname}: "
-                    "invalid arguments for @pytest.mark.require"
-                )
-
-            condition = mark.args[0]
-            reason = "Required condition was not met" if len(mark.args) != 2 else mark.args[1]
-
-            args: list[str] = []
-            if isinstance(condition, partial):
-                spec = inspect.getfullargspec(condition.func)
-
-                # Remove bound positional parameters
-                args = spec.args[len(condition.args) :]
-
-                # Remove bound keyword parameters
-                args = [x for x in args if x not in condition.keywords]
-            else:
-                spec = inspect.getfullargspec(condition)
-                args = spec.args
-
-            callspec = {k: v for k, v in fixtures.items() if k in args}
-            callresult = condition(**callspec)
-            if isinstance(callresult, tuple):
-                if len(callresult) != 2:
-                    raise ValueError(
-                        f"{self.request.node.nodeid}::{self.request.node.originalname}: "
-                        "invalid arguments for @pytest.mark.require"
-                    )
-
-                result = callresult[0]
-                reason = callresult[1]
-            else:
-                result = callresult
-
-            if not result:
-                self._skipped = True
-                pytest.skip(reason)
-
-        return self._skipped
-
     def _setup(self) -> None:
         """
         Setup multihost. A setup method is called on each host and role
         to initialize the test environment to expected state.
         """
-        if self._skipped:
-            return
-
         mh_log_phase(self.logger, self.request, "SETUP")
         try:
             setup_ok: list[MultihostHost | MultihostRole] = []
@@ -219,9 +161,6 @@ class MultihostFixture(object):
         that were made during a test run. It is automatically called when the
         test is finished.
         """
-        if self._skipped:
-            return
-
         mh_log_phase(self.logger, self.request, "TEARDOWN")
         try:
             errors = []
@@ -249,9 +188,6 @@ class MultihostFixture(object):
         :param host: Host object where the artifacts will be collected.
         :type host: MultihostHost
         """
-        if self._skipped:
-            return
-
         dir = self.request.config.getoption("mh_artifacts_dir")
         mode = self.request.config.getoption("mh_collect_artifacts")
         if mode == "never" or (mode == "on-failure" and self.data.outcome != "failed"):
@@ -264,9 +200,6 @@ class MultihostFixture(object):
         host.collect_artifacts(f"{dir}/{name}")
 
     def __enter__(self) -> MultihostFixture:
-        if self._skip():
-            return self
-
         self._setup()
         return self
 
