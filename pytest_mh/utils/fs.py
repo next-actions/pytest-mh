@@ -164,6 +164,23 @@ class LinuxFileSystem(MultihostUtility):
 
         return result.stdout
 
+    def exists(self, path: str) -> bool:
+        """
+        Checks file or directory to see if they exist.
+
+        :param path: File path.
+        :type path: str
+        :return: True or False
+        :rtype: bool
+        """
+        self.logger.info(f'Checking "{path}" exists on {self.host.hostname}')
+        result = self.host.ssh.exec(["ls", path], log_level=SSHLog.Error, raise_on_error=False)
+
+        if result.rc == 0:
+            return True
+
+        return False
+
     def write(
         self,
         path: str,
