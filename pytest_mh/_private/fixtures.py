@@ -135,7 +135,7 @@ class MultihostFixture(object):
         roles: list[MultihostRole] = [x for x in self._paths.values() if isinstance(x, MultihostRole)]
         hosts: list[MultihostHost] = [x.host for x in roles]
 
-        return list(set([*hosts, *roles]))
+        return [*hosts, *roles]
 
     def _skip(self) -> bool:
         if self.data.topology_mark is None:
