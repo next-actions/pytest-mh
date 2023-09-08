@@ -33,6 +33,13 @@ The function takes all fixtures that are available to the test as parameters.
     def test_example_reason_as_tuple(client: Client, ldap: LDAP):
         pass
 
+    @pytest.mark.topology(KnownTopology.LDAP)
+    @pytest.mark.require(
+        lambda **kwargs: "files-provider" in kwargs["client"].features
+    )
+    def test_example_kwargs(client: Client, ldap: LDAP):
+        pass
+
 .. note::
 
     The requirement is evaluated when the test is executed but before setup

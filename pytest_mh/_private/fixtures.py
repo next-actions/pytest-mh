@@ -172,7 +172,13 @@ class MultihostFixture(object):
                 spec = inspect.getfullargspec(condition)
                 args = spec.args
 
-            callspec = {k: v for k, v in fixtures.items() if k in args}
+            if spec.varkw is None:
+                # No **kwargs is present, just pick selected arguments
+                callspec = {k: v for k, v in fixtures.items() if k in args}
+            else:
+                # **kwargs is present, pass everything
+                callspec = fixtures
+
             callresult = condition(**callspec)
             if isinstance(callresult, tuple):
                 if len(callresult) != 2:
