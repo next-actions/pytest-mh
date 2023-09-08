@@ -146,6 +146,9 @@ class MultihostFixture(object):
         fixtures = self.request.node.funcargs
         self.data.topology_mark.apply(self, fixtures)
 
+        # Make sure mh fixture is always available
+        fixtures["mh"] = self
+
         for mark in self.request.node.iter_markers("require"):
             if len(mark.args) not in [1, 2]:
                 raise ValueError(
