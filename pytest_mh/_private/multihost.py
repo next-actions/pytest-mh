@@ -547,6 +547,7 @@ class MultihostUtility(Generic[HostType]):
         @wraps(method)
         def wrapper(*args, **kwargs):
             if not self.used:
+                self.used = True
                 self.setup_when_used()
 
             self.used = True
