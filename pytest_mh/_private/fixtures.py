@@ -80,6 +80,11 @@ class MultihostFixture(object):
         Multihost configuration.
         """
 
+        self.topology: Topology = topology
+        """
+        Topology data.
+        """
+
         self.logger: MultihostLogger = multihost.logger
         """
         Multihost logger.
