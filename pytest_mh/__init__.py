@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+from ._private.data import MultihostItemData
 from ._private.fixtures import MultihostFixture, mh
 from ._private.marks import KnownTopologyBase, KnownTopologyGroupBase, TopologyMark
 from ._private.multihost import (
@@ -23,6 +24,7 @@ __all__ = [
     "MultihostFixture",
     "MultihostHost",
     "MultihostHostOSFamily",
+    "MultihostItemData",
     "MultihostPlugin",
     "MultihostRole",
     "MultihostUtility",
