@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from functools import partial
 from types import SimpleNamespace
-from typing import Generator
+from typing import Any, Generator
 
 import colorama
 import pytest
@@ -148,7 +148,8 @@ class MultihostFixture(object):
 
         self._skipped = False
 
-        fixtures = self.request.node.funcargs
+        fixtures: dict[str, Any] = {k: None for k in self.data.topology_mark.fixtures.keys()}
+        fixtures.update(self.request.node.funcargs)
         self.data.topology_mark.apply(self, fixtures)
 
         # Make sure mh fixture is always available
