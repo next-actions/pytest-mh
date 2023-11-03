@@ -315,6 +315,43 @@ class LinuxFileSystem(MultihostUtility):
             log_level=SSHLog.Error,
         )
 
+    def copy(
+        self,
+        srcpath: str,
+        dstpath: str,
+        *,
+        mode: str | None = None,
+        user: str | None = None,
+        group: str | None = None,
+    ) -> None:
+        """
+        Copy a remote file @srcpath to remote @dstpath.
+
+        :param srcpath: Remote source file path.
+        :type srcpath: str
+        :param dstpath: Remote destination file path.
+        :type dstpath: str
+        :param mode: Access mode (chmod value), defaults to None
+        :type mode: str | None, optional
+        :param user: Owner, defaults to None
+        :type user: str | None, optional
+        :param group: Group, defaults to None
+        :type group: str | None, optional
+        :param dedent: Automatically dedent and strip file contents, defaults to True
+        :type dedent: bool, optional
+        """
+        self.backup(dstpath)
+        self.logger.info(f'Copying file "{srcpath}" to "{dstpath}" on {self.host.hostname}')
+
+        self.host.ssh.run(
+            f"""
+                set -ex
+                cp --archive '{srcpath}' '{dstpath}'
+                {self.__gen_chattrs(dstpath, mode=mode, user=user, group=group)}
+            """,
+            log_level=SSHLog.Error,
+        )
+
     def upload(
         self,
         local_path: str,
