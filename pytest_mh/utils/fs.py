@@ -23,7 +23,7 @@ class LinuxFileSystem(MultihostUtility):
         """
         super().__init__(host)
         self.__rollback: list[str] = []
-        self.__backup: dict[str, bool] = {}
+        self.__backup: dict[str, str] = {}
 
     def teardown(self):
         """
@@ -509,10 +509,37 @@ class LinuxFileSystem(MultihostUtility):
         action = result.stdout.strip()
         if action:
             self.__rollback.append(action)
-            self.__backup[path] = True
+            self.__backup[path] = action
             return True
 
         return False
+
+    def restore(self, path: str) -> bool:
+        """
+        Restore file or directory from previous backup.
+
+        .. note::
+            It is also possible that the file or directory does not exist. In
+            that case, the path is removed to remove any file or directory that
+            might have been created.
+
+        :param path: Path to restore.
+        :type path: str
+        :return: True if the backup of path exists and it was restored, False otherwise.
+        :rtype: bool
+        """
+        action = self.__backup.get(path)
+        if action is None:
+            # Backup is not present
+            return False
+
+        self.logger.info(f'Restoring "{path}" from backup on {self.host.hostname}')
+        self.host.ssh.run(action, log_level=SSHLog.Error)
+
+        self.__rollback.remove(action)
+        del self.__backup[path]
+
+        return True
 
     def __gen_chattrs(
         self, path: str, *, mode: str | None = None, user: str | None = None, group: str | None = None
