@@ -1,4 +1,6 @@
+--no-dependencies parallel-ssh
 colorama
-parallel-ssh
+gevent
 pytest
 PyYAML
+ssh-python

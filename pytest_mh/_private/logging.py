@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import logging.handlers
 import textwrap
 from typing import Any
 
@@ -55,11 +56,17 @@ class MultihostLogger(logging.Logger):
         if log_path == "/dev/stdout" or log_path == "/dev/stderr":
             logger.allow_colors = True
 
-        handler = logging.FileHandler(log_path)
-        handler.setLevel(logging.DEBUG)
-        handler.setFormatter(logging.Formatter("%(levelname)-8s %(asctime)s %(message)s"))
+        # All messages go to a single file
+        main_handler = logging.FileHandler(log_path)
+        main_handler.setLevel(logging.DEBUG)
+        main_handler.setFormatter(logging.Formatter("%(levelname)-8s %(asctime)s %(message)s"))
 
-        logger.addHandler(handler)
+        # This handler can be flushed whenever needed to log each test case
+        # into a test case specific file.
+        intermediate_handler = ManualMemoryHandler()
+
+        logger.addHandler(main_handler)
+        logger.addHandler(intermediate_handler)
         logger.addFilter(LogExtraDataFilter(logger=logger))
         logger.setLevel(logging.DEBUG)
 
@@ -142,3 +149,32 @@ class LogExtraDataFilter(logging.Filter):
                 )
 
         return super().filter(record)
+
+
+class ManualMemoryHandler(logging.handlers.MemoryHandler):
+    """
+    Logs messages inside a memory.
+
+    All messages are logged. The amount of messages is unlimited and
+    :meth:`flush` must be called manually in order to send them to the target
+    handler and clear the buffer.
+    """
+    def __init__(self, target: logging.Handler | None = None) -> None:
+        """
+        :param target: Logging target when the messages are flushed, defaults to None
+        :type target: logging.Handler | None, optional
+        """
+        super().__init__(capacity=0, flushLevel=0, target=target, flushOnClose=False)
+
+    def shouldFlush(self, record: logging.LogRecord) -> bool:
+        """
+        Always returns ``False``. In order to flush the messages, call
+        :meth:`flush` manually.
+        """
+        return False
+
+    def clear(self):
+        """
+        Remove all records from the buffer.
+        """
+        self.buffer.clear()
