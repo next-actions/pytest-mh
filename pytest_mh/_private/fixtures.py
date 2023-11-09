@@ -212,21 +212,17 @@ class MultihostFixture(object):
         if self._skipped:
             return
 
-        mh_log_phase(self.logger, self.request, "SETUP")
-        try:
-            setup_ok: list[MultihostHost | MultihostRole] = []
-            for item in self._hosts_and_roles:
-                try:
-                    item.setup()
-                except Exception:
-                    # Teardown hosts and roles that were successfully setup before this error
-                    for i in reversed(setup_ok):
-                        i.teardown()
-                    raise
+        setup_ok: list[MultihostHost | MultihostRole] = []
+        for item in self._hosts_and_roles:
+            try:
+                item.setup()
+            except Exception:
+                # Teardown hosts and roles that were successfully setup before this error
+                for i in reversed(setup_ok):
+                    i.teardown()
+                raise
 
-                setup_ok.append(item)
-        finally:
-            mh_log_phase(self.logger, self.request, "SETUP DONE")
+            setup_ok.append(item)
 
     def _teardown(self) -> None:
         """
@@ -237,25 +233,21 @@ class MultihostFixture(object):
         if self._skipped:
             return
 
-        mh_log_phase(self.logger, self.request, "TEARDOWN")
-        try:
-            errors = []
-            for item in reversed(self._hosts_and_roles):
-                try:
-                    # Try to collect artifacts from host before the role is teared down.
-                    # We need to do it before the role object is teardown as it may
-                    # potentially remove some of the requested artifacts.
-                    if isinstance(item, MultihostRole):
-                        self._collect_artifacts(item.host)
+        errors = []
+        for item in reversed(self._hosts_and_roles):
+            try:
+                # Try to collect artifacts from host before the role is teared down.
+                # We need to do it before the role object is teardown as it may
+                # potentially remove some of the requested artifacts.
+                if isinstance(item, MultihostRole):
+                    self._collect_artifacts(item.host)
 
-                    item.teardown()
-                except Exception as e:
-                    errors.append(e)
+                item.teardown()
+            except Exception as e:
+                errors.append(e)
 
-            if errors:
-                raise Exception(errors)
-        finally:
-            mh_log_phase(self.logger, self.request, "TEARDOWN DONE")
+        if errors:
+            raise Exception(errors)
 
     def _collect_artifacts(self, host: MultihostHost) -> None:
         """
@@ -278,15 +270,42 @@ class MultihostFixture(object):
 
         host.collect_artifacts(f"{dir}/{name}")
 
+    def log_phase(self, phase: str) -> None:
+        """
+        Log current test phase.
+
+        :param phase: Phase name or description.
+        :type phase: str
+        """
+        self.logger.info(
+            self.logger.colorize(
+                f"{phase} :: {self.request.node.nodeid}",
+                colorama.Style.BRIGHT,
+                colorama.Back.BLACK,
+                colorama.Fore.WHITE,
+            )
+        )
+
     def __enter__(self) -> MultihostFixture:
         if self._skip():
             return self
 
-        self._setup()
+        self.log_phase("BEGIN")
+        self.log_phase("SETUP")
+        try:
+            self._setup()
+        finally:
+            self.log_phase("SETUP DONE")
+
         return self
 
     def __exit__(self, exception_type, exception_value, traceback) -> None:
-        self._teardown()
+        self.log_phase("TEARDOWN")
+        try:
+            self._teardown()
+        finally:
+            self.log_phase("TEARDOWN DONE")
+            self.log_phase("END")
 
 
 @pytest.fixture(scope="function")
@@ -320,19 +339,7 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
     if data.topology_mark is None:
         raise ValueError("data.topology_mark must not be None")
 
-    mh_log_phase(data.multihost.logger, request, "BEGIN")
-    try:
-        with MultihostFixture(request, data, data.multihost, data.topology_mark.topology) as mh:
-            mh_log_phase(data.multihost.logger, request, "TEST")
-            yield mh
-            mh_log_phase(data.multihost.logger, request, "TEST DONE")
-    finally:
-        mh_log_phase(data.multihost.logger, request, "END")
-
-
-def mh_log_phase(logger: MultihostLogger, request: pytest.FixtureRequest, phase: str) -> None:
-    logger.info(
-        logger.colorize(
-            f"{phase} :: {request.node.nodeid}", colorama.Style.BRIGHT, colorama.Back.BLACK, colorama.Fore.WHITE
-        )
-    )
+    with MultihostFixture(request, data, data.multihost, data.topology_mark.topology) as mh:
+        mh.log_phase("TEST")
+        yield mh
+        mh.log_phase("TEST DONE")
