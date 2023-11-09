@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import textwrap
+from logging.handlers import MemoryHandler
+from pathlib import Path
 from typing import Any
 
 import colorama
@@ -34,9 +36,10 @@ class MultihostLogger(logging.Logger):
         super().__init__(*args, **kwargs)
 
         self.allow_colors: bool = False
+        self.log_path: str | None = None
+        self.handler: logging.Handler | None = None
 
-    @classmethod
-    def Setup(cls, log_path: str) -> MultihostLogger:
+    def setup(self, log_path: str) -> None:
         """
         Setup multihost logging facility.
 
@@ -47,23 +50,16 @@ class MultihostLogger(logging.Logger):
         :return: Logger.
         :rtype: MultihostLogger
         """
-        logger = cls.GetLogger()
+        self.log_path = log_path
+        self.allow_colors = self.log_path in ["/dev/stdout", "/dev/stderr"]
+        self.handler = ManualMemoryHandler() if self.log_path is None else logging.FileHandler(self.log_path)
 
-        if log_path is None:
-            return logger
+        self.handler.setLevel(logging.DEBUG)
+        self.handler.setFormatter(logging.Formatter("%(levelname)-8s %(asctime)s %(message)s"))
 
-        if log_path == "/dev/stdout" or log_path == "/dev/stderr":
-            logger.allow_colors = True
-
-        handler = logging.FileHandler(log_path)
-        handler.setLevel(logging.DEBUG)
-        handler.setFormatter(logging.Formatter("%(levelname)-8s %(asctime)s %(message)s"))
-
-        logger.addHandler(handler)
-        logger.addFilter(LogExtraDataFilter(logger=logger))
-        logger.setLevel(logging.DEBUG)
-
-        return logger
+        self.addHandler(self.handler)
+        self.addFilter(LogExtraDataFilter(logger=self))
+        self.setLevel(logging.DEBUG)
 
     @classmethod
     def GetLogger(cls) -> MultihostLogger:
@@ -83,6 +79,23 @@ class MultihostLogger(logging.Logger):
             raise ValueError("logger must be instance of MultihostLogger")
 
         return logger
+
+    def clear(self) -> None:
+        """
+        Clear current log records buffer without writing it anywhere.
+        """
+        if isinstance(self.handler, ManualMemoryHandler):
+            self.handler.clear()
+
+    def write_to_file(self, path: str) -> None:
+        """
+        Write current log records buffer to a file and clear the buffer.
+
+        :param path: Destination file path.
+        :type path: str
+        """
+        if isinstance(self.handler, ManualMemoryHandler):
+            self.handler.write_to_file(path)
 
     def colorize(self, text: str | Any, *colors: str) -> str:
         """
@@ -142,3 +155,42 @@ class LogExtraDataFilter(logging.Filter):
                 )
 
         return super().filter(record)
+
+
+class ManualMemoryHandler(MemoryHandler):
+    def __init__(self) -> None:
+        super().__init__(capacity=0, flushLevel=0, target=None, flushOnClose=False)
+
+    def shouldFlush(self, record: logging.LogRecord) -> bool:
+        """
+        This handler does not flush automatically.
+
+        :param record: Log record. Unused.
+        :type record: logging.LogRecord
+        :return: Always return False.
+        :rtype: bool
+        """
+        return False
+
+    def clear(self) -> None:
+        """
+        Clear current buffer without writing it anywhere.
+        """
+        self.buffer.clear()
+
+    def write_to_file(self, path: str) -> None:
+        """
+        Write current buffer to a file and clear the buffer.
+
+        :param path: Destination file path.
+        :type path: str
+        """
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        handler = logging.FileHandler(path)
+        handler.setLevel(self.level)
+        handler.setFormatter(self.formatter)
+
+        self.setTarget(handler)
+        self.flush()
+        self.setTarget(None)

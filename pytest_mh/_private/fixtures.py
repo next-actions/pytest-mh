@@ -249,6 +249,28 @@ class MultihostFixture(object):
         if errors:
             raise Exception(errors)
 
+    def _artifacts_dir(self) -> str | None:
+        """
+        Return test artifact directory or ``None`` if no artifacts should be
+        stored.
+
+        :return: Artifact directory or ``None``.
+        :rtype: str | None
+        """
+        if self._skipped:
+            return None
+
+        dir = self.request.config.getoption("mh_artifacts_dir")
+        mode = self.request.config.getoption("mh_collect_artifacts")
+        if mode == "never" or (mode == "on-failure" and self.data.outcome != "failed"):
+            return None
+
+        name = self.request.node.name
+        for c in list('":<>|*?'):
+            name = name.replace(c, "-")
+
+        return f"{dir}/{name}"
+
     def _collect_artifacts(self, host: MultihostHost) -> None:
         """
         Collect test artifacts that were requested by the multihost configuration.
@@ -256,19 +278,22 @@ class MultihostFixture(object):
         :param host: Host object where the artifacts will be collected.
         :type host: MultihostHost
         """
-        if self._skipped:
+        path = self._artifacts_dir()
+        if path is None:
             return
 
-        dir = self.request.config.getoption("mh_artifacts_dir")
-        mode = self.request.config.getoption("mh_collect_artifacts")
-        if mode == "never" or (mode == "on-failure" and self.data.outcome != "failed"):
-            return
+        host.collect_artifacts(path)
 
-        name = self.request.node.name
-        for c in list('":<>|*?'):
-            name = name.replace(c, "-")
+    def _flush_logs(self) -> None:
+        """
+        Write log messages produced by current test case to a file, or clear
+        them if no artifacts should be generated.
+        """
+        path = self._artifacts_dir()
+        if path is None:
+            self.logger.clear()
 
-        host.collect_artifacts(f"{dir}/{name}")
+        self.logger.write_to_file(f"{path}/test.log")
 
     def log_phase(self, phase: str) -> None:
         """
@@ -306,6 +331,7 @@ class MultihostFixture(object):
         finally:
             self.log_phase("TEARDOWN DONE")
             self.log_phase("END")
+            self._flush_logs()
 
 
 @pytest.fixture(scope="function")

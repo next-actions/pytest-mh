@@ -81,10 +81,10 @@ class MultihostPlugin(object):
 
         self.confdict = self.__load_conf(self.mh_config)
 
-        self.multihost = self.config_class(
-            self.confdict, logger=MultihostLogger.Setup(self.mh_log_path), lazy_ssh=self.mh_lazy_ssh
-        )
+        logger = MultihostLogger.GetLogger()
+        logger.setup(self.mh_log_path)
 
+        self.multihost = self.config_class(self.confdict, logger=logger, lazy_ssh=self.mh_lazy_ssh)
         self.topology = Topology.FromMultihostConfig(self.confdict)
 
     @pytest.hookimpl(trylast=True)
@@ -124,18 +124,21 @@ class MultihostPlugin(object):
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
         self.logger.info("")
 
-        setup_ok: list[MultihostHost] = []
-        for domain in self.multihost.domains:
-            for host in domain.hosts:
-                try:
-                    host.pytest_setup()
-                except Exception:
-                    # Teardown hosts that were successfully setup before this error
-                    for h in reversed(setup_ok):
-                        h.pytest_teardown()
-                    raise
+        try:
+            setup_ok: list[MultihostHost] = []
+            for domain in self.multihost.domains:
+                for host in domain.hosts:
+                    try:
+                        host.pytest_setup()
+                    except Exception:
+                        # Teardown hosts that were successfully setup before this error
+                        for h in reversed(setup_ok):
+                            h.pytest_teardown()
+                        raise
 
-                setup_ok.append(host)
+                    setup_ok.append(host)
+        finally:
+            self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup.log")
 
     @pytest.hookimpl(trylast=True)
     def pytest_sessionfinish(self, session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
@@ -154,6 +157,8 @@ class MultihostPlugin(object):
                     host.pytest_teardown()
                 except Exception as e:
                     errors.append(e)
+
+        self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown.log")
 
         if errors:
             raise Exception(errors)
