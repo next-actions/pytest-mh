@@ -150,6 +150,24 @@ class LinuxFileSystem(MultihostUtility):
 
         return tmpfile
 
+    def rm(self, path: str) -> None:
+        """
+        Remove remote file or directory.
+
+        :param path: File path.
+        :type path: str
+        """
+        self.backup(path)
+        self.logger.info(f'Removing file "{path}" on {self.host.hostname}')
+
+        self.host.ssh.run(
+            f"""
+                set -ex
+                rm -fr '{path}'
+            """,
+            log_level=SSHLog.Error,
+        )
+
     def read(self, path: str) -> str:
         """
         Read remote file and return its contents.
