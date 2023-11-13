@@ -82,7 +82,7 @@ class MultihostPlugin(object):
         self.confdict = self.__load_conf(self.mh_config)
 
         logger = MultihostLogger.GetLogger()
-        logger.setup(self.mh_log_path)
+        logger.setup(log_path=self.mh_log_path, confdict=self.confdict)
 
         self.multihost = self.config_class(self.confdict, logger=logger, lazy_ssh=self.mh_lazy_ssh)
         self.topology = Topology.FromMultihostConfig(self.confdict)
