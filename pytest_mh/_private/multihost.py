@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
 
 from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
-from .logging import MultihostLogger
+from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
 from .utils import validate_configuration
 
@@ -277,14 +277,16 @@ class MultihostHost(Generic[DomainType]):
         self.domain: DomainType = domain
         """Multihost domain."""
 
-        self.logger: MultihostLogger = domain.logger
-        """Multihost logger."""
-
         self.role: str = confdict["role"]
         """Host role."""
 
         self.hostname: str = confdict["hostname"]
         """Host hostname."""
+
+        self.logger: MultihostLogger = self.domain.logger.subclass(
+            cls=MultihostHostLogger, suffix=f"host.{self.hostname}", hostname=self.hostname
+        )
+        """Multihost logger."""
 
         # Optional
         self.config: dict[str, Any] = confdict.get("config", {})
@@ -441,6 +443,9 @@ class MultihostRole(Generic[HostType]):
         self.role: str = role
         self.host: HostType = host
 
+        self.logger: MultihostLogger = self.host.logger
+        """Multihost logger."""
+
     def setup(self) -> None:
         """
         Setup all :class:`MultihostUtility` objects
@@ -474,7 +479,7 @@ class MultihostRole(Generic[HostType]):
             password=password,
             port=self.host.ssh_port,
             shell=shell,
-            logger=self.mh.logger,
+            logger=self.logger,
         )
 
 
