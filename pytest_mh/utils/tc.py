@@ -20,7 +20,8 @@ class LinuxTrafficControl(MultihostUtility):
         """
         super().__init__(host)
         self.__interfaces: set[str] = set()
-        self.__restore: set[str] = set()
+        self.__restore_root: set[str] = set()
+        self.__restore_filters: dict[str, int] = dict()
         self.__band: int = 2
 
     def setup_when_used(self):
@@ -45,7 +46,7 @@ class LinuxTrafficControl(MultihostUtility):
             commands += (
                 f"tc qdisc add dev {interface} root handle 1: prio bands 16 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n"
             )
-            self.__restore.add(f"tc qdisc del dev {interface} root")
+            self.__restore_root.add(f"tc qdisc del dev {interface} root")
 
         self.host.ssh.run(commands, log_level=SSHLog.Error)
 
@@ -56,7 +57,7 @@ class LinuxTrafficControl(MultihostUtility):
         :meta private:
         """
         tear: str = ""
-        for iter in self.__restore:
+        for iter in self.__restore_root:
             tear += iter + "\n"
         self.host.ssh.run(tear, log_level=SSHLog.Error)
         super().teardown_when_used()
@@ -87,9 +88,34 @@ class LinuxTrafficControl(MultihostUtility):
             )
             for ip in ip_list:
                 commands += (
-                    f"tc filter add dev {interface} protocol ip parent 1:0 u32 match ip dst {ip} "
+                    f"tc filter add dev {interface} protocol ip prio {self.__band} parent 1:0 u32 match ip dst {ip} "
                     f"flowid 1:{self.__band}\n"
                 )
+                self.__restore_filters[ip] = self.__band
 
         self.host.ssh.run(commands, log_level=SSHLog.Error)
         self.__band += 1
+
+    def remove_delay(self, hostname: str):
+        """
+        Remove delay in the network connection.
+
+        :param hostname: Target hostname.
+        :type hostname: str
+        """
+        ips = self.host.ssh.run(f"dig +short {hostname}", log_level=SSHLog.Error)
+        ip_list = ips.stdout.splitlines()
+
+        bands: set[int] = set()
+        for ip in ip_list:
+            if ip in self.__restore_filters:
+                bands.add(self.__restore_filters[ip])
+
+        commands = "set -e\n"
+        for interface in self.__interfaces:
+            for band in bands:
+                commands += f"tc filter del dev {interface} prio {band}\n"
+
+            commands += f"tc qdisc del dev {interface} parent 1:{band} handle {band*10}: netem\n"
+
+        self.host.ssh.run(commands, log_level=SSHLog.Error)
