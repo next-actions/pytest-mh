@@ -171,7 +171,7 @@ class LinuxFirewalld(GenericFirewall):
         :param rule: Firewalld rich rule.
         :type rule: str
         """
-        self.logger.info(f'Firewalld: adding rich rule "{rule}" on {self.host.hostname}')
+        self.logger.info(f'Firewalld: adding rich rule "{rule}"')
         self.host.ssh.exec(["firewall-cmd", "--add-rich-rule", rule], log_level=SSHLog.Error)
 
     def remove_rich_rule(self, rule: str) -> None:
@@ -181,7 +181,7 @@ class LinuxFirewalld(GenericFirewall):
         :param rule: Firewalld rich rule.
         :type rule: str
         """
-        self.logger.info(f'Firewalld: removing rich rule  "{rule}" on {self.host.hostname}')
+        self.logger.info(f'Firewalld: removing rich rule  "{rule}"')
         self.host.ssh.exec(["firewall-cmd", "--remove-rich-rule", rule], log_level=SSHLog.Error)
 
     def __add_action(
@@ -233,7 +233,7 @@ class WindowsFirewall(GenericFirewall):
         :meta private:
         """
         super().setup_when_used()
-        self.logger.info(f"Windows Firewall: creating backup at '{self._backup}' on {self.host.hostname}")
+        self.logger.info(f"Windows Firewall: creating backup at '{self._backup}'")
         self.host.ssh.run(
             f"Remove-Item {self._backup}; netsh advfirewall export {self._backup}", log_level=SSHLog.Error
         )
@@ -244,7 +244,7 @@ class WindowsFirewall(GenericFirewall):
 
         :meta private:
         """
-        self.logger.info(f"Windows Firewall: restoring from '{self._backup}' on {self.host.hostname}")
+        self.logger.info(f"Windows Firewall: restoring from '{self._backup}'")
         self.host.ssh.run(f"netsh advfirewall reset; netsh advfirewall import {self._backup}", log_level=SSHLog.Error)
         super().teardown_when_used()
 
@@ -297,6 +297,6 @@ class WindowsFirewall(GenericFirewall):
             remove = f"Remove-NetFirewallRule -DisplayName '{opposite}'; " if opposite in self._rules else ""
             add = f"New-NetFirewallRule -DisplayName '{name}' -Action {action} -Protocol {protocol} -LocalPort {port}"
 
-            self.logger.info(f'Windows Firewall: {action} "{port}/{protocol}" on {self.host.hostname}')
+            self.logger.info(f'Windows Firewall: {action} "{port}/{protocol}"')
             self.host.ssh.run(f"{remove}{add}", log_level=SSHLog.Error)
             self._rules.append(name)

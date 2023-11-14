@@ -51,7 +51,7 @@ class LinuxFileSystem(MultihostUtility):
         :type group: str | None, optional
         """
         self.backup(path)
-        self.logger.info(f'Creating directory "{path}" on {self.host.hostname}')
+        self.logger.info(f'Creating directory "{path}"')
         self.host.ssh.run(
             f"""
                 set -ex
@@ -78,7 +78,7 @@ class LinuxFileSystem(MultihostUtility):
         :type group: str | None, optional
         """
         self.backup(path)
-        self.logger.info(f'Creating directory "{path}" (with parents) on {self.host.hostname}')
+        self.logger.info(f'Creating directory "{path}" (with parents)')
         result = self.host.ssh.run(
             f"""
                 set -ex
@@ -119,7 +119,7 @@ class LinuxFileSystem(MultihostUtility):
         :rtype: str
         """
 
-        self.logger.info(f"Creating temporary file on {self.host.hostname}")
+        self.logger.info("Creating temporary file")
         result = self.host.ssh.run(
             """
                 set -ex
@@ -139,9 +139,7 @@ class LinuxFileSystem(MultihostUtility):
             if dedent:
                 contents = textwrap.dedent(contents).strip()
 
-            self.logger.info(
-                f'Writing file "{tmpfile}" on {self.host.hostname}', extra={"data": {"Contents": contents}}
-            )
+            self.logger.info(f'Writing file "{tmpfile}"', extra={"data": {"Contents": contents}})
             self.host.ssh.run(f"cat > '{tmpfile}'", input=contents, log_level=SSHLog.Error)
 
         attrs = self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group)
@@ -158,7 +156,7 @@ class LinuxFileSystem(MultihostUtility):
         :type path: str
         """
         self.backup(path)
-        self.logger.info(f'Removing file "{path}" on {self.host.hostname}')
+        self.logger.info(f'Removing file "{path}"')
 
         self.host.ssh.run(
             f"""
@@ -177,7 +175,7 @@ class LinuxFileSystem(MultihostUtility):
         :return: File contents.
         :rtype: str
         """
-        self.logger.info(f'Reading file "{path}" on {self.host.hostname}')
+        self.logger.info(f'Reading file "{path}"')
         result = self.host.ssh.exec(["cat", path], log_level=SSHLog.Error)
 
         return result.stdout
@@ -191,7 +189,7 @@ class LinuxFileSystem(MultihostUtility):
         :return: True or False
         :rtype: bool
         """
-        self.logger.info(f'Checking "{path}" exists on {self.host.hostname}')
+        self.logger.info(f'Checking if "{path}" exists')
         result = self.host.ssh.exec(["ls", path], log_level=SSHLog.Error, raise_on_error=False)
 
         if result.rc == 0:
@@ -229,7 +227,7 @@ class LinuxFileSystem(MultihostUtility):
             contents = textwrap.dedent(contents).strip()
 
         self.backup(path)
-        self.logger.info(f'Writing file "{path}" on {self.host.hostname}', extra={"data": {"Contents": contents}})
+        self.logger.info(f'Writing file "{path}"', extra={"data": {"Contents": contents}})
 
         self.host.ssh.run(
             f"""
@@ -263,7 +261,7 @@ class LinuxFileSystem(MultihostUtility):
             contents = textwrap.dedent(contents).strip()
 
         self.backup(path)
-        self.logger.info(f'Appending to file "{path}" on {self.host.hostname}', extra={"data": {"Contents": contents}})
+        self.logger.info(f'Appending to file "{path}"', extra={"data": {"Contents": contents}})
 
         self.host.ssh.run(
             f"""
@@ -297,7 +295,7 @@ class LinuxFileSystem(MultihostUtility):
         :type dedent: bool, optional
         """
         self.backup(path)
-        self.logger.info(f'Touching file "{path}" on {self.host.hostname}')
+        self.logger.info(f'Touching file "{path}"')
 
         self.host.ssh.run(
             f"""
@@ -323,7 +321,7 @@ class LinuxFileSystem(MultihostUtility):
         :type size: int, optional
         """
         self.backup(path)
-        self.logger.info(f'Truncating file "{path}" on {self.host.hostname}', extra={"data": {"Size": size}})
+        self.logger.info(f'Truncating file "{path}"', extra={"data": {"Size": size}})
 
         self.host.ssh.run(
             f"""
@@ -359,7 +357,7 @@ class LinuxFileSystem(MultihostUtility):
         :type dedent: bool, optional
         """
         self.backup(dstpath)
-        self.logger.info(f'Copying file "{srcpath}" to "{dstpath}" on {self.host.hostname}')
+        self.logger.info(f'Copying file "{srcpath}" to "{dstpath}"')
 
         self.host.ssh.run(
             f"""
@@ -451,7 +449,7 @@ class LinuxFileSystem(MultihostUtility):
         :param local_path: Local path.
         :type local_path: str
         """
-        self.logger.info(f'Downloading file "{remote_path}" from {self.host.hostname} to "{local_path}"')
+        self.logger.info(f'Downloading file "{self.host.hostname}:{remote_path}" to "{local_path}"')
         result = self.host.ssh.exec(["base64", remote_path], log_level=SSHLog.Error)
         with open(local_path, "wb") as f:
             f.write(base64.b64decode(result.stdout))
@@ -504,7 +502,7 @@ class LinuxFileSystem(MultihostUtility):
             # Backup is already present
             return True
 
-        self.logger.info(f'Creating a backup of "{path}" on {self.host.hostname}')
+        self.logger.info(f'Creating a backup of "{path}"')
         result = self.host.ssh.run(
             f"""
         set -ex
@@ -551,7 +549,7 @@ class LinuxFileSystem(MultihostUtility):
             # Backup is not present
             return False
 
-        self.logger.info(f'Restoring "{path}" from backup on {self.host.hostname}')
+        self.logger.info(f'Restoring "{path}" from backup')
         self.host.ssh.run(action, log_level=SSHLog.Error)
 
         self.__rollback.remove(action)
@@ -626,6 +624,6 @@ class LinuxFileSystem(MultihostUtility):
         :rtype: SSHProcessResult
         """
         self.backup(path)
-        self.logger.info(f'Changing mode bits for "{path}" on {self.host.hostname}')
+        self.logger.info(f'Changing mode bits for "{path}"')
 
         return self.host.ssh.exec(["chmod", *args, mode, path])
