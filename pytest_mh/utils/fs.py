@@ -627,3 +627,31 @@ class LinuxFileSystem(MultihostUtility):
         self.logger.info(f'Changing mode bits for "{path}"')
 
         return self.host.ssh.exec(["chmod", *args, mode, path])
+
+    def chown(
+        self, path: str, user: str | None = None, group: str | None = None, args: list[str] | None = None
+    ) -> SSHProcessResult:
+        """
+        Change file owner and group.
+
+        :param path: Path to file
+        :type path: str
+        :param user: New file owner, if None then user remains same, defaults to None
+        :type user: str | None, optional
+        :param group: New file group, if None then group remains same, defaults to None
+        :type group: str | None, optional
+        :param args: Additional options, defaults to None
+        :type args: list[str] | None, optional
+        :return: Result of process
+        :rtype: SSHProcessResult
+        """
+        self.backup(path)
+        if user:
+            self.logger.info(f'Changing owner of "{path}" to "{user}"')
+        if group:
+            self.logger.info(f'Changing group of "{path}" to "{group}"')
+
+        args = args if args else []
+        mode = f"{user}" if user else ""
+        mode += f":{group}" if group else ""
+        return self.host.ssh.exec(["chown", mode, *path.split(), *args], log_level=SSHLog.Error)
