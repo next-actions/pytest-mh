@@ -72,13 +72,15 @@ class LinuxTrafficControl(MultihostUtility):
         :param time: Delay. Units can be specified; if not specified, the default is milliseconds.
         :type time: str | int
         """
-        ips = self.host.ssh.run(f"dig +short {hostname}", log_level=SSHLog.Error)
-        ip_list = ips.stdout.splitlines()
-
         if isinstance(time, int):
             time_unit = f"{time}ms"
         else:
             time_unit = time
+
+        self.logger.info(f"Adding network delay {time_unit} to {hostname}")
+
+        ips = self.host.ssh.run(f"dig +short {hostname}", log_level=SSHLog.Error)
+        ip_list = ips.stdout.splitlines()
 
         commands = "set -e\n"
         for interface in self.__interfaces:
@@ -103,6 +105,8 @@ class LinuxTrafficControl(MultihostUtility):
         :param hostname: Target hostname.
         :type hostname: str
         """
+        self.logger.info(f"Removing network delay to {hostname}")
+
         ips = self.host.ssh.run(f"dig +short {hostname}", log_level=SSHLog.Error)
         ip_list = ips.stdout.splitlines()
 
