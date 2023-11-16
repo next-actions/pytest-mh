@@ -608,7 +608,7 @@ class LinuxFileSystem(MultihostUtility):
 
         return self.host.ssh.exec(["wc", *args, file])
 
-    def chmod(self, mode: str, path: str, args: list[str] = []) -> SSHProcessResult:
+    def chmod(self, mode: str, path: str, args: list[str] | None = None) -> SSHProcessResult:
         """
         Change file/folder mode bits.
         Mode can be specified in two ways: octal number e.g. "666", "444" or
@@ -618,14 +618,14 @@ class LinuxFileSystem(MultihostUtility):
         :type mode: str
         :param path: File or folder whose permissions change
         :type path: str
-        :param args: Additional options
-        :type args: list[str]
+        :param args: Additional options, defaults to None
+        :type args: list[str] | None, optional
         :return: Result of process
         :rtype: SSHProcessResult
         """
         self.backup(path)
         self.logger.info(f'Changing mode bits for "{path}"')
-
+        args = args if args else []
         return self.host.ssh.exec(["chmod", *args, mode, path])
 
     def chown(
