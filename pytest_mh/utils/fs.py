@@ -606,7 +606,7 @@ class LinuxFileSystem(MultihostUtility):
         if chars:
             args.append("-m")
 
-        return self.host.ssh.exec(["wc", *args, file])
+        return self.host.ssh.exec(["wc", *args, file], log_level=SSHLog.Error)
 
     def chmod(self, mode: str, path: str, args: list[str] | None = None) -> SSHProcessResult:
         """
@@ -626,7 +626,7 @@ class LinuxFileSystem(MultihostUtility):
         self.backup(path)
         self.logger.info(f'Changing mode bits for "{path}"')
         args = args if args else []
-        return self.host.ssh.exec(["chmod", *args, mode, path])
+        return self.host.ssh.exec(["chmod", *args, mode, path], log_level=SSHLog.Error)
 
     def chown(
         self, path: str, user: str | None = None, group: str | None = None, args: list[str] | None = None
