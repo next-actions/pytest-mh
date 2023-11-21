@@ -24,7 +24,7 @@ class LinuxTrafficControl(MultihostUtility):
         self.__restore_filters: dict[str, int] = dict()
         self.__band: int = 2
 
-    def setup_when_used(self):
+    def setup_when_used(self) -> None:
         """
         Setup traffic control configuration.
 
@@ -50,7 +50,7 @@ class LinuxTrafficControl(MultihostUtility):
 
         self.host.ssh.run(commands, log_level=SSHLog.Error)
 
-    def teardown_when_used(self):
+    def teardown_when_used(self) -> None:
         """
         Revert all traffic control changes.
 
