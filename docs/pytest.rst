@@ -64,3 +64,4 @@ New pytest command line options
   artifacts are collected. Default value is ``on-failure`` - only collect
   artifacts if test fails.
 * ``--mh-artifacts-dir`` - Directory where test artifacts are stored.
+* ``--mh-topology`` - Filter tests by given topology, can be set multiple times.
