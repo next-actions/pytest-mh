@@ -35,7 +35,7 @@ class MultihostPlugin(object):
         self.mh_config: str = pytest_config.getoption("mh_config")
         self.mh_log_path: str = pytest_config.getoption("mh_log_path")
         self.mh_lazy_ssh: bool = pytest_config.getoption("mh_lazy_ssh")
-        self.mh_topology: str = pytest_config.getoption("mh_topology")
+        self.mh_topology: list[str] = pytest_config.getoption("mh_topology")
         self.mh_exact_topology: bool = pytest_config.getoption("mh_exact_topology")
         self.mh_collect_artifacts: bool = pytest_config.getoption("mh_collect_artifacts")
         self.mh_artifacts_dir: bool = pytest_config.getoption("mh_artifacts_dir")
@@ -118,7 +118,7 @@ class MultihostPlugin(object):
         self.logger.info(f"  config file: {self.mh_config}")
         self.logger.info(f"  log path: {self.mh_log_path}")
         self.logger.info(f"  lazy ssh: {self.mh_lazy_ssh}")
-        self.logger.info(f"  topology filter: {self.mh_topology}")
+        self.logger.info(f"  topology filter: {', '.join(self.mh_topology)}")
         self.logger.info(f"  require exact topology: {self.mh_exact_topology}")
         self.logger.info(f"  collect artifacts: {self.mh_collect_artifacts}")
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
@@ -362,11 +362,11 @@ class MultihostPlugin(object):
                 if not self.topology.satisfies(data.topology_mark.topology):
                     return False
 
-        if self.mh_topology is not None:
+        if self.mh_topology:
             if data.topology_mark is None:
                 return False
 
-            if self.mh_topology != data.topology_mark.name:
+            if data.topology_mark.name not in self.mh_topology:
                 return False
 
         return True
@@ -400,7 +400,12 @@ def pytest_addoption(parser):
 
     parser.addoption("--mh-lazy-ssh", action="store_true", help="Postpone connecting to host SSH until it is required")
 
-    parser.addoption("--mh-topology", action="store", help="Filter tests by given topology")
+    parser.addoption(
+        "--mh-topology",
+        action="append",
+        default=[],
+        help="Filter tests by given topology, can be set multiple times",
+    )
 
     parser.addoption(
         "--mh-exact-topology",
