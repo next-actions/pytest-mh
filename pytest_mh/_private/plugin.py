@@ -36,6 +36,7 @@ class MultihostPlugin(object):
         self.mh_log_path: str = pytest_config.getoption("mh_log_path")
         self.mh_lazy_ssh: bool = pytest_config.getoption("mh_lazy_ssh")
         self.mh_topology: list[str] = pytest_config.getoption("mh_topology")
+        self.mh_not_topology: list[str] = pytest_config.getoption("mh_not_topology")
         self.mh_exact_topology: bool = pytest_config.getoption("mh_exact_topology")
         self.mh_collect_artifacts: bool = pytest_config.getoption("mh_collect_artifacts")
         self.mh_artifacts_dir: bool = pytest_config.getoption("mh_artifacts_dir")
@@ -118,7 +119,7 @@ class MultihostPlugin(object):
         self.logger.info(f"  config file: {self.mh_config}")
         self.logger.info(f"  log path: {self.mh_log_path}")
         self.logger.info(f"  lazy ssh: {self.mh_lazy_ssh}")
-        self.logger.info(f"  topology filter: {', '.join(self.mh_topology)}")
+        self.logger.info(f"  topology filter: {', '.join(self.mh_topology + [f'!{x}' for x in self.mh_not_topology])}")
         self.logger.info(f"  require exact topology: {self.mh_exact_topology}")
         self.logger.info(f"  collect artifacts: {self.mh_collect_artifacts}")
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
@@ -362,6 +363,10 @@ class MultihostPlugin(object):
                 if not self.topology.satisfies(data.topology_mark.topology):
                     return False
 
+        if self.mh_not_topology:
+            if data.topology_mark is not None and data.topology_mark.name in self.mh_not_topology:
+                return False
+
         if self.mh_topology:
             if data.topology_mark is None:
                 return False
@@ -405,6 +410,13 @@ def pytest_addoption(parser):
         action="append",
         default=[],
         help="Filter tests by given topology, can be set multiple times",
+    )
+
+    parser.addoption(
+        "--mh-not-topology",
+        action="append",
+        default=[],
+        help="Do not run tests for given topology, can be set multiple times",
     )
 
     parser.addoption(
