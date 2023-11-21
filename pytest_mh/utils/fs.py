@@ -624,7 +624,7 @@ class LinuxFileSystem(MultihostUtility):
         :rtype: SSHProcessResult
         """
         self.backup(path)
-        self.logger.info(f'Changing mode bits for "{path}"')
+        self.logger.info(f'Changing mode to "{mode}" for "{path}"')
         args = args if args else []
         return self.host.ssh.exec(["chmod", *args, mode, path], log_level=SSHLog.Error)
 
