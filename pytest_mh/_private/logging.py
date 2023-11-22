@@ -219,7 +219,7 @@ class LogExtraDataFilter(logging.Filter):
 
             return out
 
-        if isinstance(o, list):
+        if isinstance(o, (list, set, tuple)):
             out = ""
             for value in o:
                 out += "\n- " + str(value)
