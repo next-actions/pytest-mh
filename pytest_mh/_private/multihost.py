@@ -372,6 +372,16 @@ class MultihostHost(Generic[DomainType]):
         if not self.artifacts:
             return
 
+        self.logger.info(
+            "Collecting artifacts",
+            extra={
+                "data": {
+                    "Local destination": dest,
+                    "Artifacts": self.artifacts,
+                }
+            },
+        )
+
         # Create output directory
         Path(dest).mkdir(parents=True, exist_ok=True)
 
