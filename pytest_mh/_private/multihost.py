@@ -362,14 +362,19 @@ class MultihostHost(Generic[DomainType]):
         """
         return ["role", "hostname"]
 
-    def collect_artifacts(self, dest: str) -> None:
+    def collect_artifacts(self, dest: str, additional_artifacts: list[str]) -> None:
         """
-        Collect test artifacts that were requested by the multihost configuration.
+        Collect test artifacts that were requested by the multihost
+        configuration.
 
         :param dest: Destination directory, where the artifacts will be stored.
         :type dest: str
+        :param additional_artifacts: Additional artifacts that will be fetched
+            together with artifacts from configuration file.
+        :type additional_artifacts: list[str]
         """
-        if not self.artifacts:
+        artifacts = sorted(list(set(self.artifacts + additional_artifacts)))
+        if not artifacts:
             return
 
         self.logger.info(
@@ -377,7 +382,7 @@ class MultihostHost(Generic[DomainType]):
             extra={
                 "data": {
                     "Local destination": dest,
-                    "Artifacts": self.artifacts,
+                    "Artifacts": artifacts,
                 }
             },
         )
@@ -390,7 +395,7 @@ class MultihostHost(Generic[DomainType]):
             case MultihostHostOSFamily.Linux:
                 command = f"""
                     tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
-                    tar -czvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in self.artifacts])} &> /dev/null
+                    tar -czvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
                     base64 "$tmp"
                     rm -f "$tmp" &> /dev/null
                 """
@@ -455,6 +460,13 @@ class MultihostRole(Generic[HostType]):
 
         self.logger: MultihostLogger = self.host.logger
         """Multihost logger."""
+
+        self.artifacts: list[str] = []
+        """
+        List of artifacts that will be automatically collected when a test is
+        finished. This list can be dynamically extended. Values may contain
+        wildcard character.
+        """
 
     def setup(self) -> None:
         """

@@ -90,12 +90,25 @@ class MultihostFixture(object):
         Multihost logger.
         """
 
+        self.roles: list[MultihostRole] = []
+        """
+        Available MultihostRole objects.
+        """
+
+        self.hosts: list[MultihostHost] = []
+        """
+        Available MultihostHost objects.
+        """
+
         self._paths: dict[str, list[MultihostRole] | MultihostRole] = {}
         self._skipped: bool = False
 
         for domain in self.multihost.domains:
             if domain.id in topology:
                 setattr(self, domain.id, self._domain_to_namespace(domain, topology.get(domain.id)))
+
+        self.roles = sorted([x for x in self._paths.values() if isinstance(x, MultihostRole)], key=lambda x: x.role)
+        self.hosts = sorted(list({x.host for x in self.roles}), key=lambda x: x.hostname)
 
     def _domain_to_namespace(self, domain: MultihostDomain, topology_domain: TopologyDomain) -> SimpleNamespace:
         ns = SimpleNamespace()
@@ -130,17 +143,6 @@ class MultihostFixture(object):
             raise LookupError(f'Name "{path}" does not exist')
 
         return self._paths[path]
-
-    @property
-    def _hosts_and_roles(self) -> list[MultihostHost | MultihostRole]:
-        """
-        :return: List containing all hosts and roles available for current test case.
-        :rtype: list[MultihostHost | MultihostRole]
-        """
-        roles: list[MultihostRole] = [x for x in self._paths.values() if isinstance(x, MultihostRole)]
-        hosts: list[MultihostHost] = [x.host for x in roles]
-
-        return [*hosts, *roles]
 
     def _skip(self) -> bool:
         if self.data.topology_mark is None:
@@ -213,7 +215,7 @@ class MultihostFixture(object):
             return
 
         setup_ok: list[MultihostHost | MultihostRole] = []
-        for item in self._hosts_and_roles:
+        for item in self.hosts + self.roles:
             try:
                 item.setup()
             except Exception:
@@ -233,15 +235,23 @@ class MultihostFixture(object):
         if self._skipped:
             return
 
-        errors = []
-        for item in reversed(self._hosts_and_roles):
-            try:
-                # Try to collect artifacts from host before the role is teared down.
-                # We need to do it before the role object is teardown as it may
-                # potentially remove some of the requested artifacts.
-                if isinstance(item, MultihostRole):
-                    self._collect_artifacts(item.host)
+        # Create list of dynamically added artifacts
+        additional_artifacts: dict[MultihostHost, list[str]] = {}
+        for role in self.roles:
+            additional_artifacts.setdefault(role.host, []).extend(role.artifacts)
 
+        errors = []
+
+        # Collect artifacts, it an error is raised, we will ignore it since
+        # teardown is more important
+        for host in self.hosts:
+            try:
+                self._collect_artifacts(host, additional_artifacts[host])
+            except Exception as e:
+                errors.append(e)
+
+        for item in self.roles + self.hosts:
+            try:
                 item.teardown()
             except Exception as e:
                 errors.append(e)
@@ -271,18 +281,22 @@ class MultihostFixture(object):
 
         return f"{dir}/{name}"
 
-    def _collect_artifacts(self, host: MultihostHost) -> None:
+    def _collect_artifacts(self, host: MultihostHost, artifacts: list[str]) -> None:
         """
-        Collect test artifacts that were requested by the multihost configuration.
+        Collect test artifacts that were requested by the multihost
+        configuration.
 
         :param host: Host object where the artifacts will be collected.
         :type host: MultihostHost
+        :param artifacts: Additional artifacts that will be fetched together
+            with artifacts from configuration file.
+        :type artifacts: list[str]
         """
         path = self._artifacts_dir()
         if path is None:
             return
 
-        host.collect_artifacts(path)
+        host.collect_artifacts(path, artifacts)
 
     def _flush_logs(self) -> None:
         """
