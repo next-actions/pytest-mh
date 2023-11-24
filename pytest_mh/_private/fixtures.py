@@ -266,8 +266,7 @@ class MultihostFixture(object):
             return None
 
         name = self.request.node.name
-        for c in list('":<>|*?'):
-            name = name.replace(c, "-")
+        name = name.translate(str.maketrans('":<>|*? [', "---------", "]()"))
 
         return f"{dir}/{name}"
 
