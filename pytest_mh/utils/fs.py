@@ -608,6 +608,45 @@ class LinuxFileSystem(MultihostUtility):
 
         return self.host.ssh.exec(["wc", *args, file], log_level=SSHLog.Error)
 
+    def diff(
+        self,
+        path1: str,
+        path2: str,
+        *,
+        brief: bool = False,
+        recursive: bool = False,
+        ignore_case: bool = False,
+        args: list[str] | None = None,
+    ) -> SSHProcessResult:
+        """
+        Compare files line by line.
+        Exit status is 0 if inputs are the same, 1 if different, 2 if trouble.
+
+        :param path1: Path to file or directory to be compared
+        :type path1: str
+        :param path2: Path to file or directory to be compared
+        :type path2: str
+        :param brief: Report only when files differ, but do not print the diff itself, defaults to False
+        :type brief: bool, optional
+        :param recursive: Recursively compare any subdirectories found, defaults to False
+        :type recursive: bool, optional
+        :param ignore_case: Ignore case differences in file contents, defaults to False
+        :type ignore_case: bool, optional
+        :param args: Additional options, defaults to None
+        :type args: list[str] | None, optional
+        :return: Result of process
+        :rtype: SSHProcessResult
+        """
+        args = args if args else []
+        if brief:
+            args.append("--brief")
+        if recursive:
+            args.append("--recursive")
+        if ignore_case:
+            args.append("--ignore-case")
+
+        return self.host.ssh.exec(["diff", *args, path1, path2], raise_on_error=False)
+
     def chmod(self, mode: str, path: str, args: list[str] | None = None) -> SSHProcessResult:
         """
         Change file/folder mode bits.
