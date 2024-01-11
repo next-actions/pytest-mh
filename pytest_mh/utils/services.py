@@ -46,7 +46,8 @@ class SystemdServices(MultihostUtility):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: starting "{service}" asynchronously')
         return self.host.ssh.async_run(
-            f'systemctl start "{service}" || systemctl status "{service}"', log_level=SSHLog.Error
+            f'systemctl reset-failed "{service}"; systemctl start "{service}" || systemctl status "{service}"',
+            log_level=SSHLog.Error,
         )
 
     def start(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
@@ -66,7 +67,7 @@ class SystemdServices(MultihostUtility):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: starting "{service}"')
         return self.host.ssh.run(
-            f'systemctl start "{service}" || systemctl status "{service}"',
+            f'systemctl reset-failed "{service}"; systemctl start "{service}" || systemctl status "{service}"',
             raise_on_error=raise_on_error,
             log_level=SSHLog.Error,
         )
@@ -126,7 +127,8 @@ class SystemdServices(MultihostUtility):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: restarting "{service}" asynchronously')
         return self.host.ssh.async_run(
-            f'systemctl restart "{service}" || systemctl status "{service}"', log_level=SSHLog.Error
+            f'systemctl reset-failed "{service}"; systemctl restart "{service}" || systemctl status "{service}"',
+            log_level=SSHLog.Error,
         )
 
     def restart(self, service: str, raise_on_error: bool = True) -> SSHProcessResult:
@@ -146,7 +148,7 @@ class SystemdServices(MultihostUtility):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: restarting "{service}"')
         return self.host.ssh.run(
-            f'systemctl restart "{service}" || systemctl status "{service}"',
+            f'systemctl reset-failed "{service}"; systemctl restart "{service}" || systemctl status "{service}"',
             raise_on_error=raise_on_error,
             log_level=SSHLog.Error,
         )
