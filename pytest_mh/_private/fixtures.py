@@ -305,8 +305,8 @@ class MultihostFixture(object):
         path = self._artifacts_dir()
         if path is None:
             self.logger.clear()
-
-        self.logger.write_to_file(f"{path}/test.log")
+        else:
+            self.logger.write_to_file(f"{path}/test.log")
 
     def log_phase(self, phase: str) -> None:
         """
