@@ -441,6 +441,12 @@ def pytest_addoption(parser):
         help="Directory where artifacts will be stored (default: %(default)s)",
     )
 
+    parser.addoption(
+        "--mh-compress-artifacts",
+        action="store_true",
+        help="If set, test artifacts are stored in a compressed archive",
+    )
+
 
 def pytest_configure(config: pytest.Config):
     """

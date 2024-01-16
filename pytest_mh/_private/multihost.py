@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import inspect
+import tarfile
 from abc import ABC, abstractmethod
 from base64 import b64decode
 from enum import Enum
 from functools import wraps
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
 
@@ -362,7 +364,7 @@ class MultihostHost(Generic[DomainType]):
         """
         return ["role", "hostname"]
 
-    def collect_artifacts(self, dest: str, additional_artifacts: list[str]) -> None:
+    def collect_artifacts(self, dest: str, additional_artifacts: list[str], compression: bool) -> None:
         """
         Collect test artifacts that were requested by the multihost
         configuration.
@@ -372,6 +374,8 @@ class MultihostHost(Generic[DomainType]):
         :param additional_artifacts: Additional artifacts that will be fetched
             together with artifacts from configuration file.
         :type additional_artifacts: list[str]
+        :param compression: If True, a compressed archive is created instead of extracted files.
+        :type compression: bool
         """
         artifacts = sorted(list(set(self.artifacts + additional_artifacts)))
         if not artifacts:
@@ -407,9 +411,16 @@ class MultihostHost(Generic[DomainType]):
 
         result = self.ssh.run(command, log_level=SSHLog.Error)
 
-        # Store artifacts in single archive
-        with open(f"{dest}/{self.role}_{self.hostname}.{ext}", "wb") as f:
-            f.write(b64decode(result.stdout))
+        name = f"{self.role}_{self.hostname}"
+        with BytesIO(b64decode(result.stdout)) as buffer:
+            if compression:
+                # Store artifacts in single archive
+                with open(f"{dest}/{name}.{ext}", "wb") as f:
+                    f.write(buffer.getbuffer())
+            else:
+                # Extract archive for convenience
+                with tarfile.open(fileobj=buffer) as tar:
+                    tar.extractall(f"{dest}/{name}")
 
     def pytest_setup(self) -> None:
         """
