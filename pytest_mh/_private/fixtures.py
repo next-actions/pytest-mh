@@ -100,6 +100,10 @@ class MultihostFixture(object):
         Available MultihostHost objects.
         """
 
+        self._opt_artifacts_dir: str = self.request.config.getoption("mh_artifacts_dir")
+        self._opt_artifacts_mode: str = self.request.config.getoption("mh_collect_artifacts")
+        self._opt_artifacts_compression: bool = self.request.config.getoption("mh_compress_artifacts")
+
         self._paths: dict[str, list[MultihostRole] | MultihostRole] = {}
         self._skipped: bool = False
 
@@ -270,8 +274,8 @@ class MultihostFixture(object):
         if self._skipped:
             return None
 
-        dir = self.request.config.getoption("mh_artifacts_dir")
-        mode = self.request.config.getoption("mh_collect_artifacts")
+        dir = self._opt_artifacts_dir
+        mode = self._opt_artifacts_mode
         if mode == "never" or (mode == "on-failure" and self.data.outcome != "failed"):
             return None
 
@@ -295,7 +299,7 @@ class MultihostFixture(object):
         if path is None:
             return
 
-        host.collect_artifacts(path, artifacts)
+        host.collect_artifacts(path, artifacts, self._opt_artifacts_compression)
 
     def _flush_logs(self) -> None:
         """
