@@ -218,8 +218,9 @@ class MultihostPlugin(object):
         :meta private:
         """
 
-        selected = []
-        deselected = []
+        selected: list[pytest.Item] = []
+        deselected: list[pytest.Item] = []
+        mapping: dict[str, list[pytest.Item]] = {}
 
         for item in items:
             data = MultihostItemData(self.multihost, item.stash[MarkStashKey]) if self.multihost else None
@@ -229,8 +230,16 @@ class MultihostPlugin(object):
                 deselected.append(item)
                 continue
 
-            selected.append(item)
+            # Map test items by topology name so we can sort them later
+            if data is None or data.topology_mark is None:
+                mapping.setdefault("", []).append(item)
+            else:
+                mapping.setdefault(data.topology_mark.name, []).append(item)
 
+        # Sort test by topology name
+        selected = sum([y for _, y in sorted(mapping.items())], [])
+
+        # Yield result to pytest
         config.hook.pytest_deselected(items=deselected)
         items[:] = selected
 
