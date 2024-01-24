@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING, Any, Mapping, Tuple
 
 import pytest
 
+from .topology import Topology
+from .topology_controller import TopologyController
+
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
-    from .topology import Topology
 
 
 class TopologyMark(object):
@@ -16,12 +18,17 @@ class TopologyMark(object):
 
     * **name**, that is used to identify topology in pytest output
     * **topology** (:class:Topology) that is required to run the test
-    * **fixtures** that are available during the test run
+    * **controller** (:class:TopologyController) to provide per-topology hooks, optional
+    * **fixtures** that are available during the test run, optional
 
     .. code-block:: python
         :caption: Example usage
 
-        @pytest.mark.topology(name, topology, fixture=dict(fixture1='path1', fixture2='path2', ...))
+        @pytest.mark.topology(
+            name, topology,
+            controller=controller,
+            fixture=dict(fixture1='path1', fixture2='path2', ...)
+        )
         def test_fixture_name(fixture1: BaseRole, fixture2: BaseRole, ...):
             assert True
 
@@ -41,6 +48,7 @@ class TopologyMark(object):
         name: str,
         topology: Topology,
         *,
+        controller: TopologyController | None = None,
         fixtures: dict[str, str] | None = None,
     ) -> None:
         """
@@ -48,6 +56,8 @@ class TopologyMark(object):
         :type name: str
         :param topology: Topology required to run the test.
         :type topology: Topology
+        :param controller: Topology controller, defaults to None
+        :type controller: TopologyController | None, optional
         :param fixtures: Dynamically created fixtures available during the test run, defaults to None
         :type fixtures: dict[str, str] | None, optional
         """
@@ -56,6 +66,9 @@ class TopologyMark(object):
 
         self.topology: Topology = topology
         """Multihost topology."""
+
+        self.controller: TopologyController = controller if controller is not None else TopologyController()
+        """Multihost topology controller."""
 
         self.fixtures: dict[str, str] = fixtures if fixtures is not None else {}
         """Dynamic fixtures mapping."""
@@ -185,9 +198,10 @@ class TopologyMark(object):
 
         name = args[0]
         topology = args[1]
+        controller = kwargs.get("controller", None)
         fixtures = {k: str(v) for k, v in kwargs.get("fixtures", {}).items()}
 
-        return cls(name, topology, fixtures=fixtures)
+        return cls(name, topology, controller=controller, fixtures=fixtures)
 
 
 class KnownTopologyBase(Enum):

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any, Generator
+from typing import Any, Callable, Generator
 
 import colorama
 import pytest
 
 from .data import MultihostItemData
 from .logging import MultihostLogger
+from .marks import TopologyMark
 from .misc import invoke_callback
 from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole
 from .topology import Topology, TopologyDomain
+from .topology_controller import TopologyController
 
 
 class MultihostFixture(object):
@@ -51,7 +53,11 @@ class MultihostFixture(object):
     """
 
     def __init__(
-        self, request: pytest.FixtureRequest, data: MultihostItemData, multihost: MultihostConfig, topology: Topology
+        self,
+        request: pytest.FixtureRequest,
+        data: MultihostItemData,
+        multihost: MultihostConfig,
+        topology_mark: TopologyMark,
     ) -> None:
         """
         :param request: Pytest request.
@@ -60,8 +66,8 @@ class MultihostFixture(object):
         :type data: MultihostItemData
         :param multihost: Multihost configuration.
         :type multihost: MultihostConfig
-        :param topology: Multihost topology for this request.
-        :type topology: Topology
+        :param topology_mark: Multihost topology mark.
+        :type topology_mark: TopologyMark
         """
 
         self.data: MultihostItemData = data
@@ -79,9 +85,19 @@ class MultihostFixture(object):
         Multihost configuration.
         """
 
-        self.topology: Topology = topology
+        self.topology_mark: TopologyMark = topology_mark
+        """
+        Topology mark.
+        """
+
+        self.topology: Topology = topology_mark.topology
         """
         Topology data.
+        """
+
+        self.topology_controller: TopologyController = topology_mark.controller
+        """
+        Topology controller.
         """
 
         self.logger: MultihostLogger = multihost.logger
@@ -112,8 +128,8 @@ class MultihostFixture(object):
         self._skipped: bool = False
 
         for domain in self.multihost.domains:
-            if domain.id in topology:
-                setattr(self.ns, domain.id, self._domain_to_namespace(domain, topology.get(domain.id)))
+            if domain.id in self.topology:
+                setattr(self.ns, domain.id, self._domain_to_namespace(domain, self.topology.get(domain.id)))
 
         self.roles = sorted([x for x in self._paths.values() if isinstance(x, MultihostRole)], key=lambda x: x.role)
         self.hosts = sorted(list({x.host for x in self.roles}), key=lambda x: x.hostname)
@@ -153,24 +169,34 @@ class MultihostFixture(object):
         return self._paths[path]
 
     def _skip(self) -> bool:
-        if self.data.topology_mark is None:
-            raise ValueError("Multihost fixture is available but no topology mark was set")
-
         self._skipped = False
 
-        fixtures: dict[str, Any] = {k: None for k in self.data.topology_mark.fixtures.keys()}
-        fixtures.update(self.request.node.funcargs)
-        self.data.topology_mark.apply(self, fixtures)
+        reason = self._skip_by_topology(self.topology_controller)
+        if reason is not None:
+            self._skipped = True
+            pytest.skip(reason)
+
+        reason = self._skip_by_require_marker(self.topology_mark, self.request.node)
+        if reason is not None:
+            self._skipped = True
+            pytest.skip(reason)
+
+        return self._skipped
+
+    def _skip_by_topology(self, controller: TopologyController):
+        return controller._invoke_with_args(controller.skip)
+
+    def _skip_by_require_marker(self, topology_mark: TopologyMark, node: pytest.Function) -> str | None:
+        fixtures: dict[str, Any] = {k: None for k in topology_mark.fixtures.keys()}
+        fixtures.update(node.funcargs)
+        topology_mark.apply(self, fixtures)
 
         # Make sure mh fixture is always available
         fixtures["mh"] = self
 
-        for mark in self.request.node.iter_markers("require"):
+        for mark in node.iter_markers("require"):
             if len(mark.args) not in [1, 2]:
-                raise ValueError(
-                    f"{self.request.node.nodeid}::{self.request.node.originalname}: "
-                    "invalid arguments for @pytest.mark.require"
-                )
+                raise ValueError(f"{node.nodeid}::{node.originalname}: " "invalid arguments for @pytest.mark.require")
 
             condition = mark.args[0]
             reason = "Required condition was not met" if len(mark.args) != 2 else mark.args[1]
@@ -179,8 +205,7 @@ class MultihostFixture(object):
             if isinstance(callresult, tuple):
                 if len(callresult) != 2:
                     raise ValueError(
-                        f"{self.request.node.nodeid}::{self.request.node.originalname}: "
-                        "invalid arguments for @pytest.mark.require"
+                        f"{node.nodeid}::{node.originalname}: " "invalid arguments for @pytest.mark.require"
                     )
 
                 result = callresult[0]
@@ -189,10 +214,27 @@ class MultihostFixture(object):
                 result = callresult
 
             if not result:
-                self._skipped = True
-                pytest.skip(reason)
+                return reason
 
-        return self._skipped
+        return None
+
+    def _topology_setup(self) -> None:
+        """
+        Run per-test setup from topology controller.
+        """
+        if self._skipped:
+            return
+
+        self.topology_controller._invoke_with_args(self.topology_controller.setup)
+
+    def _topology_teardown(self) -> None:
+        """
+        Run per-test teardown from topology controller.
+        """
+        if self._skipped:
+            return
+
+        self.topology_controller._invoke_with_args(self.topology_controller.teardown)
 
     def _setup(self) -> None:
         """
@@ -296,6 +338,20 @@ class MultihostFixture(object):
         else:
             self.logger.write_to_file(f"{path}/test.log")
 
+    def _invoke_phase(self, name: str, cb: Callable, catch: bool = False) -> Exception | None:
+        self.log_phase(name)
+        try:
+            cb()
+        except Exception as e:
+            if catch:
+                return e
+
+            raise
+        finally:
+            self.log_phase(f"{name} DONE")
+
+        return None
+
     def log_phase(self, phase: str) -> None:
         """
         Log current test phase.
@@ -317,22 +373,22 @@ class MultihostFixture(object):
             return self
 
         self.log_phase("BEGIN")
-        self.log_phase("SETUP")
-        try:
-            self._setup()
-        finally:
-            self.log_phase("SETUP DONE")
+        self._invoke_phase("SETUP TOPOLOGY", self._topology_setup)
+        self._invoke_phase("SETUP TEST", self._setup)
 
         return self
 
     def __exit__(self, exception_type, exception_value, traceback) -> None:
-        self.log_phase("TEARDOWN")
-        try:
-            self._teardown()
-        finally:
-            self.log_phase("TEARDOWN DONE")
-            self.log_phase("END")
-            self._flush_logs()
+        errors: list[Exception | None] = []
+        errors.append(self._invoke_phase("TEARDOWN TEST", self._teardown, catch=True))
+        errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._topology_teardown, catch=True))
+
+        self.log_phase("END")
+        self._flush_logs()
+
+        errors = [x for x in errors if x is not None]
+        if errors:
+            raise Exception(errors)
 
 
 @pytest.fixture(scope="function")
@@ -366,7 +422,7 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
     if data.topology_mark is None:
         raise ValueError("data.topology_mark must not be None")
 
-    with MultihostFixture(request, data, data.multihost, data.topology_mark.topology) as mh:
+    with MultihostFixture(request, data, data.multihost, data.topology_mark) as mh:
         mh.log_phase("TEST")
         yield mh
         mh.log_phase("TEST DONE")
