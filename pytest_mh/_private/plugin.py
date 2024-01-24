@@ -30,6 +30,7 @@ class MultihostPlugin(object):
         self.multihost: MultihostConfig | None = None
         self.topology: Topology | None = None
         self.confdict: dict | None = None
+        self.current_topology: str | None = None
 
         # CLI options
         self.mh_config: str = pytest_config.getoption("mh_config")
@@ -230,6 +231,10 @@ class MultihostPlugin(object):
                 deselected.append(item)
                 continue
 
+            # This test can be run, perform delayed initialization of data.
+            if data is not None:
+                data._init()
+
             # Map test items by topology name so we can sort them later
             if data is None or data.topology_mark is None:
                 mapping.setdefault("", []).append(item)
@@ -259,20 +264,28 @@ class MultihostPlugin(object):
             return
 
         data: MultihostItemData | None = MultihostItemData.GetData(item)
-        if data is None:
+        if self.multihost is None or data is None or data.topology_mark is None:
             return
+        mark: TopologyMark = data.topology_mark
+
+        # Execute per-topology setup if topology is switched.
+        if self._topology_switch(None, item):
+            try:
+                mark.controller._invoke_with_args(mark.controller.topology_setup)
+            finally:
+                self.current_topology = mark.name
+                self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup_topology_{mark.name}.log")
+
+        # Make mh fixture always available
+        if "mh" not in item.fixturenames:
+            item.fixturenames.append("mh")
 
         # Fill in parameters that will be set later in pytest_runtest_call hook,
         # otherwise pytest will raise unknown fixture error.
-        if data.topology_mark is not None:
-            # Make mh fixture always available
-            if "mh" not in item.fixturenames:
-                item.fixturenames.append("mh")
-
-            spec = inspect.getfullargspec(item.obj)
-            for arg in data.topology_mark.args:
-                if arg in spec.args:
-                    item.funcargs[arg] = None
+        spec = inspect.getfullargspec(item.obj)
+        for arg in mark.args:
+            if arg in spec.args:
+                item.funcargs[arg] = None
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_call(self, item: pytest.Item) -> None:
@@ -294,6 +307,24 @@ class MultihostPlugin(object):
                 raise ValueError(f"Fixture mh is not MultihostFixture but {type(mh)}!")
 
             data.topology_mark.apply(mh, item.funcargs)
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_runtest_teardown(self, item: pytest.Item, nextitem: pytest.Item | None) -> None:
+        if self.multihost is None:
+            return
+
+        data: MultihostItemData | None = MultihostItemData.GetData(item)
+        if data is None or data.topology_mark is None:
+            return
+        mark: TopologyMark = data.topology_mark
+
+        # Execute per-topology teardown if topology changed.
+        if self._topology_switch(item, nextitem):
+            try:
+                mark.controller._invoke_with_args(mark.controller.topology_teardown)
+            finally:
+                self.current_topology = None
+                self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown_topology_{mark.name}.log")
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
@@ -397,6 +428,36 @@ class MultihostPlugin(object):
             fixtureinfo=f._fixtureinfo,
             originalname=f.originalname,
         )
+
+    def _topology_switch(self, curitem: pytest.Item | None, nextitem: pytest.Item | None) -> bool:
+        # No more items means topology switch for our usecase
+        if nextitem is None:
+            return True
+
+        # If current item is None, we need to check current topology
+        if curitem is None:
+            # This is a first test in the new topology
+            if self.current_topology is None:
+                return True
+            # We always set current_topology to None when switching topologies
+            else:
+                return False
+
+        curdata: MultihostItemData | None = MultihostItemData.GetData(curitem)
+        nextdata: MultihostItemData | None = MultihostItemData.GetData(nextitem)
+
+        if curdata is None or nextdata is None:
+            raise RuntimeError("Data can not be None")
+
+        # If the test does not have topology marker, we consider it a switch
+        if curdata.topology_mark is None or nextdata.topology_mark is None:
+            return True
+
+        # Different topology name is a switch
+        if curdata.topology_mark.name != nextdata.topology_mark.name:
+            return True
+
+        return False
 
 
 # These pytest hooks must be available outside of the plugin's class because

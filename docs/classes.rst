@@ -13,6 +13,7 @@ configuration options.
 * :class:`~pytest_mh.MultihostHost`: lives through the whole pytest session, gives low-level access to the host
 * :class:`~pytest_mh.MultihostRole`: lives only for a single test case, provides high-level API
 * :class:`~pytest_mh.MultihostUtility`: provides high-level API that can be shared between multiple roles
+* :class:`~pytest_mh.TopologyController`: control topology behavior such as per-topology setup and teardown
 
 .. mermaid::
     :caption: Class relationship
@@ -210,6 +211,97 @@ There are already some utility classes implemented in ``pytest-mh``. See
     Each change that is made through the utility object (such as writing to a
     file) is automatically reverted (the original file is restored).
 
+TopologyController
+==================
+
+Topology controller can be assigned to a topology via `@pytest.mark.topology`
+or through known topology class. This controller provides various methods to
+control the topology behavior:
+
+* per-topology setup and teardown, called once before the first test/after the
+  last test for given topology is executed
+* per-test topology setup and teardown, called before and after every test case
+  for given topology
+* check topology requirements and skip the test if these are not satisfied
+
+In order to use the controller, you need to inherit from
+:class:`~pytest_mh.TopologyController` and override desired methods. Each method
+can take any parameter as defined by the topology fixtures. The parameter value
+is an instance of a :class:`~pytest_mh.MultihostHost` object.
+
+See :class:`~pytest_mh.TopologyController` for API documentation
+
+.. code-block:: python
+    :caption: Example topology controller
+
+    class ExampleController(TopologyController):
+        def skip(self, client: ClientHost) -> str | None:
+            result = client.ssh.run(
+                '''
+                # Implement your requirement check here
+                exit 1
+                ''', raise_on_error=False)
+            if result.rc != 0:
+                return "Topology requirements were not met"
+
+            return None
+
+        def topology_setup(self, client: ClientHost):
+            # One-time setup, prepare the host for this topology
+            # Changes done here are shared for all tests
+            pass
+
+        def topology_teardown(self, client: ClientHost):
+            # One-time teardown, this should undo changes from
+            # topology_setup
+            pass
+
+        def setup(self, client: ClientHost):
+            # Perform per-topology test setup
+            # This is called before execution of every test
+            pass
+
+        def teardown(self, client: ClientHost):
+            # Perform per-topology test teardown, this should undo changes
+            # from setup
+            pass
+
+.. code-block:: python
+    :caption: Example with low-level topology mark
+
+    class ExampleController(TopologyController):
+        # Implement methods you are interested in here
+        pass
+
+    @pytest.mark.topology(
+        "example", Topology(TopologyDomain("example", client=1)),
+        controller=ExampleController(),
+        fixtures=dict(client="example.client[0]")
+    )
+    def test_example(client: Client):
+        pass
+
+.. code-block:: python
+    :caption: Example with KnownTopology (recommended)
+
+    class ExampleController(TopologyController):
+        # Implement methods you are interested in here
+        pass
+
+    @final
+    @unique
+    class KnownTopology(KnownTopologyBase):
+        EXAMPLE = TopologyMark(
+            name='example',
+            topology=Topology(TopologyDomain("example", client=1)),
+            controller=ExampleController(),
+            fixtures=dict(client='example.client[0]'),
+        )
+
+    @pytest.mark.topology(KnownTopology.EXAMPLE)
+    def test_example(client: Client):
+        pass
+
 .. _setup-and-teardown:
 
 Setup and teardown
@@ -227,7 +319,7 @@ role, and utility objects are executed.
 
         subgraph run [ ]
             subgraph setup [Setup before test]
-                hs(host.setup) --> rs[role.setup]
+                hs(host.setup) --> cs(controller.setup) --> rs[role.setup]
                 rs --> us[utility.setup]
             end
 
@@ -235,12 +327,13 @@ role, and utility objects are executed.
 
             subgraph teardown [Teardown after test]
                 ut[utility.teadown] --> rt[role.teardown]
-                rt --> ht(host.teardown)
+                rt --> ct(controller.teardown)
+                ct --> ht(host.teardown)
             end
         end
 
-        hps -->|run tests| run
-        run -->|all tests finished| hpt(host.pytest_teardown)
+        hps -->|run tests| cts(controller.topopology_setup) -->|run all tests for topology| run
+        run -->|all tests for topology finished| ctt(controller.topology_teardown) -->|all tests finished| hpt(host.pytest_teardown)
         hpt --> e([end])
 
         style run fill:#FFF
