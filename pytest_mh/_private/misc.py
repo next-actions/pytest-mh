@@ -6,19 +6,25 @@ from inspect import getfullargspec
 from typing import Any, Callable
 
 
-def merge_dict(d1, d2):
+def merge_dict(*args: dict | None):
     """
-    Merge two nested dictionaries together.
+    Merge two or more nested dictionaries together.
 
     Nested dictionaries are not overwritten but combined.
     """
-    dest = deepcopy(d1)
-    for key, value in d2.items():
-        if isinstance(value, dict):
-            dest[key] = merge_dict(dest.get(key, {}), value)
-            continue
+    filtered_args = [x for x in args if x is not None]
+    if not filtered_args:
+        return {}
 
-        dest[key] = value
+    dest = deepcopy(filtered_args[0])
+
+    for source in filtered_args[1:]:
+        for key, value in source.items():
+            if isinstance(value, dict):
+                dest[key] = merge_dict(dest.get(key, {}), value)
+                continue
+
+            dest[key] = value
 
     return dest
 

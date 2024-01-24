@@ -2,7 +2,75 @@ from __future__ import annotations
 
 from functools import partial
 
-from pytest_mh._private.misc import invoke_callback
+import pytest
+
+from pytest_mh._private.misc import invoke_callback, merge_dict
+
+
+@pytest.mark.parametrize(
+    "dicts, expected",
+    [
+        ([None], dict()),
+        ([dict()], dict()),
+        ([None, None], dict()),
+        ([dict(), dict()], dict()),
+        ([dict(), dict(), dict()], dict()),
+        ([None, dict(a="a", b="b")], dict(a="a", b="b")),
+        ([None, dict(a="a", b="b")], dict(a="a", b="b")),
+        ([dict(a="a", b="b"), None], dict(a="a", b="b")),
+        ([dict(), dict(a="a", b="b")], dict(a="a", b="b")),
+        ([dict(a="a", b="b"), dict()], dict(a="a", b="b")),
+        ([dict(a="a"), dict(b="b"), dict(c="c")], dict(a="a", b="b", c="c")),
+        ([dict(a="a", b="b"), dict(c="c")], dict(a="a", b="b", c="c")),
+        (
+            [
+                dict(a="a", b=dict(bb="bb")),
+                dict(c="c"),
+            ],
+            dict(a="a", b=dict(bb="bb"), c="c"),
+        ),
+        (
+            [
+                dict(a="a", b=dict(bb="bb")),
+                dict(b="b"),
+            ],
+            dict(a="a", b="b"),
+        ),
+        (
+            [
+                dict(a="a", b=dict(bb="bb")),
+                dict(b=dict(bb="1")),
+            ],
+            dict(a="a", b=dict(bb="1")),
+        ),
+        (
+            [
+                dict(a="a", b=dict(bb="bb")),
+                dict(b=dict(bc="bc")),
+            ],
+            dict(a="a", b=dict(bb="bb", bc="bc")),
+        ),
+        (
+            [
+                dict(a="a", b=dict(bb="bb")),
+                dict(b=dict(bc="bc")),
+                dict(b=dict(bd="bd")),
+            ],
+            dict(a="a", b=dict(bb="bb", bc="bc", bd="bd")),
+        ),
+        (
+            [
+                dict(a="a", b=dict(bb=dict(bbb="bbb"))),
+                dict(b=dict(bc="bc")),
+                dict(b=dict(bb=dict(bbc="bbc"))),
+            ],
+            dict(a="a", b=dict(bb=dict(bbb="bbb", bbc="bbc"), bc="bc")),
+        ),
+    ],
+)
+def test_merge_dict(dicts, expected):
+    result = merge_dict(*dicts)
+    assert result == expected
 
 
 def test_invoke_callback__exact():
