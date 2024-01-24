@@ -165,7 +165,7 @@ fixtures.
 
     @pytest.mark.topology(
         "kdc", Topology(TopologyDomain("test", client=1, kdc=1)),
-        client="test.client[0]", kdc="test.kdc[0]"
+        fixtures=dict(client="test.client[0]", kdc="test.kdc[0]")
     )
     def test_example(client: Client, kdc: KDC):
         pass

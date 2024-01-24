@@ -21,7 +21,7 @@ class TopologyMark(object):
     .. code-block:: python
         :caption: Example usage
 
-        @pytest.mark.topology(name, topology, fixture1='path1', fixture2='path2', ...)
+        @pytest.mark.topology(name, topology, fixture=dict(fixture1='path1', fixture2='path2', ...))
         def test_fixture_name(fixture1: BaseRole, fixture2: BaseRole, ...):
             assert True
 
@@ -40,6 +40,7 @@ class TopologyMark(object):
         self,
         name: str,
         topology: Topology,
+        *,
         fixtures: dict[str, str] | None = None,
     ) -> None:
         """
@@ -176,7 +177,7 @@ class TopologyMark(object):
         :return: Instance of TopologyMark.
         :rtype: TopologyMark
         """
-        # First three parameters are positional, the rest are keyword arguments.
+        # First two parameters are positional, the rest are keyword arguments.
         if len(args) != 2:
             nodeid = item.parent.nodeid if item.parent is not None else ""
             error = f"{nodeid}::{item.originalname}: invalid arguments for @pytest.mark.topology"
@@ -184,9 +185,9 @@ class TopologyMark(object):
 
         name = args[0]
         topology = args[1]
-        fixtures = {k: str(v) for k, v in kwargs.items()}
+        fixtures = {k: str(v) for k, v in kwargs.get("fixtures", {}).items()}
 
-        return cls(name, topology, fixtures)
+        return cls(name, topology, fixtures=fixtures)
 
 
 class KnownTopologyBase(Enum):
