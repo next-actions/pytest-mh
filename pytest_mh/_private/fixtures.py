@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import inspect
-from functools import partial
 from types import SimpleNamespace
 from typing import Any, Generator
 
@@ -10,6 +8,7 @@ import pytest
 
 from .data import MultihostItemData
 from .logging import MultihostLogger
+from .misc import invoke_callback
 from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole
 from .topology import Topology, TopologyDomain
 
@@ -176,27 +175,7 @@ class MultihostFixture(object):
             condition = mark.args[0]
             reason = "Required condition was not met" if len(mark.args) != 2 else mark.args[1]
 
-            args: list[str] = []
-            if isinstance(condition, partial):
-                spec = inspect.getfullargspec(condition.func)
-
-                # Remove bound positional parameters
-                args = spec.args[len(condition.args) :]
-
-                # Remove bound keyword parameters
-                args = [x for x in args if x not in condition.keywords]
-            else:
-                spec = inspect.getfullargspec(condition)
-                args = spec.args
-
-            if spec.varkw is None:
-                # No **kwargs is present, just pick selected arguments
-                callspec = {k: v for k, v in fixtures.items() if k in args}
-            else:
-                # **kwargs is present, pass everything
-                callspec = fixtures
-
-            callresult = condition(**callspec)
+            callresult = invoke_callback(condition, **fixtures)
             if isinstance(callresult, tuple):
                 if len(callresult) != 2:
                     raise ValueError(
