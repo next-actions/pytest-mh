@@ -114,8 +114,8 @@ domains (:class:`~pytest_mh.MultihostDomain`) and hosts (as
 
 To access the hosts through the :func:`~pytest_mh.mh` fixture use:
 
-* ``mh.<domain-id>.<role>`` to access a list of all hosts that implements given role
-* ``mh.<domain-id>.<role>[<index>]`` to access a specific host through index starting from 0
+* ``mh.ns.<domain-id>.<role>`` to access a list of all hosts that implements given role
+* ``mh.ns.<domain-id>.<role>[<index>]`` to access a specific host through index starting from 0
 
 The following snippet shows how to access hosts from our topology:
 
@@ -123,8 +123,8 @@ The following snippet shows how to access hosts from our topology:
 
     @pytest.mark.topology('ldap', Topology(TopologyDomain('test', client=1, ldap=1)))
     def test_example(mh: MultihostFixture):
-        assert mh.test.client[0].role == 'client'
-        assert mh.test.ldap[0].role == 'ldap'
+        assert mh.ns.test.client[0].role == 'client'
+        assert mh.ns.test.ldap[0].role == 'ldap'
 
 Since the role objects are instances of your own classes (``LDAP`` and
 ``Client`` for our example), you can also set the type to get the advantage of
@@ -134,8 +134,8 @@ Python type hinting.
 
     @pytest.mark.topology('ldap', Topology(TopologyDomain('test', client=1, ldap=1)))
     def test_example(mh: MultihostFixture):
-        client: Client = mh.test.client[0]
-        ldap: LDAP = mh.test.ldap[0]
+        client: Client = mh.ns.test.client[0]
+        ldap: LDAP = mh.ns.test.ldap[0]
 
         assert client.role == 'client'
         assert ldap.role == 'ldap'
@@ -143,8 +143,8 @@ Python type hinting.
 
     @pytest.mark.topology('ldap', Topology(TopologyDomain('test', client=1, ldap=1)))
     def test_example2(mh: MultihostFixture):
-        clients: list[Client] = mh.test.client
-        ldaps: list[LDAP] = mh.test.ldap
+        clients: list[Client] = mh.ns.test.client
+        ldaps: list[LDAP] = mh.ns.test.ldap
 
         for client in clients:
             assert client.role == 'client'
