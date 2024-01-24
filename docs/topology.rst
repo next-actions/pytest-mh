@@ -54,7 +54,7 @@ The marker is used as:
 
 .. code-block:: python
 
-    @pytest.mark.topology(name, topology, *, fixtures ...)
+    @pytest.mark.topology(name, topology, *, fixtures=dict(...))
     def test_example():
         assert True
 
@@ -179,7 +179,7 @@ The example above can be rewritten as:
 
     @pytest.mark.topology(
         'ldap', Topology(TopologyDomain('test', client=1, ldap=1)),
-        client='test.client[0]', ldap='test.ldap[0]'
+        fixtures=dict(client='test.client[0]', ldap='test.ldap[0]')
     )
     def test_example(client: Client, ldap: LDAP):
         assert client.role == 'client'
@@ -198,7 +198,7 @@ benefit from it.
 
     @pytest.mark.topology(
         'ldap', Topology(TopologyDomain('test', client=1, ldap=1)),
-        clients='test.client', ldap='test.ldap[0]'
+        fixtures=dict(clients='test.client', ldap='test.ldap[0]')
     )
     def test_example(clients: list[Client], ldap: LDAP):
         for client in clients:
@@ -217,7 +217,7 @@ benefit from it.
 
         @pytest.mark.topology(
             'ldap', Topology(TopologyDomain('test', client=1, ldap=1)),
-            clients='test.client'
+            fixtures=dict(clients='test.client')
         )
         def test_example(mh: MultihostFixture, clients: list[Client]):
             pass
@@ -231,7 +231,7 @@ benefit from it.
 
         @pytest.mark.topology(
             'ldap', Topology(TopologyDomain('test', client=1, ldap=1)),
-            client='test.client[0]', ldap='test.ldap[0]', provider='test.ldap[0]'
+            fixtures=dict(client='test.client[0]', ldap='test.ldap[0]', provider='test.ldap[0]')
         )
         def test_example(client: Client, provider: GenericProvider):
             pass
