@@ -46,9 +46,9 @@ class MultihostFixture(object):
         :caption: Example of the MultihostFixture object
 
         def test_example(mh: MultihostFixture):
-            mh.test            # -> namespace containing roles as properties
-            mh.test.client     # -> list of hosts providing given role
-            mh.test.client[0]  # -> host object, instance of specific role
+            mh.ns.test            # -> namespace containing roles as properties
+            mh.ns.test.client     # -> list of hosts providing given role
+            mh.ns.test.client[0]  # -> host object, instance of specific role
     """
 
     def __init__(
@@ -100,6 +100,11 @@ class MultihostFixture(object):
         Available MultihostHost objects.
         """
 
+        self.ns: SimpleNamespace = SimpleNamespace()
+        """
+        Roles as object accessible through topology path, e.g. ``mh.ns.domain_id.role_name``.
+        """
+
         self._opt_artifacts_dir: str = self.request.config.getoption("mh_artifacts_dir")
         self._opt_artifacts_mode: str = self.request.config.getoption("mh_collect_artifacts")
         self._opt_artifacts_compression: bool = self.request.config.getoption("mh_compress_artifacts")
@@ -109,7 +114,7 @@ class MultihostFixture(object):
 
         for domain in self.multihost.domains:
             if domain.id in topology:
-                setattr(self, domain.id, self._domain_to_namespace(domain, topology.get(domain.id)))
+                setattr(self.ns, domain.id, self._domain_to_namespace(domain, topology.get(domain.id)))
 
         self.roles = sorted([x for x in self._paths.values() if isinstance(x, MultihostRole)], key=lambda x: x.role)
         self.hosts = sorted(list({x.host for x in self.roles}), key=lambda x: x.hostname)
