@@ -411,6 +411,10 @@ class MultihostHost(Generic[DomainType]):
 
         result = self.ssh.run(command, log_level=SSHLog.Error)
 
+        # Return if no artifacts were obtained
+        if not result.stdout:
+            return
+
         name = f"{self.role}_{self.hostname}"
         with BytesIO(b64decode(result.stdout)) as buffer:
             if compression:
