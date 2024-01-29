@@ -1,6 +1,7 @@
 """
 .. avoid already-imported warning: PYTEST_DONT_REWRITE (hidden from sphinx)
 """
+
 from __future__ import annotations
 
 from ._private.data import MultihostItemData
