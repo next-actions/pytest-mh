@@ -1,6 +1,12 @@
 pytest_mh - pytest multihost test framework
 ###########################################
 
+.. warning::
+
+    This plugin is still actively developed and even though it is mostly stable,
+    we reserve the right to introduce minor breaking changes if it is required for
+    new functionality.
+
 ``pytest-mh`` is a pytest plugin that, at a basic level, allows you to run shell
 commands and scripts over SSH on remote Linux or Windows hosts. You use it to
 execute system or application tests for your project on a remote host or hosts
