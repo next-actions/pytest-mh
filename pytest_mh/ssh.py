@@ -617,7 +617,7 @@ class SSHClient(object):
     .. note::
 
         It is possible to set ``MH_SSH_DEBUG=yes`` environment variable to
-        log output and exist status to from commands, regardless of what log
+        log output and exit status to from commands, regardless of what log
         level is used. This essentially enforces the :attr:`SSHLog.Full` level.
     """
 
