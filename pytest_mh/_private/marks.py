@@ -151,9 +151,10 @@ class TopologyMark(object):
         :raises ValueError:
         :rtype: TopologyMark
         """
+        nodeid = item.parent.nodeid if item.parent is not None else ""
+        error = f"{nodeid}::{item.originalname}: invalid arguments for @pytest.mark.topology"
+
         if not mark.args or len(mark.args) > 3:
-            nodeid = item.parent.nodeid if item.parent is not None else ""
-            error = f"{nodeid}::{item.originalname}: invalid arguments for @pytest.mark.topology"
             raise ValueError(error)
 
         # Constructor for KnownTopologyBase
