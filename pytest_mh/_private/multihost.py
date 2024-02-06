@@ -109,7 +109,7 @@ class MultihostDomain(ABC, Generic[ConfigType]):
             self.required_fields, confdict, error_fmt='"{key}" property is missing in domain configuration'
         )
 
-        self.config: ConfigType = config
+        self.mh_config: ConfigType = config
         """Multihost configuration"""
 
         self.logger: MultihostLogger = config.logger
@@ -276,7 +276,7 @@ class MultihostHost(Generic[DomainType]):
         )
 
         # Required
-        self.domain: DomainType = domain
+        self.mh_domain: DomainType = domain
         """Multihost domain."""
 
         self.role: str = confdict["role"]
@@ -285,7 +285,7 @@ class MultihostHost(Generic[DomainType]):
         self.hostname: str = confdict["hostname"]
         """Host hostname."""
 
-        self.logger: MultihostLogger = self.domain.logger.subclass(
+        self.logger: MultihostLogger = self.mh_domain.logger.subclass(
             cls=MultihostHostLogger, suffix=f"host.{self.hostname}", hostname=self.hostname
         )
         """Multihost logger."""
@@ -351,7 +351,7 @@ class MultihostHost(Generic[DomainType]):
         """Command line builder."""
 
         # Connect to SSH unless lazy ssh is set
-        if not self.domain.config.lazy_ssh:
+        if not self.mh_domain.mh_config.lazy_ssh:
             self.ssh.connect()
 
     @property
