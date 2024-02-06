@@ -215,6 +215,34 @@ class SystemdServices(MultihostUtility):
         """
         return self.host.ssh.run(f'systemctl status "{service}"', raise_on_error=raise_on_error)
 
+    def async_get_property(self, service: str, prop: str) -> SSHProcess:
+        """
+        Get property of systemd unit. Non-blocking call.
+
+        :param service: Unit name.
+        :type service: str
+        :param prop: Propery name.
+        :type prop: str
+        :return: Running SSH process.
+        :rtype: SSHProcess
+        """
+        return self.host.ssh.async_run(f'systemctl show "{service}" -P "{prop}"')
+
+    def get_property(self, service: str, prop: str, raise_on_error: bool = True) -> SSHProcessResult:
+        """
+        Get property of systemd unit. The call will wait until the operation is finished.
+
+        :param service: Unit name.
+        :type service: str
+        :param prop: Propery name.
+        :type prop: str
+        :param raise_on_error: Raise exception on error, defaults to True
+        :type raise_on_error: bool, optional
+        :return: SSH process result.
+        :rtype: SSHProcessResult
+        """
+        return self.host.ssh.run(f'systemctl show "{service}" -P "{prop}"', raise_on_error=raise_on_error)
+
     def async_reload_daemon(self) -> SSHProcess:
         """
         Reload systemd daemon to refresh unit files. Non-blocking call.
