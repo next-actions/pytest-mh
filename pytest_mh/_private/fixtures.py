@@ -222,9 +222,6 @@ class MultihostFixture(object):
         """
         Run per-test setup from topology controller.
         """
-        if self._skipped:
-            return
-
         self.topology_controller._invoke_with_args(self.topology_controller.setup)
         self.topology_controller._op_state.set_success("setup")
 
@@ -232,9 +229,6 @@ class MultihostFixture(object):
         """
         Run per-test teardown from topology controller.
         """
-        if self._skipped:
-            return
-
         if self.topology_controller._op_state.check_success("setup"):
             self.topology_controller._invoke_with_args(self.topology_controller.teardown)
 
@@ -243,9 +237,6 @@ class MultihostFixture(object):
         Setup multihost. A setup method is called on each host and role
         to initialize the test environment to expected state.
         """
-        if self._skipped:
-            return
-
         for item in self.hosts + self.roles:
             item.setup()
             item._op_state.set_success("setup")
@@ -256,9 +247,6 @@ class MultihostFixture(object):
         that were made during a test run. It is automatically called when the
         test is finished.
         """
-        if self._skipped:
-            return
-
         # Create list of dynamically added artifacts
         additional_artifacts: dict[MultihostHost, list[str]] = {}
         for role in self.roles:
@@ -377,6 +365,9 @@ class MultihostFixture(object):
         return self
 
     def _exit(self) -> None:
+        if self._skipped:
+            return
+
         errors: list[Exception | None] = []
         errors.append(self._invoke_phase("TEARDOWN TEST", self._teardown, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._topology_teardown, catch=True))
