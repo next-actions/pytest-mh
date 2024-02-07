@@ -241,27 +241,35 @@ class MultihostFixture(object):
             item.setup()
             item._op_state.set_success("setup")
 
+    def _collect_artifacts(self) -> None:
+        path = self._artifacts_dir()
+        if path is None:
+            return
+
+        # Create list of dynamically added artifacts
+        additional_artifacts: dict[MultihostHost, list[str]] = {}
+        for role in self.roles:
+            additional_artifacts.setdefault(role.host, []).extend(role.artifacts)
+
+        # Collect artifacts, if an error is raised, we will ignore it since
+        # teardown is more important
+        errors = []
+        for host in self.hosts:
+            try:
+                host.collect_artifacts(path, additional_artifacts[host], self._opt_artifacts_compression)
+            except Exception as e:
+                errors.append(e)
+
+        if errors:
+            raise Exception(errors)
+
     def _teardown(self) -> None:
         """
         Teardown multihost. The purpose of this method is to revert any changes
         that were made during a test run. It is automatically called when the
         test is finished.
         """
-        # Create list of dynamically added artifacts
-        additional_artifacts: dict[MultihostHost, list[str]] = {}
-        for role in self.roles:
-            additional_artifacts.setdefault(role.host, []).extend(role.artifacts)
-
         errors = []
-
-        # Collect artifacts, it an error is raised, we will ignore it since
-        # teardown is more important
-        for host in self.hosts:
-            try:
-                self._collect_artifacts(host, additional_artifacts[host])
-            except Exception as e:
-                errors.append(e)
-
         for item in self.roles + self.hosts:
             if item._op_state.check_success("setup"):
                 try:
@@ -295,23 +303,6 @@ class MultihostFixture(object):
         name = name.translate(str.maketrans('":<>|*? [', "---------", "]()"))
 
         return f"{dir}/{name}"
-
-    def _collect_artifacts(self, host: MultihostHost, artifacts: list[str]) -> None:
-        """
-        Collect test artifacts that were requested by the multihost
-        configuration.
-
-        :param host: Host object where the artifacts will be collected.
-        :type host: MultihostHost
-        :param artifacts: Additional artifacts that will be fetched together
-            with artifacts from configuration file.
-        :type artifacts: list[str]
-        """
-        path = self._artifacts_dir()
-        if path is None:
-            return
-
-        host.collect_artifacts(path, artifacts, self._opt_artifacts_compression)
 
     def _flush_logs(self) -> None:
         """
@@ -369,6 +360,7 @@ class MultihostFixture(object):
             return
 
         errors: list[Exception | None] = []
+        errors.append(self._invoke_phase("COLLECT ARTIFACTS", self._collect_artifacts, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TEST", self._teardown, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._topology_teardown, catch=True))
 
