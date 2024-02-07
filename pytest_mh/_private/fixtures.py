@@ -226,6 +226,7 @@ class MultihostFixture(object):
             return
 
         self.topology_controller._invoke_with_args(self.topology_controller.setup)
+        self.topology_controller._op_state.set_success("setup")
 
     def _topology_teardown(self) -> None:
         """
@@ -234,7 +235,8 @@ class MultihostFixture(object):
         if self._skipped:
             return
 
-        self.topology_controller._invoke_with_args(self.topology_controller.teardown)
+        if self.topology_controller._op_state.check_success("setup"):
+            self.topology_controller._invoke_with_args(self.topology_controller.teardown)
 
     def _setup(self) -> None:
         """
@@ -244,17 +246,9 @@ class MultihostFixture(object):
         if self._skipped:
             return
 
-        setup_ok: list[MultihostHost | MultihostRole] = []
         for item in self.hosts + self.roles:
-            try:
-                item.setup()
-            except Exception:
-                # Teardown hosts and roles that were successfully setup before this error
-                for i in reversed(setup_ok):
-                    i.teardown()
-                raise
-
-            setup_ok.append(item)
+            item.setup()
+            item._op_state.set_success("setup")
 
     def _teardown(self) -> None:
         """
@@ -281,10 +275,11 @@ class MultihostFixture(object):
                 errors.append(e)
 
         for item in self.roles + self.hosts:
-            try:
-                item.teardown()
-            except Exception as e:
-                errors.append(e)
+            if item._op_state.check_success("setup"):
+                try:
+                    item.teardown()
+                except Exception as e:
+                    errors.append(e)
 
         if errors:
             raise Exception(errors)
@@ -302,7 +297,10 @@ class MultihostFixture(object):
 
         dir = self._opt_artifacts_dir
         mode = self._opt_artifacts_mode
-        if mode == "never" or (mode == "on-failure" and self.data.outcome != "failed"):
+
+        # There was error in fixture setup if the outcome is not known at this point
+        outcome = self.data.outcome if self.data.outcome is not None else "error"
+        if mode == "never" or (mode == "on-failure" and outcome not in ("failed", "error")):
             return None
 
         name = self.request.node.name
@@ -368,7 +366,7 @@ class MultihostFixture(object):
             )
         )
 
-    def __enter__(self) -> MultihostFixture:
+    def _enter(self) -> MultihostFixture:
         if self._skip():
             return self
 
@@ -378,7 +376,7 @@ class MultihostFixture(object):
 
         return self
 
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
+    def _exit(self) -> None:
         errors: list[Exception | None] = []
         errors.append(self._invoke_phase("TEARDOWN TEST", self._teardown, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._topology_teardown, catch=True))
@@ -422,7 +420,11 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
     if data.topology_mark is None:
         raise ValueError("data.topology_mark must not be None")
 
-    with MultihostFixture(request, data, data.multihost, data.topology_mark) as mh:
+    mh = MultihostFixture(request, data, data.multihost, data.topology_mark)
+    try:
+        mh._enter()
         mh.log_phase("TEST")
         yield mh
         mh.log_phase("TEST DONE")
+    finally:
+        mh._exit()
