@@ -161,3 +161,83 @@ def topology_controller_parameters(
         "ns": ns,
         **args,
     }
+
+
+class OperationStatus(object):
+    """
+    Keep named states of operation.
+
+    This can be used to mark certain operations as completed with success,
+    failure or any other state and act later upon it.
+    """
+
+    def __init__(self) -> None:
+        self.states: dict[str, str] = {}
+
+    def set(self, name: str, state: str) -> None:
+        """
+        Set current state of the operation.
+
+        :param name: Operation name.
+        :type name: str
+        :param state: Current state.
+        :type state: str
+        """
+        self.states[name] = state
+
+    def set_success(self, name: str) -> None:
+        """
+        Mark operation as successful.
+
+        :param name: Operation name.
+        :type name: str
+        """
+        self.set(name, "success")
+
+    def set_failure(self, name: str) -> None:
+        """
+        Mark operation as failed.
+
+        :param name: Operation name.
+        :type name: str
+        """
+        self.set(name, "failure")
+
+    def check(self, name: str, expected_state: str) -> bool:
+        """
+        Check operation state.
+
+        :param name: Operation name.
+        :type name: str
+        :param expected_state: Expected state.
+        :type expected_state: str
+        :return: True if current state equals to the expected state, False otherwise.
+        :rtype: bool
+        """
+        state = self.states.get(name, None)
+        if state is None:
+            return False
+
+        return state == expected_state
+
+    def check_success(self, name: str) -> bool:
+        """
+        Check if operation state is success.
+
+        :param name: Operation name.
+        :type name: str
+        :return: True if current state equals to ``success``, False otherwise.
+        :rtype: bool
+        """
+        return self.check(name, "success")
+
+    def check_failure(self, name: str) -> bool:
+        """
+        Check if operation state is failure.
+
+        :param name: Operation name.
+        :type name: str
+        :return: True if current state equals to ``failure``, False otherwise.
+        :rtype: bool
+        """
+        return self.check(name, "failure")

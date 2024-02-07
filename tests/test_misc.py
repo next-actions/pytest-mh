@@ -4,7 +4,7 @@ from functools import partial
 
 import pytest
 
-from pytest_mh._private.misc import invoke_callback, merge_dict
+from pytest_mh._private.misc import OperationStatus, invoke_callback, merge_dict
 
 
 @pytest.mark.parametrize(
@@ -132,3 +132,20 @@ def test_invoke_callback__kwargs_mixed():
     invoke_callback(partial(_cb, 4), a=1, b=2, c=3)
     invoke_callback(partial(_cb, a=1), b=2, c=3, d=4)
     invoke_callback(partial(_cb, d=4), a=1, b=2, c=3)
+
+
+def test_OperationStatus():
+    op = OperationStatus()
+    op.set("example", "in-progress")
+    op.set_success("setup")
+    op.set_failure("teardown")
+
+    assert op.check("example", "in-progress")
+    assert not op.check("example", "success")
+    assert not op.check("missing", "success")
+
+    assert op.check_success("setup")
+    assert not op.check_success("teardown")
+
+    assert op.check_failure("teardown")
+    assert not op.check_failure("setup")
