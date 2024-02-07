@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable
 
 from .logging import MultihostLogger
-from .misc import invoke_callback
+from .misc import OperationStatus, invoke_callback
 from .topology import Topology, TopologyDomain
 
 if TYPE_CHECKING:
@@ -98,6 +98,9 @@ class TopologyController(object):
     """
 
     def __init__(self) -> None:
+        self._op_state: OperationStatus = OperationStatus()
+        """Keep state of setup and teardown methods."""
+
         self.__name: str | None = None
         self.__multihost: MultihostConfig | None = None
         self.__logger: MultihostLogger | None = None

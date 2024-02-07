@@ -14,6 +14,7 @@ from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
 from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
+from .misc import OperationStatus
 from .utils import validate_configuration
 
 if TYPE_CHECKING:
@@ -271,6 +272,9 @@ class MultihostHost(Generic[DomainType]):
         :param shell: Shell used in SSH connection, defaults to '/usr/bin/bash -c'.
         :type shell: str
         """
+        self._op_state: OperationStatus = OperationStatus()
+        """Keep state of setup and teardown methods."""
+
         validate_configuration(
             self.required_fields, confdict, error_fmt='"{key}" property is missing in host configuration'
         )
@@ -469,6 +473,9 @@ class MultihostRole(Generic[HostType]):
         role: str,
         host: HostType,
     ) -> None:
+        self._op_state: OperationStatus = OperationStatus()
+        """Keep state of setup and teardown methods."""
+
         self.mh: MultihostFixture = mh
         self.role: str = role
         self.host: HostType = host
