@@ -8,10 +8,9 @@ from enum import Enum, auto
 from typing import Any, Generator, NoReturn, Self, Type
 
 import colorama as c
-import pssh.clients.base.single
-import pssh.clients.ssh
-import pssh.exceptions
-import pssh.output
+from pylibsshext.channel import Channel as LibsshChannel
+from pylibsshext.errors import LibsshSessionException
+from pylibsshext.session import Session as LibsshSession
 
 from ._private.logging import MultihostLogger
 
@@ -42,6 +41,108 @@ class SSHLog(Enum):
     """
 
 
+class SSHInputBuffer(object):
+    """
+    SSH Input Buffer.
+
+    Allows to write into stdin of opened SSH channel.
+    """
+
+    def __init__(self, channel: LibsshChannel) -> None:
+        """
+        :param channel: Opened libssh channel.
+        :type channel: LibsshChannel
+        """
+        self._channel: LibsshChannel = channel
+
+    def write(self, data: str) -> None:
+        """
+        Write data to stdin.
+
+        :param data: Data to write.
+        :type data: str
+        """
+        self._channel.write(data.encode("utf-8"))
+
+
+class SSHOutputBuffer(Generator):
+    """
+    SSH Output Buffer.
+
+    Reads from stdout or stderr from an opened SSH channel and makes each line
+    of the data accessible through a generator.
+    """
+
+    def __init__(self, channel: LibsshChannel, stderr: bool):
+        """
+        :param channel: Opened libssh channel.
+        :type channel: LibsshChannell
+        :param stderr: Whether to read stdout or stderr.
+        :type stderr: bool
+        """
+        self.channel: LibsshChannel = channel
+        self.stderr: bool = stderr
+
+        self.eof: bool = False
+        self.chunk: str = ""
+        self.lines: list[str] = []
+
+    def _read(self) -> str:
+        """
+        Read available data.
+
+        :rtype: str
+        """
+        while not self.eof:
+            self.channel.poll(timeout=1000, stderr=self.stderr)
+            chunk = self.channel.recv(stderr=self.stderr)
+            if chunk is None:
+                self.eof = True
+                return ""
+
+            if not chunk:
+                continue
+
+            return chunk.decode("utf-8")
+
+        return ""
+
+    def finish(self) -> None:
+        """
+        Read all remaining data.
+        """
+        list(self)
+
+    def send(self, value: Any):
+        while True:
+            if self.chunk:
+                newline = self.chunk.find("\n")
+
+                # Return a full line if it was already read
+                if newline >= 0:
+                    line = self.chunk[:newline]
+                    self.lines.append(line)
+                    self.chunk = self.chunk[newline + 1 :]
+                    return line
+
+                # Return remaining data if there is nothing else to read
+                if self.eof and self.chunk:
+                    line = self.chunk
+                    self.lines.append(line)
+                    self.chunk = ""
+                    return line
+
+            # Stop if we can not read anything more
+            if self.eof and not self.chunk:
+                raise StopIteration
+
+            # Read more data
+            self.chunk += self._read()
+
+    def throw(self, typ, val=None, tb=None):
+        super().throw(typ, val, tb)
+
+
 class SSHProcess(object):
     """
     SSH Process.
@@ -64,7 +165,8 @@ class SSHProcess(object):
         env: dict[str, Any] | None = None,
         input: str | None = None,
         shell: str | None = None,
-        conn: pssh.clients.ssh.SSHClient,
+        client: SSHClient,
+        conn: LibsshSession,
         read_timeout: float,
         logger: MultihostLogger,
         log_level: SSHLog,
@@ -81,8 +183,10 @@ class SSHProcess(object):
         :type input: str | None, optional
         :param shell: Shell used to execute the command, defaults to None (use user's login shell)
         :type shell: str | None, optional
-        :param conn: Connected SSH client.
-        :type conn: pssh.clients.ssh.SSHClient
+        :param client: SSH client.
+        :type client: SSHClient
+        :param conn: Connected SSH session.
+        :type conn: LibsshSession
         :param read_timeout: Timeout in seconds, how long should the client wait
             for output, defaults to 30 seconds
         :type read_timeout: float
@@ -93,14 +197,15 @@ class SSHProcess(object):
         :param sync_exec: Is this a blocking execution?
         :type sync_exec: bool
         """
-        self.__conn: pssh.clients.ssh.SSHClient = conn
-        self.__process: pssh.output.HostOutput | None = None
+        self.__client: SSHClient = client
+        self.__conn: LibsshSession = conn
+        self.__channel: LibsshChannel | None = None
 
         self.__logger: MultihostLogger = logger
         self.__log_level: SSHLog = self._get_log_level(log_level)
         self.__sync_exec: bool = sync_exec
 
-        self.id = next(self.__genid) + 1
+        self.id: int = next(self.__genid) + 1
         self.command: str = textwrap.dedent(command).strip()
         self.cwd: str | None = cwd
         self.env: dict[str, Any] = env if env is not None else {}
@@ -108,10 +213,17 @@ class SSHProcess(object):
         self.shell: str | None = shell
         self.read_timeout: float = read_timeout
 
-        self.__stdout_generator: Generator[str, None, None] | None = None
-        self.__stderr_generator: Generator[str, None, None] | None = None
-        self.__stdout: list[str] = []
-        self.__stderr: list[str] = []
+        self.__stdout: SSHOutputBuffer | None = None
+        self.__stderr: SSHOutputBuffer | None = None
+        self.__stdin: SSHInputBuffer | None = None
+
+    @property
+    def in_progress(self) -> bool:
+        """
+        :return: True if a command is already started and in progress.
+        :rtype: bool
+        """
+        return self.__channel is not None
 
     @property
     def stdout(self) -> Generator[str, None, None]:
@@ -130,14 +242,14 @@ class SSHProcess(object):
             for line in process.stdout:
                 pass
 
-        :raises RuntimeError: If the process is not yet started.
+        :raises RuntimeError: If the process is not running.
         :return: Standard output generator.
         :rtype: Generator[str, None, None]
         """
-        if self.__stdout_generator is None:
-            raise RuntimeError("The process has not yet started")
+        if not self.in_progress or self.__stdout is None:
+            raise RuntimeError("Accessing stdout on a process that is not running.")
 
-        return self.__stdout_generator
+        return self.__stdout
 
     @property
     def stderr(self) -> Generator[str, None, None]:
@@ -156,19 +268,19 @@ class SSHProcess(object):
             for line in process.stderr:
                 pass
 
-        :raises RuntimeError: If the process is not yet started.
+        :raises RuntimeError: If the process is not running.
         :return: Standard error output generator.
         :rtype: Generator[str, None, None]
         """
-        if self.__stderr_generator is None:
-            raise RuntimeError("The process has not yet started")
+        if not self.in_progress or self.__stderr is None:
+            raise RuntimeError("Accessing stderr on a process that is not running.")
 
-        return self.__stderr_generator
+        return self.__stderr
 
     @property
-    def stdin(self) -> pssh.clients.base.single.Stdin:
+    def stdin(self) -> SSHInputBuffer:
         """
-        File-like object representing command's standard input.
+        Command's standard input.
 
         .. code-block:: python
 
@@ -178,15 +290,14 @@ class SSHProcess(object):
             # Send EOF to indicate that there will be no more input data.
             process.send_eof()
 
-        :raises RuntimeError: If the process is not yet started.
+        :raises RuntimeError: If the process is not running.
         :return: Standard input file.
-        :rtype: pssh.clients.base.single.Stdin
+        :rtype: SSHInputBuffer
         """
+        if not self.in_progress or self.__stdin is None:
+            raise RuntimeError("Accessing stdin on a process that is not running.")
 
-        if self.__process is None:
-            raise RuntimeError("The process has not yet started")
-
-        return self.__process.stdin
+        return self.__stdin
 
     def run(self) -> Self:
         """
@@ -202,9 +313,9 @@ class SSHProcess(object):
                 self.__msg_execution(),
                 extra={
                     "data": {
-                        "Host": self.__conn.host,
+                        "Host": self.__client.host,
                         "Shell": self.shell,
-                        "User": self.__conn.user,
+                        "User": self.__client.user,
                         "Command": self.command,
                         "Input": self.input,
                         "Working directory": self.cwd,
@@ -213,22 +324,18 @@ class SSHProcess(object):
                 },
             )
 
-        self.__process = self.__conn.run_command(
-            command=complete_command,
-            shell=self.shell,
-            read_timeout=self.read_timeout,
-        )
+        self.__channel = self.__conn.new_channel()
+        try:
+            self.__channel.request_exec(f"{self.shell} '{complete_command}'")
+            self.__stdout = SSHOutputBuffer(self.__channel, stderr=False)
+            self.__stderr = SSHOutputBuffer(self.__channel, stderr=True)
+            self.__stdin = SSHInputBuffer(self.__channel)
 
-        def wrap_generator(generator, buffer) -> Generator[str, None, None]:
-            for line in generator:
-                buffer.append(line)
-                yield line
-
-        self.__stdout_generator = wrap_generator(self.__process.stdout, self.__stdout)
-        self.__stderr_generator = wrap_generator(self.__process.stderr, self.__stderr)
-
-        if self.input is not None:
-            self.stdin.write(self.input)
+            if self.input is not None:
+                self.stdin.write(self.input)
+        except Exception:
+            self._close()
+            raise
 
         return self
 
@@ -245,32 +352,35 @@ class SSHProcess(object):
         :return: Command result.
         :rtype: SSHProcessResult
         """
-        if self.__process is None:
+        if not self.in_progress or self.__stdout is None or self.__stderr is None:
             raise RuntimeError("Calling wait on process that has not yet started.")
 
-        self.send_eof()
-        self.__conn.wait_finished(self.__process)
+        try:
+            # Notify the program that there will be no more input
+            self.send_eof()
 
-        # Read remaining output, this will finish the output generator and append
-        # remaining lines to self.__stdout and self.__stderr buffers.
-        list(self.stdout)
-        list(self.stderr)
+            # Wait for the program to finish and get the exit code.
+            code = self._wait_for_rc()
 
-        # Get exit code.
-        code = self.__conn._eagain_errcode(self.__process.channel.get_exit_status, -1)
+            # Read remaining output, this will finish the output generator and append
+            # remaining lines to self.__stdout and self.__stderr buffers.
+            self.__stdout.finish()
+            self.__stderr.finish()
 
-        result = SSHProcessResult(code, self.__stdout, self.__stderr)
-        result._error = SSHProcessError(
-            self.id, self.command, result.rc, self.cwd, self.env, self.input, result.stdout, result.stderr
-        )
+            result = SSHProcessResult(code, self.__stdout.lines, self.__stderr.lines)
+            result._error = SSHProcessError(
+                self.id, self.command, result.rc, self.cwd, self.env, self.input, result.stdout, result.stderr
+            )
+        finally:
+            self._close()
 
         if self.__log_level == SSHLog.Error and result.rc != 0:
             self.__logger.error(
                 self.__msg_completed_async(result.rc),
                 extra={
                     "data": {
-                        "Host": self.__conn.host,
-                        "User": self.__conn.user,
+                        "Host": self.__client.host,
+                        "User": self.__client.user,
                         "Command": self.command,
                         "Input": self.input,
                         "Working directory": self.cwd,
@@ -304,8 +414,8 @@ class SSHProcess(object):
                         self.__msg_completed_async(result.rc),
                         extra={
                             "data": {
-                                "Host": self.__conn.host,
-                                "User": self.__conn.user,
+                                "Host": self.__client.host,
+                                "User": self.__client.user,
                                 "Command": self.command,
                                 "Input": self.input,
                                 "Working directory": self.cwd,
@@ -318,8 +428,8 @@ class SSHProcess(object):
                         self.__msg_completed_async(result.rc),
                         extra={
                             "data": {
-                                "Host": self.__conn.host,
-                                "User": self.__conn.user,
+                                "Host": self.__client.host,
+                                "User": self.__client.user,
                                 "Command": self.command,
                                 "Input": self.input,
                                 "Working directory": self.cwd,
@@ -342,12 +452,45 @@ class SSHProcess(object):
         Send EOF to standard input to indicate that there will be no more
         input data.
 
-        :raises RuntimeError: If the process is not yet started.
+        :raises RuntimeError: If the process is not running.
         """
-        if self.__process is None:
-            raise RuntimeError("The process has not yet started")
+        if self.__channel is None:
+            raise RuntimeError("Calling send_eof on process that is not running.")
 
-        self.__process.channel.send_eof()
+        self.__channel.send_eof()
+
+    def send_signal(self, sig: str) -> None:
+        """
+        Send signal to the running process.
+
+        :raises RuntimeError: If the process is not running.
+        """
+        if self.__channel is None:
+            raise RuntimeError("Calling send_signal on process that is not running.")
+
+        self.__channel.send_signal(sig)
+
+    def _close(self) -> None:
+        if self.__channel is None:
+            return
+
+        self.__channel.close()
+        self.__channel = None
+        self.__stdout = None
+        self.__stderr = None
+        self.__stdin = None
+
+    def _wait_for_rc(self) -> int:
+        if self.__channel is None:
+            raise RuntimeError("Calling _wait_for_rc on process that is not running.")
+
+        rc = -1
+        while rc == -1:
+            rc = self.__channel.get_channel_exit_status()
+            if rc == -1:
+                self.__channel.poll(timeout=5)
+
+        return rc
 
     def _build_complete_command(self, command: str, *, cwd: str | None, env: dict[str, Any]) -> str:
         out = ""
@@ -369,8 +512,7 @@ class SSHProcess(object):
 
     def _escape_command(self, command: str) -> str:
         """
-        pssh simply calls the command as $shell '$command', e.g.
-        bash -c '$command'
+        We call the command as $shell '$command', e.g. bash -c '$command'
 
         We need to escape ' inside the command to make it work correctly.
         """
@@ -464,8 +606,7 @@ class SSHPowerShellProcess(SSHProcess):
 
     def _escape_command(self, command: str) -> str:
         """
-        pssh simply calls the command as $shell '$command', e.g.
-        bash -c '$command'
+        We call the command as $shell '$command', e.g. bash -c '$command'
 
         We need to escape ' inside the command to make it work correctly.
         """
@@ -549,14 +690,14 @@ class SSHProcessError(Exception):
             )
         )
 
-        self.id = id
-        self.command = (command,)
-        self.rc = rc
-        self.cwd = cwd
-        self.env = env
-        self.input = input
-        self.stdout = stdout
-        self.stderr = stderr
+        self.id: int = id
+        self.command: tuple[str] = (command,)
+        self.rc: int = rc
+        self.cwd: str | None = cwd
+        self.env: dict[str, Any] = env
+        self.input: str | None = input
+        self.stdout: str = stdout
+        self.stderr: str = stderr
 
 
 class SSHAuthenticationError(Exception):
@@ -565,8 +706,9 @@ class SSHAuthenticationError(Exception):
         host: str,
         port: int,
         user: str,
+        message: str,
     ) -> None:
-        super().__init__(f'Unable to authenticate as "{user}" at {host}:{port} over SSH')
+        super().__init__(f'Unable to authenticate as "{user}" at {host}:{port} over SSH: {message}')
 
 
 class SSHClient(object):
@@ -628,7 +770,7 @@ class SSHClient(object):
         user: str,
         password: str,
         port: int = 22,
-        shell: Type[SSHProcess] = SSHProcess,
+        shell: Type[SSHProcess] = SSHBashProcess,
         logger: MultihostLogger,
     ) -> None:
         """
@@ -642,7 +784,7 @@ class SSHClient(object):
         :type logger: MultihostLogger
         :param port: SSH port, defaults to 22
         :type port: int, optional
-        :param shell: User shell used to run commands, defaults to '/usr/bin/bash -c'
+        :param shell: User shell used to run commands, defaults to SSHBashProcess
         :type shell: str, optional
         """
         self.host: str = host
@@ -652,7 +794,7 @@ class SSHClient(object):
         self.shell: Type[SSHProcess] = shell
         self.logger: MultihostLogger = logger
 
-        self.__conn: pssh.clients.ssh.SSHClient | None = None
+        self.__conn: LibsshSession = LibsshSession()
 
     @property
     def connected(self) -> bool:
@@ -660,20 +802,7 @@ class SSHClient(object):
         :return: True if the client is connected, False otherwise.
         :rtype: bool
         """
-        return self.__conn is not None
-
-    @property
-    def conn(self) -> pssh.clients.ssh.SSHClient:
-        """
-        Low-level connection object.
-
-        :return: Parallel-ssh connection object.
-        :rtype: pssh.clients.ssh.SSHClient
-        """
-        if self.__conn is None:
-            RuntimeError("SSH client is not connected.")
-
-        return self.__conn
+        return self.__conn.is_connected
 
     def connect(self) -> None:
         """
@@ -690,20 +819,15 @@ class SSHClient(object):
         )
 
         try:
-            self.__conn = pssh.clients.ssh.SSHClient(
+            self.__conn.connect(
                 host=self.host,
                 user=self.user,
                 password=self.password,
                 port=self.port,
-                identity_auth=False,
-                gssapi_auth=False,
-                allow_agent=False,
-                num_retries=1,
+                host_key_checking=False,
             )
-        except pssh.exceptions.AuthenticationError:
-            e = SSHAuthenticationError(self.host, self.port, self.user)
-            self.logger.error(str(e))
-            raise e
+        except LibsshSessionException as e:
+            raise SSHAuthenticationError(self.host, self.port, self.user, e.message)
 
     def disconnect(self) -> None:
         """
@@ -714,11 +838,7 @@ class SSHClient(object):
             + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
         )
 
-        if self.__conn is None:
-            return
-
         self.__conn.disconnect()
-        self.__conn = None
 
     def async_run(
         self,
@@ -761,7 +881,8 @@ class SSHClient(object):
             cwd=cwd,
             env=env,
             input=input,
-            conn=self.conn,
+            client=self,
+            conn=self.__conn,
             read_timeout=read_timeout,
             logger=self.logger,
             log_level=log_level,
@@ -819,7 +940,8 @@ class SSHClient(object):
             cwd=cwd,
             env=env,
             input=input,
-            conn=self.conn,
+            client=self,
+            conn=self.__conn,
             read_timeout=read_timeout,
             logger=self.logger,
             log_level=log_level,
