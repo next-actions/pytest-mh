@@ -35,7 +35,7 @@ files = ["requirements.txt"]
 source = "vcs"
 
 [[tool.mypy.overrides]]
-module = ["pssh.*", "pytest_output.*"]
+module = ["pylibsshext.*", "pytest_output.*"]
 ignore_missing_imports = true
 
 [tool.isort]
