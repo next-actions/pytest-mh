@@ -1,4 +1,4 @@
+ansible-pylibssh>=1.2.0
 colorama
-parallel-ssh
 pytest
 PyYAML
