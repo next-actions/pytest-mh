@@ -226,7 +226,7 @@ class SystemdServices(MultihostUtility):
         :return: Running SSH process.
         :rtype: SSHProcess
         """
-        return self.host.ssh.async_run(f'systemctl show "{service}" -P "{prop}"')
+        return self.host.ssh.async_run(f'systemctl show "{service}" --value --property "{prop}"')
 
     def get_property(self, service: str, prop: str, raise_on_error: bool = True) -> str:
         """
@@ -241,7 +241,9 @@ class SystemdServices(MultihostUtility):
         :return: property value as string.
         :rtype: str
         """
-        result = self.host.ssh.run(f'systemctl show "{service}" -P "{prop}"', raise_on_error=raise_on_error)
+        result = self.host.ssh.run(
+            f'systemctl show "{service}" --value --property "{prop}"', raise_on_error=raise_on_error
+        )
         return result.stdout.strip()
 
     def async_reload_daemon(self) -> SSHProcess:
