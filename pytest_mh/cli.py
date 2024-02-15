@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, auto
-from typing import Any, Type, TypeAlias
+from typing import Any, Callable, Type, TypeAlias
 
 from .ssh import SSHClient, SSHPowerShellProcess, SSHProcess
 
@@ -55,6 +55,14 @@ class CLIBuilder(object):
         def _get_value(value: Any) -> str:
             return str(value) if not quote_value else f"'{value}'"
 
+        def _add_argv(argv: list[str], key: str | None, value: Any, getvaluefn: Callable[[Any], str]) -> None:
+            value = value if isinstance(value, list) else [value]
+            for v in value:
+                if key is not None:
+                    argv.append(_get_option(key))
+
+                argv.append(getvaluefn(v))
+
         argv = [command] if command is not None else []
         for key, item in args.items():
             if item is None:
@@ -66,7 +74,7 @@ class CLIBuilder(object):
 
             match type:
                 case self.option.POSITIONAL:
-                    argv.append(_get_value(value))
+                    _add_argv(argv, None, value, _get_value)
                 case self.option.SWITCH:
                     if self.__match_shell(SSHPowerShellProcess):
                         argv.append(f'{_get_option(key)}:{"$True" if value else "$False"}')
@@ -74,11 +82,9 @@ class CLIBuilder(object):
                         if value:
                             argv.append(_get_option(key))
                 case self.option.VALUE:
-                    argv.append(_get_option(key))
-                    argv.append(_get_value(value))
+                    _add_argv(argv, key, value, _get_value)
                 case self.option.PLAIN:
-                    argv.append(_get_option(key))
-                    argv.append(str(value))
+                    _add_argv(argv, key, value, str)
                 case _:
                     raise ValueError(f"Unknown option type: {type}")
 
