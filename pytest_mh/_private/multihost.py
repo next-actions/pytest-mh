@@ -298,8 +298,8 @@ class MultihostHost(Generic[DomainType]):
         self.config: dict[str, Any] = confdict.get("config", {})
         """Custom configuration."""
 
-        self.artifacts: list[str] = confdict.get("artifacts", [])
-        """Host artifacts produced during tests."""
+        self.configured_artifacts: list[str] = confdict.get("artifacts", [])
+        """Host artifacts produced during tests, configured by the user."""
 
         # SSH
         ssh = confdict.get("ssh", {})
@@ -358,6 +358,13 @@ class MultihostHost(Generic[DomainType]):
         if not self.mh_domain.mh_config.lazy_ssh:
             self.ssh.connect()
 
+        self.artifacts: list[str] = []
+        """
+        List of artifacts that will be automatically collected when a test is
+        finished. This list can be dynamically extended. Values may contain
+        wildcard character.
+        """
+
     @property
     def required_fields(self) -> list[str]:
         """
@@ -381,7 +388,7 @@ class MultihostHost(Generic[DomainType]):
         :param compression: If True, a compressed archive is created instead of extracted files.
         :type compression: bool
         """
-        artifacts = sorted(list(set(self.artifacts + additional_artifacts)))
+        artifacts = sorted(list(set(self.configured_artifacts + self.artifacts + additional_artifacts)))
         if not artifacts:
             return
 
@@ -454,6 +461,17 @@ class MultihostHost(Generic[DomainType]):
         """
         pass
 
+    def prepare_artifacts(self) -> None:
+        """
+        Prepare artifacts for collection.
+
+        This is called before the artifacts are collected. It is possible to
+        generate additional artifacts that were not created by the test, or
+        detect which artifacts were created and store their paths in
+        :attr:`artifacts`.
+        """
+        pass
+
 
 HostType = TypeVar("HostType", bound=MultihostHost)
 
@@ -504,6 +522,17 @@ class MultihostRole(Generic[HostType]):
         """
         MultihostUtility.TeardownUtilityAttributes(self)
 
+    def prepare_artifacts(self) -> None:
+        """
+        Prepare artifacts for collection.
+
+        This is called before the artifacts are collected. It is possible to
+        generate additional artifacts that were not created by the test, or
+        detect which artifacts were created and store their paths in
+        :attr:`artifacts`.
+        """
+        pass
+
     def ssh(self, user: str, password: str, *, shell=SSHBashProcess) -> SSHClient:
         """
         Open SSH connection to the host as given user.
@@ -552,8 +581,16 @@ class MultihostUtility(Generic[HostType]):
         self.used: bool = False
         """Indicate if this utility instance was already used or not within current test."""
 
+        self.artifacts: list[str] = []
+        """
+        List of artifacts that will be automatically collected when a test is
+        finished. This list can be dynamically extended. Values may contain
+        wildcard character.
+        """
+
         # Enable first use setup
         disallowed = [
+            "artifacts",
             "setup",
             "teardown",
             "setup_when_used",
@@ -589,6 +626,17 @@ class MultihostUtility(Generic[HostType]):
     def teardown_when_used(self) -> None:
         """
         Teardown the object only if it was used.
+        """
+        pass
+
+    def prepare_artifacts(self) -> None:
+        """
+        Prepare artifacts for collection.
+
+        This is called before the artifacts are collected. It is possible to
+        generate additional artifacts that were not created by the test, or
+        detect which artifacts were created and store their paths in
+        :attr:`artifacts`.
         """
         pass
 
@@ -653,6 +701,33 @@ class MultihostUtility(Generic[HostType]):
 
         if errors:
             raise Exception(errors)
+
+    @classmethod
+    def PrepareUtilityArtifacts(cls, o: object) -> None:
+        """
+        Prepare artifacts for collections :class:`MultihostUtility` objects
+        attributes of the given object.
+
+        :param o: Any object.
+        :type o: object
+        """
+        for util in cls.GetUtilityAttributes(o).values():
+            util.prepare_artifacts()
+
+    @classmethod
+    def GetUtilityArtifacts(cls, o: object) -> list[str]:
+        """
+        Get artifacts from all :class:`MultihostUtility` objects attributes of
+        the given object.
+
+        :param o: Any object.
+        :type o: object
+        """
+        artifacts: list[str] = []
+        for util in cls.GetUtilityAttributes(o).values():
+            artifacts += util.artifacts
+
+        return artifacts
 
     @classmethod
     def IgnoreCall(cls, method):

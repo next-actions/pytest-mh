@@ -10,7 +10,7 @@ from .data import MultihostItemData
 from .logging import MultihostLogger
 from .marks import TopologyMark
 from .misc import invoke_callback
-from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole
+from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole, MultihostUtility
 from .topology import Topology, TopologyDomain
 from .topology_controller import TopologyController
 
@@ -244,16 +244,27 @@ class MultihostFixture(object):
     def _collect_artifacts(self) -> None:
         path = self._artifacts_dir()
         if path is None:
+            self.logger.info("Artifacts are not collected")
             return
+
+        errors = []
 
         # Create list of dynamically added artifacts
         additional_artifacts: dict[MultihostHost, list[str]] = {}
         for role in self.roles:
-            additional_artifacts.setdefault(role.host, []).extend(role.artifacts)
+            try:
+                MultihostUtility.PrepareUtilityArtifacts(role)
+                role.prepare_artifacts()
+                role.host.prepare_artifacts()
+            except Exception as e:
+                errors.append(e)
+
+            host_artifacts = additional_artifacts.setdefault(role.host, [])
+            host_artifacts.extend(role.artifacts)
+            host_artifacts.extend(MultihostUtility.GetUtilityArtifacts(role))
 
         # Collect artifacts, if an error is raised, we will ignore it since
         # teardown is more important
-        errors = []
         for host in self.hosts:
             try:
                 host.collect_artifacts(path, additional_artifacts[host], self._opt_artifacts_compression)
