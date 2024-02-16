@@ -244,6 +244,7 @@ class MultihostFixture(object):
     def _collect_artifacts(self) -> None:
         path = self._artifacts_dir()
         if path is None:
+            self.logger.info("Artifacts are not collected")
             return
 
         errors = []

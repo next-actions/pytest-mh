@@ -390,6 +390,7 @@ class MultihostHost(Generic[DomainType]):
         """
         artifacts = sorted(list(set(self.configured_artifacts + self.artifacts + additional_artifacts)))
         if not artifacts:
+            self.logger.info("No artifacts to collect.")
             return
 
         self.logger.info(
