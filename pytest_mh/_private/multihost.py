@@ -410,7 +410,7 @@ class MultihostHost(Generic[DomainType]):
             case MultihostHostOSFamily.Linux:
                 command = f"""
                     tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
-                    tar -czvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
+                    tar -hczvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
                     base64 "$tmp"
                     rm -f "$tmp" &> /dev/null
                 """
