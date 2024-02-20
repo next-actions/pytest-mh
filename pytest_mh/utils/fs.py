@@ -232,7 +232,11 @@ class LinuxFileSystem(MultihostUtility):
         self.host.ssh.run(
             f"""
                 set -ex
-                rm -fr '{path}'
+
+                if [ -d '{path}' ]; then
+                  rm -fr '{path}'
+                fi
+
                 cat > '{path}'
                 {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
             """,
@@ -399,7 +403,11 @@ class LinuxFileSystem(MultihostUtility):
         self.host.ssh.run(
             f"""
                 set -ex
-                rm -fr '{remote_path}'
+
+                if [ -d '{remote_path}' ]; then
+                  rm -fr '{remote_path}'
+                fi
+
                 base64 --decode > '{remote_path}'
                 {self.__gen_chattrs(remote_path, mode=mode, user=user, group=group)}
             """,
