@@ -518,7 +518,7 @@ class LinuxFileSystem(MultihostUtility):
         if [ -f '{path}' ]; then
             tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
             cp --force --archive '{path}' "$tmp"
-            echo "mv --force '$tmp' '{path}'"
+            echo "cp --force --archive '$tmp' '{path}' && rm --force '$tmp'"
         elif [ -d '{path}' ]; then
             tmp=`mktemp -d /tmp/mh.fs.rollback.XXXXXXXXX`
             cp --force --archive '{path}/.' "$tmp"
