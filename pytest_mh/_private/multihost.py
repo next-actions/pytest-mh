@@ -15,6 +15,7 @@ from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHPr
 from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
 from .misc import OperationStatus
+from .topology import Topology
 from .utils import validate_configuration
 
 if TYPE_CHECKING:
@@ -84,6 +85,29 @@ class MultihostConfig(ABC):
             raise ValueError(f"Unexpected domain id: {id}")
 
         return cls(self, domain)
+
+    def topology_hosts(self, topology: Topology) -> list[MultihostHost]:
+        """
+        Return all hosts required by the topology as list.
+
+        :param topology: Topology.
+        :type topology: Multihost topology
+        :return: List of MultihostHost.
+        :rtype: list[MultihostHost]
+        """
+        result: list[MultihostHost] = []
+
+        for mh_domain in self.domains:
+            if mh_domain.id in topology:
+                topology_domain = topology.get(mh_domain.id)
+                for role_name in mh_domain.roles:
+                    if role_name not in topology_domain:
+                        continue
+
+                    count = topology_domain.get(role_name)
+                    result.extend(mh_domain.hosts_by_role(role_name)[:count])
+
+        return result
 
     @property
     @abstractmethod
