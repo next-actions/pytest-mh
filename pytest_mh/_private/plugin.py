@@ -319,6 +319,11 @@ class MultihostPlugin(object):
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_teardown(self, item: pytest.Item, nextitem: pytest.Item | None) -> None:
+        """
+        Teardown topology if we detect a topology switch.
+
+        :meta private:
+        """
         if self.multihost is None:
             return
 
