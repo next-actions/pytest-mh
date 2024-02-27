@@ -280,6 +280,7 @@ class MultihostPlugin(object):
         if self._topology_switch(None, item):
             try:
                 mark.controller._invoke_with_args(mark.controller.topology_setup)
+                mark.controller._op_state.set_success("topology_setup")
             finally:
                 self.current_topology = mark.name
                 self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup_topology_{mark.name}.log")
@@ -329,7 +330,8 @@ class MultihostPlugin(object):
         # Execute per-topology teardown if topology changed.
         if self._topology_switch(item, nextitem):
             try:
-                mark.controller._invoke_with_args(mark.controller.topology_teardown)
+                if mark.controller._op_state.check_success("topology_setup"):
+                    mark.controller._invoke_with_args(mark.controller.topology_teardown)
             finally:
                 self.current_topology = None
                 self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown_topology_{mark.name}.log")
