@@ -144,8 +144,8 @@ class MultihostPlugin(object):
                     host.pytest_teardown()
                 except Exception as e:
                     errors.append(e)
-
-        self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown.log")
+                finally:
+                    self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown_host_{host.hostname}.log")
 
         if errors:
             raise Exception(errors)
@@ -269,12 +269,12 @@ class MultihostPlugin(object):
         mark: TopologyMark = data.topology_mark
 
         # Run pytest_setup on all hosts required by selected tests
-        try:
-            for host in self.required_hosts:
+        for host in self.required_hosts:
+            try:
                 host.pytest_setup()
                 host._op_state.set_success("pytest_setup")
-        finally:
-            self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup.log")
+            finally:
+                self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup_host_{host.hostname}.log")
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
