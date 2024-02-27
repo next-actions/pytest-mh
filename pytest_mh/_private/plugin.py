@@ -31,6 +31,7 @@ class MultihostPlugin(object):
         self.topology: Topology | None = None
         self.confdict: dict | None = None
         self.current_topology: str | None = None
+        self.required_hosts: set[MultihostHost] = set()
 
         # CLI options
         self.mh_config: str = pytest_config.getoption("mh_config")
@@ -126,22 +127,6 @@ class MultihostPlugin(object):
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
         self.logger.info("")
 
-        try:
-            setup_ok: list[MultihostHost] = []
-            for domain in self.multihost.domains:
-                for host in domain.hosts:
-                    try:
-                        host.pytest_setup()
-                    except Exception:
-                        # Teardown hosts that were successfully setup before this error
-                        for h in reversed(setup_ok):
-                            h.pytest_teardown()
-                        raise
-
-                    setup_ok.append(host)
-        finally:
-            self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup.log")
-
     @pytest.hookimpl(trylast=True)
     def pytest_sessionfinish(self, session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
         """
@@ -153,8 +138,8 @@ class MultihostPlugin(object):
             return
 
         errors = []
-        for domain in self.multihost.domains:
-            for host in domain.hosts:
+        for host in self.required_hosts:
+            if host._op_state.check_success("pytest_setup"):
                 try:
                     host.pytest_teardown()
                 except Exception as e:
@@ -207,8 +192,8 @@ class MultihostPlugin(object):
 
         report.result = new_result
 
-    @pytest.hookimpl(tryfirst=True)
-    def pytest_collection_modifyitems(self, config: pytest.Config, items: list[pytest.Item]) -> None:
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_collection_modifyitems(self, config: pytest.Config, items: list[pytest.Item]) -> Generator:
         """
         Filter collected items and deselect these that can not be run on the
         selected multihost configuration.
@@ -218,10 +203,14 @@ class MultihostPlugin(object):
 
         :meta private:
         """
-
+        data: MultihostItemData | None = None
         selected: list[pytest.Item] = []
         deselected: list[pytest.Item] = []
         mapping: dict[str, list[pytest.Item]] = {}
+
+        # Silent mypy false positive
+        if self.multihost is None:
+            return
 
         for item in items:
             data = MultihostItemData(self.multihost, item.stash[MarkStashKey]) if self.multihost else None
@@ -248,6 +237,17 @@ class MultihostPlugin(object):
         config.hook.pytest_deselected(items=deselected)
         items[:] = selected
 
+        yield
+
+        # List of items may have been further modified by other plugins or filters
+        # Remember all hosts required to run selected tests
+        for item in items:
+            data = MultihostItemData.GetData(item)
+            if data is None or data.topology_mark is None:
+                continue
+
+            self.required_hosts.update(self.multihost.topology_hosts(data.topology_mark.topology))
+
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_setup(self, item: pytest.Item) -> None:
         """
@@ -267,6 +267,14 @@ class MultihostPlugin(object):
         if self.multihost is None or data is None or data.topology_mark is None:
             return
         mark: TopologyMark = data.topology_mark
+
+        # Run pytest_setup on all hosts required by selected tests
+        try:
+            for host in self.required_hosts:
+                host.pytest_setup()
+                host._op_state.set_success("pytest_setup")
+        finally:
+            self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup.log")
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
