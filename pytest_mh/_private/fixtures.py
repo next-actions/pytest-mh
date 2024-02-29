@@ -9,8 +9,15 @@ import pytest
 from .data import MultihostItemData
 from .logging import MultihostLogger
 from .marks import TopologyMark
-from .misc import invoke_callback
-from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole, MultihostUtility
+from .misc import invoke_callback, sanitize_path
+from .multihost import (
+    MultihostArtifactCollectionType,
+    MultihostConfig,
+    MultihostDomain,
+    MultihostHost,
+    MultihostRole,
+    MultihostUtility,
+)
 from .topology import Topology, TopologyDomain
 from .topology_controller import TopologyController
 
@@ -119,10 +126,6 @@ class MultihostFixture(object):
         """
         Roles as object accessible through topology path, e.g. ``mh.ns.domain_id.role_name``.
         """
-
-        self._opt_artifacts_dir: str = self.request.config.getoption("mh_artifacts_dir")
-        self._opt_artifacts_mode: str = self.request.config.getoption("mh_collect_artifacts")
-        self._opt_artifacts_compression: bool = self.request.config.getoption("mh_compress_artifacts")
 
         self._paths: dict[str, list[MultihostRole] | MultihostRole] = {}
         self._skipped: bool = False
@@ -242,37 +245,32 @@ class MultihostFixture(object):
             item._op_state.set_success("setup")
 
     def _collect_artifacts(self) -> None:
-        path = self._artifacts_dir()
-        if path is None:
-            self.logger.info("Artifacts are not collected")
-            return
-
-        errors = []
-
-        # Create list of dynamically added artifacts
-        additional_artifacts: dict[MultihostHost, list[str]] = {}
+        # Create list of collectable objects
+        collectable: dict[MultihostHost, list[MultihostArtifactCollectionType]] = {}
         for role in self.roles:
-            try:
-                MultihostUtility.PrepareUtilityArtifacts(role)
-                role.prepare_artifacts()
-                role.host.prepare_artifacts()
-            except Exception as e:
-                errors.append(e)
-
-            host_artifacts = additional_artifacts.setdefault(role.host, [])
-            host_artifacts.extend(role.artifacts)
-            host_artifacts.extend(MultihostUtility.GetUtilityArtifacts(role))
+            host_collection = collectable.setdefault(role.host, [role.host, role])
+            host_collection.extend(MultihostUtility.GetUtilityAttributes(role).values())
 
         # Collect artifacts, if an error is raised, we will ignore it since
         # teardown is more important
         for host in self.hosts:
             try:
-                host.collect_artifacts(path, additional_artifacts[host], self._opt_artifacts_compression)
+                host.artifacts_collector.collect(
+                    "test",
+                    path=f"{self.request.node.name}",
+                    collection_path=f"{host.role}_{host.hostname}",
+                    outcome=self.data.outcome,
+                    collect_objects=collectable[host],
+                )
             except Exception as e:
-                errors.append(e)
-
-        if errors:
-            raise Exception(errors)
+                self.logger.error(
+                    "An error happend when collecting artifacts",
+                    extra={
+                        "data": {
+                            "Error message": str(e),
+                        }
+                    },
+                )
 
     def _teardown(self) -> None:
         """
@@ -291,40 +289,27 @@ class MultihostFixture(object):
         if errors:
             raise Exception(errors)
 
-    def _artifacts_dir(self) -> str | None:
-        """
-        Return test artifact directory or ``None`` if no artifacts should be
-        stored.
-
-        :return: Artifact directory or ``None``.
-        :rtype: str | None
-        """
-        if self._skipped:
-            return None
-
-        dir = self._opt_artifacts_dir
-        mode = self._opt_artifacts_mode
-
-        # There was error in fixture setup if the outcome is not known at this point
-        outcome = self.data.outcome if self.data.outcome is not None else "error"
-        if mode == "never" or (mode == "on-failure" and outcome not in ("failed", "error")):
-            return None
-
-        name = self.request.node.name
-        name = name.translate(str.maketrans('":<>|*? [', "---------", "]()"))
-
-        return f"{dir}/{name}"
-
     def _flush_logs(self) -> None:
         """
         Write log messages produced by current test case to a file, or clear
         them if no artifacts should be generated.
         """
-        path = self._artifacts_dir()
-        if path is None:
+        write_log = False
+        match self.multihost.artifacts_mode:
+            case "never":
+                write_log = False
+            case "always":
+                write_log = True
+            case "on-failure":
+                write_log = self.data.outcome in ("failed", "error", "unknown")
+            case _:
+                raise ValueError(f"Unexpected artifacts collection mode: {self.multihost.artifacts_mode}")
+
+        if not write_log:
             self.logger.clear()
         else:
-            self.logger.write_to_file(f"{path}/test.log")
+            name = sanitize_path(self.request.node.name)
+            self.logger.write_to_file(f"{self.multihost.artifacts_dir}/{name}/test.log")
 
     def _invoke_phase(self, name: str, cb: Callable, catch: bool = False) -> Exception | None:
         self.log_phase(name)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from functools import partial
+from pathlib import Path
 
 import pytest
 
-from pytest_mh._private.misc import OperationStatus, invoke_callback, merge_dict
+from pytest_mh._private.misc import OperationStatus, invoke_callback, merge_dict, sanitize_path
 
 
 @pytest.mark.parametrize(
@@ -132,6 +133,23 @@ def test_invoke_callback__kwargs_mixed():
     invoke_callback(partial(_cb, 4), a=1, b=2, c=3)
     invoke_callback(partial(_cb, a=1), b=2, c=3, d=4)
     invoke_callback(partial(_cb, d=4), a=1, b=2, c=3)
+
+
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("hello", "hello"),
+        ("hello/world", "hello/world"),
+        ("/hello/world", "/hello/world"),
+        ('hello/":<>|*? [', "hello/---------"),
+        ("hello/]()world", "hello/world"),
+        ("tests/test_foo.py::test_bar[a] (topology)", "tests/test_foo.py--test_bar-a-topology"),
+    ],
+)
+def test_sanitize_path(path, expected):
+    expected = Path(expected)
+    assert sanitize_path(path) == expected
+    assert sanitize_path(Path(path)) == expected
 
 
 def test_OperationStatus():

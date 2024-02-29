@@ -4,6 +4,7 @@ import pytest
 
 from .marks import TopologyMark
 from .multihost import MultihostConfig
+from .types import MultihostOutcome
 
 
 class MultihostItemData(object):
@@ -22,7 +23,7 @@ class MultihostItemData(object):
         Topology mark for the test run.
         """
 
-        self.outcome: str | None = None
+        self.outcome: MultihostOutcome = "unknown"
         """
         Test run outcome, available in fixture finalizers.
         """

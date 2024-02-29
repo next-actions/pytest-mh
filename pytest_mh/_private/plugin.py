@@ -13,7 +13,7 @@ from .data import MultihostItemData
 from .fixtures import MultihostFixture
 from .logging import MultihostLogger
 from .marks import TopologyMark
-from .multihost import MultihostConfig, MultihostHost
+from .multihost import MultihostArtifactsMode, MultihostConfig, MultihostHost
 from .topology import Topology
 
 MarkStashKey = pytest.StashKey[TopologyMark | None]()
@@ -40,8 +40,9 @@ class MultihostPlugin(object):
         self.mh_topology: list[str] = pytest_config.getoption("mh_topology")
         self.mh_not_topology: list[str] = pytest_config.getoption("mh_not_topology")
         self.mh_exact_topology: bool = pytest_config.getoption("mh_exact_topology")
-        self.mh_collect_artifacts: bool = pytest_config.getoption("mh_collect_artifacts")
-        self.mh_artifacts_dir: bool = pytest_config.getoption("mh_artifacts_dir")
+        self.mh_collect_artifacts: MultihostArtifactsMode = pytest_config.getoption("mh_collect_artifacts")
+        self.mh_artifacts_dir: str = pytest_config.getoption("mh_artifacts_dir")
+        self.mh_compress_artifacts: bool = pytest_config.getoption("mh_compress_artifacts")
 
     @classmethod
     def GetLogger(cls) -> logging.Logger:
@@ -87,7 +88,14 @@ class MultihostPlugin(object):
         logger = MultihostLogger.GetLogger()
         logger.setup(log_path=self.mh_log_path, confdict=self.confdict)
 
-        self.multihost = self.config_class(self.confdict, logger=logger, lazy_ssh=self.mh_lazy_ssh)
+        self.multihost = self.config_class(
+            self.confdict,
+            logger=logger,
+            lazy_ssh=self.mh_lazy_ssh,
+            artifacts_dir=self.mh_artifacts_dir,
+            artifacts_mode=self.mh_collect_artifacts,
+            artifacts_compression=self.mh_compress_artifacts,
+        )
         self.topology = Topology.FromMultihostConfig(self.confdict)
 
     @pytest.hookimpl(trylast=True)

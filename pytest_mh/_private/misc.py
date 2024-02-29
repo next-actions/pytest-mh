@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from functools import partial
 from inspect import getfullargspec
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -68,6 +69,19 @@ def invoke_callback(cb: Callable, /, **kwargs: Any) -> Any:
         callspec = kwargs
 
     return cb(**callspec)
+
+
+def sanitize_path(path: str | Path) -> Path:
+    """
+    Replace problematic characters in file path.
+
+    :param path: Path to sanitize.
+    :type path: str | Path
+    :return: Sanitized path.
+    :rtype: Path
+    """
+    table = str.maketrans('":<>|*? [', "---------", "]()")
+    return Path(str(path).translate(table))
 
 
 class OperationStatus(object):
