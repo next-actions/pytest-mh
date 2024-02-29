@@ -8,14 +8,15 @@ from enum import Enum
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Protocol, Type, TypeVar
 
 from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
 from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
-from .misc import OperationStatus
+from .misc import OperationStatus, sanitize_path
 from .topology import Topology
+from .types import MultihostArtifactsMode, MultihostArtifactsType, MultihostOutcome
 from .utils import validate_configuration
 
 if TYPE_CHECKING:
@@ -27,7 +28,16 @@ class MultihostConfig(ABC):
     Multihost configuration.
     """
 
-    def __init__(self, confdict: dict[str, Any], *, logger: MultihostLogger, lazy_ssh: bool = False) -> None:
+    def __init__(
+        self,
+        confdict: dict[str, Any],
+        *,
+        logger: MultihostLogger,
+        lazy_ssh: bool,
+        artifacts_dir: str,
+        artifacts_mode: MultihostArtifactsMode,
+        artifacts_compression: bool,
+    ) -> None:
         validate_configuration(
             self.required_fields, confdict, error_fmt='"{key}" property is missing in configuration'
         )
@@ -37,6 +47,15 @@ class MultihostConfig(ABC):
 
         self.lazy_ssh: bool = lazy_ssh
         """If True, hosts postpone connecting to ssh when the connection is first required"""
+
+        self.artifacts_dir: str = artifacts_dir
+        """Artifacts output directory."""
+
+        self.artifacts_mode: MultihostArtifactsMode = artifacts_mode
+        """Artifacts collection mode."""
+
+        self.artifacts_compression: bool = artifacts_compression
+        """Store artifacts in compressed archive?"""
 
         self.domains: list[MultihostDomain] = []
         """Available domains"""
@@ -322,7 +341,7 @@ class MultihostHost(Generic[DomainType]):
         self.config: dict[str, Any] = confdict.get("config", {})
         """Custom configuration."""
 
-        self.configured_artifacts: list[str] = confdict.get("artifacts", [])
+        self.configured_artifacts: set[str] = set(confdict.get("artifacts", []))
         """Host artifacts produced during tests, configured by the user."""
 
         # SSH
@@ -382,11 +401,21 @@ class MultihostHost(Generic[DomainType]):
         if not self.mh_domain.mh_config.lazy_ssh:
             self.ssh.connect()
 
-        self.artifacts: list[str] = []
+        self.artifacts: set[str] = set()
         """
         List of artifacts that will be automatically collected when a test is
         finished. This list can be dynamically extended. Values may contain
         wildcard character.
+        """
+
+        self.artifacts_collector: MultihostArtifactsCollector = MultihostArtifactsCollector(
+            host=self,
+            path=self.mh_domain.mh_config.artifacts_dir,
+            mode=self.mh_domain.mh_config.artifacts_mode,
+            compress=self.mh_domain.mh_config.artifacts_compression,
+        )
+        """
+        Artifacts collector.
         """
 
     @property
@@ -398,69 +427,6 @@ class MultihostHost(Generic[DomainType]):
         The field name may contain a ``.`` to check nested fields.
         """
         return ["role", "hostname"]
-
-    def collect_artifacts(self, dest: str, additional_artifacts: list[str], compression: bool) -> None:
-        """
-        Collect test artifacts that were requested by the multihost
-        configuration.
-
-        :param dest: Destination directory, where the artifacts will be stored.
-        :type dest: str
-        :param additional_artifacts: Additional artifacts that will be fetched
-            together with artifacts from configuration file.
-        :type additional_artifacts: list[str]
-        :param compression: If True, a compressed archive is created instead of extracted files.
-        :type compression: bool
-        """
-        artifacts = sorted(list(set(self.configured_artifacts + self.artifacts + additional_artifacts)))
-        if not artifacts:
-            self.logger.info("No artifacts to collect.")
-            return
-
-        self.logger.info(
-            "Collecting artifacts",
-            extra={
-                "data": {
-                    "Local destination": dest,
-                    "Artifacts": artifacts,
-                }
-            },
-        )
-
-        # Create output directory
-        Path(dest).mkdir(parents=True, exist_ok=True)
-
-        # Fetch artifacts
-        match self.os_family:
-            case MultihostHostOSFamily.Linux:
-                command = f"""
-                    tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
-                    tar -hczvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
-                    base64 "$tmp"
-                    rm -f "$tmp" &> /dev/null
-                """
-                ext = "tgz"
-            case MultihostHostOSFamily.Windows:
-                raise NotImplementedError("Artifacts are not supported on Windows machine")
-            case _:
-                raise ValueError(f"Unknown operating system: {self.os_family}")
-
-        result = self.ssh.run(command, log_level=SSHLog.Error)
-
-        # Return if no artifacts were obtained
-        if not result.stdout:
-            return
-
-        name = f"{self.role}_{self.hostname}"
-        with BytesIO(b64decode(result.stdout)) as buffer:
-            if compression:
-                # Store artifacts in single archive
-                with open(f"{dest}/{name}.{ext}", "wb") as f:
-                    f.write(buffer.getbuffer())
-            else:
-                # Extract archive for convenience
-                with tarfile.open(fileobj=buffer) as tar:
-                    tar.extractall(f"{dest}/{name}")
 
     def pytest_setup(self) -> None:
         """
@@ -486,16 +452,21 @@ class MultihostHost(Generic[DomainType]):
         """
         pass
 
-    def prepare_artifacts(self) -> None:
+    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
         """
-        Prepare artifacts for collection.
+        Return the list of artifacts to collect.
 
-        This is called before the artifacts are collected. It is possible to
-        generate additional artifacts that were not created by the test, or
-        detect which artifacts were created and store their paths in
-        :attr:`artifacts`.
+        This just returns :attr:`artifacts`, but it is possible to override this
+        method in order to generate additional artifacts that were not created
+        by the test, or detect which artifacts were created and update the
+        artifacts list.
+
+        :param type: Type of artifacts that are being collected.
+        :type type: MultihostArtifactsType
+        :return: List of artifacts to collect.
+        :rtype: set[str]
         """
-        pass
+        return self.configured_artifacts | self.artifacts
 
 
 HostType = TypeVar("HostType", bound=MultihostHost)
@@ -526,7 +497,7 @@ class MultihostRole(Generic[HostType]):
         self.logger: MultihostLogger = self.host.logger
         """Multihost logger."""
 
-        self.artifacts: list[str] = []
+        self.artifacts: set[str] = set()
         """
         List of artifacts that will be automatically collected when a test is
         finished. This list can be dynamically extended. Values may contain
@@ -547,16 +518,21 @@ class MultihostRole(Generic[HostType]):
         """
         MultihostUtility.TeardownUtilityAttributes(self)
 
-    def prepare_artifacts(self) -> None:
+    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
         """
-        Prepare artifacts for collection.
+        Return the list of artifacts to collect.
 
-        This is called before the artifacts are collected. It is possible to
-        generate additional artifacts that were not created by the test, or
-        detect which artifacts were created and store their paths in
-        :attr:`artifacts`.
+        This just returns :attr:`artifacts`, but it is possible to override this
+        method in order to generate additional artifacts that were not created
+        by the test, or detect which artifacts were created and update the
+        artifacts list.
+
+        :param type: Type of artifacts that are being collected.
+        :type type: MultihostArtifactsType
+        :return: List of artifacts to collect.
+        :rtype: set[str]
         """
-        pass
+        return self.artifacts
 
     def ssh(self, user: str, password: str, *, shell=SSHBashProcess) -> SSHClient:
         """
@@ -606,7 +582,7 @@ class MultihostUtility(Generic[HostType]):
         self.used: bool = False
         """Indicate if this utility instance was already used or not within current test."""
 
-        self.artifacts: list[str] = []
+        self.artifacts: set[str] = set()
         """
         List of artifacts that will be automatically collected when a test is
         finished. This list can be dynamically extended. Values may contain
@@ -616,6 +592,7 @@ class MultihostUtility(Generic[HostType]):
         # Enable first use setup
         disallowed = [
             "artifacts",
+            "get_artifacts_list",
             "setup",
             "teardown",
             "setup_when_used",
@@ -654,16 +631,21 @@ class MultihostUtility(Generic[HostType]):
         """
         pass
 
-    def prepare_artifacts(self) -> None:
+    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
         """
-        Prepare artifacts for collection.
+        Return the list of artifacts to collect.
 
-        This is called before the artifacts are collected. It is possible to
-        generate additional artifacts that were not created by the test, or
-        detect which artifacts were created and store their paths in
-        :attr:`artifacts`.
+        This just returns :attr:`artifacts`, but it is possible to override this
+        method in order to generate additional artifacts that were not created
+        by the test, or detect which artifacts were created and update the
+        artifacts list.
+
+        :param type: Type of artifacts that are being collected.
+        :type type: MultihostArtifactsType
+        :return: List of artifacts to collect.
+        :rtype: set[str]
         """
-        pass
+        return self.artifacts
 
     def __setup_when_used(self, method):
         @wraps(method)
@@ -728,33 +710,6 @@ class MultihostUtility(Generic[HostType]):
             raise Exception(errors)
 
     @classmethod
-    def PrepareUtilityArtifacts(cls, o: object) -> None:
-        """
-        Prepare artifacts for collections :class:`MultihostUtility` objects
-        attributes of the given object.
-
-        :param o: Any object.
-        :type o: object
-        """
-        for util in cls.GetUtilityAttributes(o).values():
-            util.prepare_artifacts()
-
-    @classmethod
-    def GetUtilityArtifacts(cls, o: object) -> list[str]:
-        """
-        Get artifacts from all :class:`MultihostUtility` objects attributes of
-        the given object.
-
-        :param o: Any object.
-        :type o: object
-        """
-        artifacts: list[str] = []
-        for util in cls.GetUtilityAttributes(o).values():
-            artifacts += util.artifacts
-
-        return artifacts
-
-    @classmethod
     def IgnoreCall(cls, method):
         """
         Calling a method decorated with IgnoreCall does not execute neither
@@ -763,3 +718,172 @@ class MultihostUtility(Generic[HostType]):
         """
         method.__mh_ignore_call = True
         return method
+
+
+class MultihostArtifactCollectionType(Protocol):
+    """
+    Hints that given object supports artifacts collection.
+    """
+
+    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
+        """
+        Return the list of artifacts to collect.
+
+        This just returns :attr:`artifacts`, but it is possible to override this
+        method in order to generate additional artifacts that were not created
+        by the test, or detect which artifacts were created and update the
+        artifacts list.
+
+        :param type: Type of artifacts that are being collected.
+        :type type: MultihostArtifactsType
+        :return: List of artifacts to collect.
+        :rtype: set[str]
+        """
+        pass
+
+
+class MultihostArtifactsCollector(object):
+    """
+    Multihost artifacts collector.
+    """
+    def __init__(
+        self,
+        *,
+        host: MultihostHost,
+        path: Path | str,
+        mode: MultihostArtifactsMode,
+        compress: bool,
+    ) -> None:
+        """
+        :param host: MultihostHost object.
+        :type host: MultihostHost
+        :param path: Artifacts directory path.
+        :type path: Path | str
+        :param mode: Artifacts collection mode.
+        :type mode: MultihostArtifactsMode
+        :param compress: Store artifacts in compressed tarball or not?
+        :type compress: bool
+        """
+        self.path: Path = Path(path)
+        self.host: MultihostHost = host
+        self.logger: MultihostLogger = host.logger
+        self.mode: MultihostArtifactsMode = mode
+        self.compress: bool = compress
+
+    def should_collect(self, outcome: MultihostOutcome) -> bool:
+        """
+        Match mode and outcome in order to decide if artifacts should be
+        collected/written or not.
+
+        :param outcome: Test or operation outcome.
+        :type outcome: MultihostOutcome
+        :raises ValueError: If mode is not recognized.
+        :return: True if artifacts should be collected, False otherwise.
+        :rtype: bool
+        """
+        match self.mode:
+            case "never":
+                return False
+            case "always":
+                return True
+            case "on-failure":
+                return outcome in ("failed", "error", "unknown")
+
+        raise ValueError(f"Unexpected artifacts collection mode: {self.mode}")
+
+    def collect(
+        self,
+        type: MultihostArtifactsType,
+        *,
+        path: str,
+        collection_path: str,
+        outcome: MultihostOutcome,
+        collect_objects: list[MultihostArtifactCollectionType],
+    ) -> None:
+        """
+        Collect artifacts to $artifacts_dir/$path/$collection_path.
+
+        :param type: Artifacts type.
+        :type type: MultihostArtifactsType
+        :param path: Artifacts path relative to artifacts directory.
+        :type path: str
+        :param collection_path: Artifacts collection path, relative to ``$artifacts_dir/$path``.
+        :type collection_path: str
+        :param outcome: Test or operation outcome.
+        :type outcome: MultihostOutcome
+        :param collect_objects: Objects from which artifacts will be collected.
+        :type collect_objects: list[MultihostArtifactCollectionType]
+        :raises Exception: If error happens when obtaining artifacts list.
+        :raises NotImplementedError: If an attempt to collect artifacts on Windows host is performed.
+        :raises ValueError: If host with unknown operating system is given.
+        """
+        if not self.should_collect(outcome):
+            self.logger.info("Artifacts are not collected")
+            return
+
+        # Substitute problematic characters and create destination path
+        dest = self.path / sanitize_path(path)
+        collection_dest = dest / sanitize_path(collection_path)
+
+        # Gather list of artifacts to collect
+        errors = []
+        artifacts_set: set[str] = set()
+        for obj in collect_objects:
+            try:
+                artifacts_set.update(obj.get_artifacts_list(type))
+            except Exception as e:
+                errors.append(e)
+
+        if errors:
+            raise Exception(errors)
+
+        # Sort artifacts by name
+        artifacts = sorted(artifacts_set)
+        if not artifacts:
+            self.logger.info("No artifacts to collect.")
+            return
+
+        self.logger.info(
+            "Collecting artifacts",
+            extra={
+                "data": {
+                    "Local destination": dest,
+                    "Artifacts": artifacts,
+                }
+            },
+        )
+
+        # Create output directory, skip the last part since it is the
+        # tarball/collection name.
+        collection_dest.parent.mkdir(parents=True, exist_ok=True)
+
+        # Collect artifacts
+        match self.host.os_family:
+            case MultihostHostOSFamily.Linux:
+                command = f"""
+                    tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
+                    tar -hczvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
+                    base64 "$tmp"
+                    rm -f "$tmp" &> /dev/null
+                """
+                ext = "tgz"
+            case MultihostHostOSFamily.Windows:
+                raise NotImplementedError("Artifacts are not supported on Windows machine")
+            case _:
+                raise ValueError(f"Unknown operating system: {self.host.os_family}")
+
+        result = self.host.ssh.run(command, log_level=SSHLog.Error)
+
+        # Return if no artifacts were obtained
+        if not result.stdout:
+            return
+
+        with BytesIO(b64decode(result.stdout)) as buffer:
+            if self.compress:
+                # Store artifacts in single archive
+                with open(f"{dest}/{collection_path}.{ext}", "wb") as f:
+                    f.write(buffer.getbuffer())
+            else:
+                # Extract archive for convenience
+                with tarfile.open(fileobj=buffer) as tar:
+                    tar.extractall(f"{dest}/{collection_path}")
