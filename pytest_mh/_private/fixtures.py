@@ -346,8 +346,13 @@ class MultihostFixture(object):
             return self
 
         self.log_phase("BEGIN")
-        self._invoke_phase("SETUP TOPOLOGY", self._topology_setup)
-        self._invoke_phase("SETUP TEST", self._setup)
+
+        try:
+            self._invoke_phase("SETUP TOPOLOGY", self._topology_setup)
+            self._invoke_phase("SETUP TEST", self._setup)
+        except Exception:
+            self.data.outcome = "error"
+            raise
 
         return self
 
