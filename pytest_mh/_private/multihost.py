@@ -14,7 +14,7 @@ from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
 from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
-from .misc import OperationStatus, sanitize_path
+from .misc import OperationStatus, sanitize_path, should_collect_artifacts
 from .topology import Topology
 from .types import MultihostArtifactsMode, MultihostArtifactsType, MultihostOutcome
 from .utils import validate_configuration
@@ -34,7 +34,7 @@ class MultihostConfig(ABC):
         *,
         logger: MultihostLogger,
         lazy_ssh: bool,
-        artifacts_dir: str,
+        artifacts_dir: Path,
         artifacts_mode: MultihostArtifactsMode,
         artifacts_compression: bool,
     ) -> None:
@@ -48,7 +48,7 @@ class MultihostConfig(ABC):
         self.lazy_ssh: bool = lazy_ssh
         """If True, hosts postpone connecting to ssh when the connection is first required"""
 
-        self.artifacts_dir: str = artifacts_dir
+        self.artifacts_dir: Path = artifacts_dir
         """Artifacts output directory."""
 
         self.artifacts_mode: MultihostArtifactsMode = artifacts_mode
@@ -746,6 +746,7 @@ class MultihostArtifactsCollector(object):
     """
     Multihost artifacts collector.
     """
+
     def __init__(
         self,
         *,
@@ -781,15 +782,7 @@ class MultihostArtifactsCollector(object):
         :return: True if artifacts should be collected, False otherwise.
         :rtype: bool
         """
-        match self.mode:
-            case "never":
-                return False
-            case "always":
-                return True
-            case "on-failure":
-                return outcome in ("failed", "error", "unknown")
-
-        raise ValueError(f"Unexpected artifacts collection mode: {self.mode}")
+        return should_collect_artifacts(self.mode, outcome)
 
     def collect(
         self,

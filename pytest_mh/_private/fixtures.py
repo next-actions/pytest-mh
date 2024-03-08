@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Generator
 
@@ -9,7 +10,7 @@ import pytest
 from .data import MultihostItemData
 from .logging import MultihostLogger
 from .marks import TopologyMark
-from .misc import invoke_callback, sanitize_path
+from .misc import invoke_callback
 from .multihost import (
     MultihostArtifactCollectionType,
     MultihostConfig,
@@ -294,22 +295,7 @@ class MultihostFixture(object):
         Write log messages produced by current test case to a file, or clear
         them if no artifacts should be generated.
         """
-        write_log = False
-        match self.multihost.artifacts_mode:
-            case "never":
-                write_log = False
-            case "always":
-                write_log = True
-            case "on-failure":
-                write_log = self.data.outcome in ("failed", "error", "unknown")
-            case _:
-                raise ValueError(f"Unexpected artifacts collection mode: {self.multihost.artifacts_mode}")
-
-        if not write_log:
-            self.logger.clear()
-        else:
-            name = sanitize_path(self.request.node.name)
-            self.logger.write_to_file(f"{self.multihost.artifacts_dir}/{name}/test.log")
+        self.logger.flush(Path(self.request.node.name) / "test.log", self.data.outcome)
 
     def _invoke_phase(self, name: str, cb: Callable, catch: bool = False) -> Exception | None:
         self.log_phase(name)

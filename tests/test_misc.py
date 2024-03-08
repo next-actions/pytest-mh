@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from pytest_mh._private.misc import OperationStatus, invoke_callback, merge_dict, sanitize_path
+from pytest_mh._private.misc import (
+    OperationStatus,
+    invoke_callback,
+    merge_dict,
+    sanitize_path,
+    should_collect_artifacts,
+)
 
 
 @pytest.mark.parametrize(
@@ -150,6 +156,32 @@ def test_sanitize_path(path, expected):
     expected = Path(expected)
     assert sanitize_path(path) == expected
     assert sanitize_path(Path(path)) == expected
+
+
+@pytest.mark.parametrize(
+    "mode, outcome, expected",
+    [
+        ("never", "success", False),
+        ("never", "failed", False),
+        ("never", "error", False),
+        ("never", "unknown", False),
+        ("always", "success", True),
+        ("always", "failed", True),
+        ("always", "error", True),
+        ("always", "unknown", True),
+        ("on-failure", "success", False),
+        ("on-failure", "failed", True),
+        ("on-failure", "error", True),
+        ("on-failure", "unknown", True),
+    ],
+)
+def test_should_collect_artifacts(mode, outcome, expected):
+    assert should_collect_artifacts(mode, outcome) == expected
+
+
+def test_should_collect_artifacts__invalid_mode():
+    with pytest.raises(ValueError):
+        should_collect_artifacts("invalid-mode", "success")
 
 
 def test_OperationStatus():
