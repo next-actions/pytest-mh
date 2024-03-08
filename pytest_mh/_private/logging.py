@@ -8,7 +8,8 @@ from typing import Any, Type
 
 import colorama
 
-from .misc import merge_dict
+from .misc import merge_dict, sanitize_path, should_collect_artifacts
+from .types import MultihostArtifactsMode, MultihostOutcome
 
 
 class MultihostLogger(logging.Logger):
@@ -40,6 +41,8 @@ class MultihostLogger(logging.Logger):
         self.log_path: str | None = None
         self.extra: dict[str, Any] = {}
         self.handler: logging.Handler | None = None
+        self.artifacts_mode: MultihostArtifactsMode = "on-failure"
+        self.artifacts_dir: Path = Path("")
 
     @classmethod
     def GetLogger(
@@ -84,6 +87,8 @@ class MultihostLogger(logging.Logger):
         """
         host_length = self._max_host_length(kwargs.get("confdict", {}))
         self.log_path = kwargs["log_path"]
+        self.artifacts_mode = kwargs["artifacts_mode"]
+        self.artifacts_dir = Path(kwargs["artifacts_dir"])
         self.allow_colors = self.log_path in ["/dev/stdout", "/dev/stderr"]
         self.handler = ManualMemoryHandler() if self.log_path is None else logging.FileHandler(self.log_path)
 
@@ -107,6 +112,8 @@ class MultihostLogger(logging.Logger):
         # Copy selected attributes
         logger.allow_colors = self.allow_colors
         logger.log_path = self.log_path
+        logger.artifacts_mode = self.artifacts_mode
+        logger.artifacts_dir = self.artifacts_dir
         logger.extra = dict(self.extra)
 
         logger.setup(**kwargs)
@@ -163,15 +170,31 @@ class MultihostLogger(logging.Logger):
         if isinstance(self.handler, ManualMemoryHandler):
             self.handler.clear()
 
-    def write_to_file(self, path: str) -> None:
+    def write_to_file(self, path: str | Path) -> None:
         """
         Write current log records buffer to a file and clear the buffer.
 
-        :param path: Destination file path.
-        :type path: str
+        :param path: Destination file path, relative to artifacts directory.
+        :type path: str | Path
         """
         if isinstance(self.handler, ManualMemoryHandler):
-            self.handler.write_to_file(path)
+            dest = self.artifacts_dir / sanitize_path(path)
+            self.handler.write_to_file(dest)
+
+    def flush(self, path: str | Path, outcome: MultihostOutcome) -> None:
+        """
+        Either write logger content to a file or clear it, depending on the
+        outcome of the test or operation and selected artifacts mode.
+
+        :param path: Log path relative to artifacts directory.
+        :type path: str | Path
+        :param outcome: Test or operation outcome.
+        :type outcome: MultihostOutcome
+        """
+        if should_collect_artifacts(self.artifacts_mode, outcome):
+            self.write_to_file(path)
+        else:
+            self.clear()
 
     def _msgdata(self, kwargs) -> dict[str, Any]:
         if self.extra:
@@ -264,12 +287,12 @@ class ManualMemoryHandler(MemoryHandler):
         """
         self.buffer.clear()
 
-    def write_to_file(self, path: str) -> None:
+    def write_to_file(self, path: str | Path) -> None:
         """
         Write current buffer to a file and clear the buffer.
 
         :param path: Destination file path.
-        :type path: str
+        :type path: str | Path
         """
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 

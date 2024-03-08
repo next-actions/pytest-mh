@@ -6,6 +6,8 @@ from inspect import getfullargspec
 from pathlib import Path
 from typing import Any, Callable
 
+from .types import MultihostArtifactsMode, MultihostOutcome
+
 
 def merge_dict(*args: dict | None):
     """
@@ -82,6 +84,30 @@ def sanitize_path(path: str | Path) -> Path:
     """
     table = str.maketrans('":<>|*? [', "---------", "]()")
     return Path(str(path).translate(table))
+
+
+def should_collect_artifacts(mode: MultihostArtifactsMode, outcome: MultihostOutcome) -> bool:
+    """
+    Match mode and outcome in order to decide if artifacts should be
+    collected/written or not.
+
+    :param mode: Artifacts collect mode.
+    :type mode: MultihostArtifactsMode
+    :param outcome: Test or operation outcome.
+    :type outcome: MultihostOutcome
+    :raises ValueError: If mode is not recognized.
+    :return: True if artifacts should be collected, False otherwise.
+    :rtype: bool
+    """
+    match mode:
+        case "never":
+            return False
+        case "always":
+            return True
+        case "on-failure":
+            return outcome in ("failed", "error", "unknown")
+
+    raise ValueError(f"Unexpected artifacts collection mode: {mode}")
 
 
 class OperationStatus(object):

@@ -4,6 +4,7 @@ import inspect
 import logging
 import sys
 import textwrap
+from pathlib import Path
 from typing import Generator, Type
 
 import pytest
@@ -41,7 +42,7 @@ class MultihostPlugin(object):
         self.mh_not_topology: list[str] = pytest_config.getoption("mh_not_topology")
         self.mh_exact_topology: bool = pytest_config.getoption("mh_exact_topology")
         self.mh_collect_artifacts: MultihostArtifactsMode = pytest_config.getoption("mh_collect_artifacts")
-        self.mh_artifacts_dir: str = pytest_config.getoption("mh_artifacts_dir")
+        self.mh_artifacts_dir: Path = Path(pytest_config.getoption("mh_artifacts_dir"))
         self.mh_compress_artifacts: bool = pytest_config.getoption("mh_compress_artifacts")
 
     @classmethod
@@ -86,7 +87,12 @@ class MultihostPlugin(object):
         self.confdict = self.__load_conf(self.mh_config)
 
         logger = MultihostLogger.GetLogger()
-        logger.setup(log_path=self.mh_log_path, confdict=self.confdict)
+        logger.setup(
+            log_path=self.mh_log_path,
+            artifacts_mode=self.mh_collect_artifacts,
+            artifacts_dir=self.mh_artifacts_dir,
+            confdict=self.confdict,
+        )
 
         self.multihost = self.config_class(
             self.confdict,
@@ -153,7 +159,7 @@ class MultihostPlugin(object):
                 except Exception as e:
                     errors.append(e)
                 finally:
-                    self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown_host_{host.hostname}.log")
+                    self.multihost.logger.flush(f"teardown_host_{host.hostname}.log", "unknown")
 
         if errors:
             raise Exception(errors)
@@ -282,7 +288,7 @@ class MultihostPlugin(object):
                 host.pytest_setup()
                 host._op_state.set_success("pytest_setup")
             finally:
-                self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup_host_{host.hostname}.log")
+                self.multihost.logger.flush(f"setup_host_{host.hostname}.log", "unknown")
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
@@ -291,7 +297,7 @@ class MultihostPlugin(object):
                 mark.controller._op_state.set_success("topology_setup")
             finally:
                 self.current_topology = mark.name
-                self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/setup_topology_{mark.name}.log")
+                self.multihost.logger.flush(f"setup_topology_{mark.name}.log", "unknown")
 
         # Make mh fixture always available
         if "mh" not in item.fixturenames:
@@ -347,7 +353,7 @@ class MultihostPlugin(object):
                     mark.controller._invoke_with_args(mark.controller.topology_teardown)
             finally:
                 self.current_topology = None
-                self.multihost.logger.write_to_file(f"{self.mh_artifacts_dir}/teardown_topology_{mark.name}.log")
+                self.multihost.logger.flush(f"teardown_topology_{mark.name}.log", "unknown")
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
