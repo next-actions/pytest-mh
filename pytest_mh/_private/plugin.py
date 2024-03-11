@@ -46,6 +46,11 @@ class MultihostPlugin(object):
         self.mh_artifacts_dir: Path = Path(pytest_config.getoption("mh_artifacts_dir"))
         self.mh_compress_artifacts: bool = pytest_config.getoption("mh_compress_artifacts")
 
+        # Read --mh-collect-logs, default to --mh-collect-artifacts
+        self.mh_collect_logs: MultihostArtifactsMode = pytest_config.getoption("mh_collect_logs")
+        if self.mh_collect_logs is None:
+            self.mh_collect_logs = self.mh_collect_artifacts
+
     @classmethod
     def GetLogger(cls) -> logging.Logger:
         """
@@ -90,7 +95,7 @@ class MultihostPlugin(object):
         logger = MultihostLogger.GetLogger()
         logger.setup(
             log_path=self.mh_log_path,
-            artifacts_mode=self.mh_collect_artifacts,
+            artifacts_mode=self.mh_collect_logs,
             artifacts_dir=self.mh_artifacts_dir,
             confdict=self.confdict,
         )
@@ -140,6 +145,7 @@ class MultihostPlugin(object):
         self.logger.info(f"  require exact topology: {self.mh_exact_topology}")
         self.logger.info(f"  collect artifacts: {self.mh_collect_artifacts}")
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
+        self.logger.info(f"  collect logs: {self.mh_collect_logs}")
         self.logger.info("")
 
     @pytest.hookimpl(trylast=True)
@@ -564,6 +570,15 @@ def pytest_addoption(parser):
         "--mh-compress-artifacts",
         action="store_true",
         help="If set, test artifacts are stored in a compressed archive",
+    )
+
+    parser.addoption(
+        "--mh-collect-logs",
+        action="store",
+        default=None,
+        nargs="?",
+        choices=["never", "on-failure", "always"],
+        help="Collect logs mode (default: use value of --mh-collect-artifacts)",
     )
 
 
