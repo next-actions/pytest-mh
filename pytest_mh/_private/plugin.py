@@ -159,7 +159,7 @@ class MultihostPlugin(object):
                 except Exception as e:
                     errors.append(e)
                 finally:
-                    self.multihost.logger.flush(f"hosts/{host.hostname}/teardown.log", "unknown")
+                    self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", "unknown")
 
         if errors:
             raise Exception(errors)
@@ -288,7 +288,7 @@ class MultihostPlugin(object):
                 host.pytest_setup()
                 host._op_state.set_success("pytest_setup")
             finally:
-                self.multihost.logger.flush(f"hosts/{host.hostname}/setup.log", "unknown")
+                self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", "unknown")
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
@@ -297,7 +297,7 @@ class MultihostPlugin(object):
                 mark.controller._op_state.set_success("topology_setup")
             finally:
                 self.current_topology = mark.name
-                self.multihost.logger.flush(f"topologies/{mark.name}/setup.log", "unknown")
+                self.multihost.logger.flush(f"topologies/{mark.name}/topology_setup.log", "unknown")
 
         # Make mh fixture always available
         if "mh" not in item.fixturenames:
@@ -353,7 +353,7 @@ class MultihostPlugin(object):
                     mark.controller._invoke_with_args(mark.controller.topology_teardown)
             finally:
                 self.current_topology = None
-                self.multihost.logger.flush(f"topologies/{mark.name}/teardown.log", "unknown")
+                self.multihost.logger.flush(f"topologies/{mark.name}/topology_teardown.log", "unknown")
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
