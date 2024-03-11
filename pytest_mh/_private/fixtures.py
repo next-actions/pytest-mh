@@ -258,8 +258,7 @@ class MultihostFixture(object):
             try:
                 host.artifacts_collector.collect(
                     "test",
-                    path=f"tests/{self.request.node.name}",
-                    collection_path=f"{host.role}/{host.hostname}",
+                    path=f"tests/{self.request.node.name}/{host.role}/{host.hostname}",
                     outcome=self.data.outcome,
                     collect_objects=collectable[host],
                 )
