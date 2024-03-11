@@ -40,6 +40,23 @@ The function takes all fixtures that are available to the test as parameters.
     def test_example_kwargs(client: Client, ldap: LDAP):
         pass
 
+It is also possible to pass a function directly instead of an anonymous (lambda)
+function if the requirement is shared between multiple tests. However, there is
+a documented glitch in pytest that requires you to use different marker syntax.
+See `pytest documentation
+<https://docs.pytest.org/en/stable/example/markers.html#passing-a-callable-to-custom-markers>`__
+for more information.
+
+.. code-block:: python
+
+    def require_files_provider(client: Client):
+        return "files-provider" in client.features, "SSSD was not built with files provider"
+
+    @pytest.mark.require.with_args(require_files_provider)
+    @pytest.mark.topology(KnownTopology.LDAP)
+    def test_example():
+        pass
+
 .. note::
 
     The requirement is evaluated when the test is executed but before setup
