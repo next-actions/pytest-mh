@@ -16,6 +16,7 @@ from .logging import MultihostLogger
 from .marks import TopologyMark
 from .multihost import MultihostArtifactsMode, MultihostConfig, MultihostHost
 from .topology import Topology
+from .topology_controller import TopologyController
 from .types import MultihostOutcome
 
 MarkStashKey = pytest.StashKey[TopologyMark | None]()
@@ -33,7 +34,7 @@ class MultihostPlugin(object):
         self.topology: Topology | None = None
         self.confdict: dict | None = None
         self.current_topology: str | None = None
-        self.required_hosts: set[MultihostHost] = set()
+        self.required_hosts: list[MultihostHost] = []
 
         # CLI options
         self.mh_config: str = pytest_config.getoption("mh_config")
@@ -158,23 +159,8 @@ class MultihostPlugin(object):
         if self.multihost is None:
             return
 
-        errors = []
-        for host in self.required_hosts:
-            if host._op_state.check_success("pytest_setup"):
-                try:
-                    host.pytest_teardown()
-                    host._op_state.set_success("pytest_teardown")
-                except Exception as e:
-                    errors.append(e)
-                finally:
-                    outcome: MultihostOutcome = "error"
-                    if host._op_state.check_success("pytest_teardown"):
-                        outcome = "passed"
-
-                    self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", outcome)
-
-        if errors:
-            raise Exception(errors)
+        # Run pytest_teardown on all hosts required by selected tests
+        self._teardown_hosts(self.required_hosts)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_make_collect_report(self, collector: pytest.Collector) -> Generator[None, pytest.CollectReport, None]:
@@ -267,12 +253,16 @@ class MultihostPlugin(object):
 
         # List of items may have been further modified by other plugins or filters
         # Remember all hosts required to run selected tests
+        required_hosts_set: set[MultihostHost] = set()
         for item in items:
             data = MultihostItemData.GetData(item)
             if data is None or data.topology_mark is None:
                 continue
 
-            self.required_hosts.update(self.multihost.topology_hosts(data.topology_mark.topology))
+            required_hosts_set.update(self.multihost.topology_hosts(data.topology_mark.topology))
+
+        # Sort required host by name to provide deterministic runs
+        self.required_hosts = sorted(required_hosts_set, key=lambda x: x.hostname)
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_setup(self, item: pytest.Item) -> None:
@@ -293,32 +283,14 @@ class MultihostPlugin(object):
         if self.multihost is None or data is None or data.topology_mark is None:
             return
         mark: TopologyMark = data.topology_mark
-        outcome: MultihostOutcome = "error"
 
         # Run pytest_setup on all hosts required by selected tests
-        for host in self.required_hosts:
-            try:
-                host.pytest_setup()
-                host._op_state.set_success("pytest_setup")
-            finally:
-                outcome = "error"
-                if host._op_state.check_success("pytest_setup"):
-                    outcome = "passed"
-
-                self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", outcome)
+        self._setup_hosts(self.required_hosts)
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
-            try:
-                mark.controller._invoke_with_args(mark.controller.topology_setup)
-                mark.controller._op_state.set_success("topology_setup")
-            finally:
-                self.current_topology = mark.name
-                outcome = "error"
-                if mark.controller._op_state.check_success("topology_setup"):
-                    outcome = "passed"
-
-                self.multihost.logger.flush(f"topologies/{mark.name}/topology_setup.log", outcome)
+            self.current_topology = mark.name
+            self._setup_topology(mark.name, mark.controller)
 
         # Make mh fixture always available
         if "mh" not in item.fixturenames:
@@ -369,17 +341,7 @@ class MultihostPlugin(object):
 
         # Execute per-topology teardown if topology changed.
         if self._topology_switch(item, nextitem):
-            try:
-                if mark.controller._op_state.check_success("topology_setup"):
-                    mark.controller._invoke_with_args(mark.controller.topology_teardown)
-                    mark.controller._op_state.set_success("topology_teardown")
-            finally:
-                self.current_topology = None
-                outcome: MultihostOutcome = "error"
-                if mark.controller._op_state.check_success("topology_teardown"):
-                    outcome = "passed"
-
-                self.multihost.logger.flush(f"topologies/{mark.name}/topology_teardown.log", outcome)
+            self._teardown_topology(mark.name, mark.controller)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
@@ -513,6 +475,77 @@ class MultihostPlugin(object):
             return True
 
         return False
+
+    def _setup_hosts(self, hosts: list[MultihostHost]) -> None:
+        # Silent mypy false positive
+        if self.multihost is None:
+            raise RuntimeError("Multihost configuration is not present.")
+
+        for host in hosts:
+            try:
+                host.pytest_setup()
+                host._op_state.set_success("pytest_setup")
+            finally:
+                outcome: MultihostOutcome = "error"
+                if host._op_state.check_success("pytest_setup"):
+                    outcome = "passed"
+
+                self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", outcome)
+
+    def _teardown_hosts(self, hosts: list[MultihostHost]) -> None:
+        # Silent mypy false positive
+        if self.multihost is None:
+            raise RuntimeError("Multihost configuration is not present.")
+
+        errors = []
+        for host in hosts:
+            if host._op_state.check_success("pytest_setup"):
+                try:
+                    host.pytest_teardown()
+                    host._op_state.set_success("pytest_teardown")
+                except Exception as e:
+                    errors.append(e)
+                finally:
+                    outcome: MultihostOutcome = "error"
+                    if host._op_state.check_success("pytest_teardown"):
+                        outcome = "passed"
+
+                    self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", outcome)
+
+        if errors:
+            raise Exception(errors)
+
+    def _setup_topology(self, name: str, controller: TopologyController) -> None:
+        # Silent mypy false positive
+        if self.multihost is None:
+            raise RuntimeError("Multihost configuration is not present.")
+
+        try:
+            controller._invoke_with_args(controller.topology_setup)
+            controller._op_state.set_success("topology_setup")
+        finally:
+            outcome: MultihostOutcome = "error"
+            if controller._op_state.check_success("topology_setup"):
+                outcome = "passed"
+
+            self.multihost.logger.flush(f"topologies/{name}/topology_setup.log", outcome)
+
+    def _teardown_topology(self, name: str, controller: TopologyController) -> None:
+        # Silent mypy false positive
+        if self.multihost is None:
+            raise RuntimeError("Multihost configuration is not present.")
+
+        try:
+            if controller._op_state.check_success("topology_setup"):
+                controller._invoke_with_args(controller.topology_teardown)
+                controller._op_state.set_success("topology_teardown")
+        finally:
+            self.current_topology = None
+            outcome: MultihostOutcome = "error"
+            if controller._op_state.check_success("topology_teardown"):
+                outcome = "passed"
+
+            self.multihost.logger.flush(f"topologies/{name}/topology_teardown.log", outcome)
 
 
 # These pytest hooks must be available outside of the plugin's class because
