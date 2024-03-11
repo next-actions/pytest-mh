@@ -4,7 +4,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Generator
 
-import colorama
 import pytest
 
 from .data import MultihostItemData
@@ -317,14 +316,7 @@ class MultihostFixture(object):
         :param phase: Phase name or description.
         :type phase: str
         """
-        self.logger.info(
-            self.logger.colorize(
-                f"{phase} :: {self.request.node.nodeid}",
-                colorama.Style.BRIGHT,
-                colorama.Back.BLACK,
-                colorama.Fore.WHITE,
-            )
-        )
+        self.logger.phase(f"{phase} :: {self.request.node.nodeid}")
 
     def _enter(self) -> MultihostFixture:
         if self._skip():
