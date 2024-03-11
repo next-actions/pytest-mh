@@ -136,6 +136,22 @@ class MultihostLogger(logging.Logger):
 
         return "".join(colors) + str(text) + colorama.Style.RESET_ALL
 
+    def phase(self, phase: str) -> None:
+        """
+        Log current phase.
+
+        :param phase: Phase name or description.
+        :type phase: str
+        """
+        self.info(
+            self.colorize(
+                f"{phase}",
+                colorama.Style.BRIGHT,
+                colorama.Back.BLACK,
+                colorama.Fore.WHITE,
+            )
+        )
+
     def debug(self, msg, *args, **kwargs):
         super().debug(msg, *args, **self._msgdata(kwargs))
 
