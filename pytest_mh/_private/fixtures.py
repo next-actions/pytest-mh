@@ -258,8 +258,8 @@ class MultihostFixture(object):
             try:
                 host.artifacts_collector.collect(
                     "test",
-                    path=f"{self.request.node.name}",
-                    collection_path=f"{host.role}_{host.hostname}",
+                    path=f"tests/{self.request.node.name}",
+                    collection_path=f"{host.role}/{host.hostname}",
                     outcome=self.data.outcome,
                     collect_objects=collectable[host],
                 )
@@ -295,7 +295,7 @@ class MultihostFixture(object):
         Write log messages produced by current test case to a file, or clear
         them if no artifacts should be generated.
         """
-        self.logger.flush(Path(self.request.node.name) / "test.log", self.data.outcome)
+        self.logger.flush(Path(f"tests/{self.request.node.name}") / "test.log", self.data.outcome)
 
     def _invoke_phase(self, name: str, cb: Callable, catch: bool = False) -> Exception | None:
         self.log_phase(name)
