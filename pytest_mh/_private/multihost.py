@@ -789,7 +789,6 @@ class MultihostArtifactsCollector(object):
         type: MultihostArtifactsType,
         *,
         path: str,
-        collection_path: str,
         outcome: MultihostOutcome,
         collect_objects: list[MultihostArtifactCollectionType],
     ) -> None:
@@ -800,8 +799,6 @@ class MultihostArtifactsCollector(object):
         :type type: MultihostArtifactsType
         :param path: Artifacts path relative to artifacts directory.
         :type path: str
-        :param collection_path: Artifacts collection path, relative to ``$artifacts_dir/$path``.
-        :type collection_path: str
         :param outcome: Test or operation outcome.
         :type outcome: MultihostOutcome
         :param collect_objects: Objects from which artifacts will be collected.
@@ -816,7 +813,6 @@ class MultihostArtifactsCollector(object):
 
         # Substitute problematic characters and create destination path
         dest = self.path / sanitize_path(path)
-        collection_dest = dest / sanitize_path(collection_path)
 
         # Gather list of artifacts to collect
         errors = []
@@ -840,7 +836,7 @@ class MultihostArtifactsCollector(object):
             "Collecting artifacts",
             extra={
                 "data": {
-                    "Local destination": dest,
+                    "Local destination": dest if not self.compress else f"{dest}.tgz",
                     "Artifacts": artifacts,
                 }
             },
@@ -848,7 +844,7 @@ class MultihostArtifactsCollector(object):
 
         # Create output directory, skip the last part since it is the
         # tarball/collection name.
-        collection_dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.parent.mkdir(parents=True, exist_ok=True)
 
         # Collect artifacts
         match self.host.os_family:
@@ -859,7 +855,6 @@ class MultihostArtifactsCollector(object):
                     base64 "$tmp"
                     rm -f "$tmp" &> /dev/null
                 """
-                ext = "tgz"
             case MultihostHostOSFamily.Windows:
                 raise NotImplementedError("Artifacts are not supported on Windows machine")
             case _:
@@ -874,9 +869,9 @@ class MultihostArtifactsCollector(object):
         with BytesIO(b64decode(result.stdout)) as buffer:
             if self.compress:
                 # Store artifacts in single archive
-                with open(f"{dest}/{collection_path}.{ext}", "wb") as f:
+                with open(f"{dest}.tgz", "wb") as f:
                     f.write(buffer.getbuffer())
             else:
                 # Extract archive for convenience
                 with tarfile.open(fileobj=buffer) as tar:
-                    tar.extractall(f"{dest}/{collection_path}")
+                    tar.extractall(str(dest))
