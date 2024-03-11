@@ -67,3 +67,5 @@ New pytest command line options
 * ``--mh-compress-artifacts`` - If set, test artifacts are stored in a compressed archive.
 * ``--mh-topology`` - Filter tests by given topology, can be set multiple times.
 * ``--mh-not-topology`` - Do not run tests for given topology, can be set multiple times.
+* ``--mh-collect-logs=always|on-failure|never`` - Specifies when logs are
+  collected. Uses ``--mh-collect-artifacts`` as default value.
