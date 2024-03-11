@@ -16,6 +16,7 @@ from .logging import MultihostLogger
 from .marks import TopologyMark
 from .multihost import MultihostArtifactsMode, MultihostConfig, MultihostHost
 from .topology import Topology
+from .types import MultihostOutcome
 
 MarkStashKey = pytest.StashKey[TopologyMark | None]()
 
@@ -156,10 +157,15 @@ class MultihostPlugin(object):
             if host._op_state.check_success("pytest_setup"):
                 try:
                     host.pytest_teardown()
+                    host._op_state.set_success("pytest_teardown")
                 except Exception as e:
                     errors.append(e)
                 finally:
-                    self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", "unknown")
+                    outcome: MultihostOutcome = "error"
+                    if host._op_state.check_success("pytest_teardown"):
+                        outcome = "passed"
+
+                    self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", outcome)
 
         if errors:
             raise Exception(errors)
@@ -281,6 +287,7 @@ class MultihostPlugin(object):
         if self.multihost is None or data is None or data.topology_mark is None:
             return
         mark: TopologyMark = data.topology_mark
+        outcome: MultihostOutcome = "error"
 
         # Run pytest_setup on all hosts required by selected tests
         for host in self.required_hosts:
@@ -288,7 +295,11 @@ class MultihostPlugin(object):
                 host.pytest_setup()
                 host._op_state.set_success("pytest_setup")
             finally:
-                self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", "unknown")
+                outcome = "error"
+                if host._op_state.check_success("pytest_setup"):
+                    outcome = "passed"
+
+                self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", outcome)
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
@@ -297,7 +308,11 @@ class MultihostPlugin(object):
                 mark.controller._op_state.set_success("topology_setup")
             finally:
                 self.current_topology = mark.name
-                self.multihost.logger.flush(f"topologies/{mark.name}/topology_setup.log", "unknown")
+                outcome = "error"
+                if mark.controller._op_state.check_success("topology_setup"):
+                    outcome = "passed"
+
+                self.multihost.logger.flush(f"topologies/{mark.name}/topology_setup.log", outcome)
 
         # Make mh fixture always available
         if "mh" not in item.fixturenames:
@@ -351,9 +366,14 @@ class MultihostPlugin(object):
             try:
                 if mark.controller._op_state.check_success("topology_setup"):
                     mark.controller._invoke_with_args(mark.controller.topology_teardown)
+                    mark.controller._op_state.set_success("topology_teardown")
             finally:
                 self.current_topology = None
-                self.multihost.logger.flush(f"topologies/{mark.name}/topology_teardown.log", "unknown")
+                outcome: MultihostOutcome = "error"
+                if mark.controller._op_state.check_success("topology_teardown"):
+                    outcome = "passed"
+
+                self.multihost.logger.flush(f"topologies/{mark.name}/topology_teardown.log", outcome)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
