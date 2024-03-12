@@ -483,9 +483,11 @@ class MultihostPlugin(object):
 
         for host in hosts:
             try:
+                host.logger.phase(f"PYTEST SETUP :: {host.hostname}")
                 host.pytest_setup()
                 host._op_state.set_success("pytest_setup")
             finally:
+                host.logger.phase(f"PYTEST SETUP DONE :: {host.hostname}")
                 outcome: MultihostOutcome = "error"
                 if host._op_state.check_success("pytest_setup"):
                     outcome = "passed"
@@ -501,11 +503,13 @@ class MultihostPlugin(object):
         for host in hosts:
             if host._op_state.check_success("pytest_setup"):
                 try:
+                    host.logger.phase(f"PYTEST TEARDOWN :: {host.hostname}")
                     host.pytest_teardown()
                     host._op_state.set_success("pytest_teardown")
                 except Exception as e:
                     errors.append(e)
                 finally:
+                    host.logger.phase(f"PYTEST TEARDOWN DONE :: {host.hostname}")
                     outcome: MultihostOutcome = "error"
                     if host._op_state.check_success("pytest_teardown"):
                         outcome = "passed"
@@ -521,9 +525,11 @@ class MultihostPlugin(object):
             raise RuntimeError("Multihost configuration is not present.")
 
         try:
+            controller.logger.phase(f"TOPOLOGY SETUP :: {controller.name}")
             controller._invoke_with_args(controller.topology_setup)
             controller._op_state.set_success("topology_setup")
         finally:
+            controller.logger.phase(f"TOPOLOGY SETUP DONE :: {controller.name}")
             outcome: MultihostOutcome = "error"
             if controller._op_state.check_success("topology_setup"):
                 outcome = "passed"
@@ -537,10 +543,12 @@ class MultihostPlugin(object):
 
         try:
             if controller._op_state.check_success("topology_setup"):
+                controller.logger.phase(f"TOPOLOGY TEARDOWN :: {controller.name}")
                 controller._invoke_with_args(controller.topology_teardown)
                 controller._op_state.set_success("topology_teardown")
         finally:
             self.current_topology = None
+            controller.logger.phase(f"TOPOLOGY TEARDOWN DONE :: {controller.name}")
             outcome: MultihostOutcome = "error"
             if controller._op_state.check_success("topology_teardown"):
                 outcome = "passed"
