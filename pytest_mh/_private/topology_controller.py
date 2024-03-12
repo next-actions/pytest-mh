@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from .logging import MultihostLogger
 from .misc import OperationStatus, invoke_callback
 from .topology import Topology, TopologyDomain
+from .types import MultihostArtifactsType
 
 if TYPE_CHECKING:
     from .multihost import MultihostConfig, MultihostDomain, MultihostHost
@@ -108,6 +109,13 @@ class TopologyController(object):
         self.__ns: SimpleNamespace | None = None
         self.__args: dict[str, MultihostHost | list[MultihostHost]] | None = None
         self.__initialized: bool = False
+
+        self.artifacts: set[str] = set()
+        """
+        List of artifacts that will be automatically collected when a test is
+        finished. This list can be dynamically extended. Values may contain
+        wildcard character.
+        """
 
     def _init(
         self,
@@ -272,6 +280,31 @@ class TopologyController(object):
             raise RuntimeError("TopologyController has not been initialized yet")
 
         return self.__hosts
+
+    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
+        """
+        Return the list of artifacts to collect.
+
+        This just returns :attr:`artifacts`, but it is possible to override this
+        method in order to generate additional artifacts that were not created
+        by the test, or detect which artifacts were created and update the
+        artifacts list.
+
+        :param type: Type of artifacts that are being collected.
+        :type type: MultihostArtifactsType
+        :return: List of artifacts to collect.
+        :rtype: set[str]
+        """
+        return self.artifacts
+
+    def set_artifacts(self) -> None:
+        """
+        Called before :meth:`topology_setup` to set topology artifacts.
+
+        Note that the artifacts can be set in any other method as well. This
+        dedicated method is just for your convenience.
+        """
+        return
 
     def skip(self) -> str | None:
         """

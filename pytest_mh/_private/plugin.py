@@ -546,6 +546,7 @@ class MultihostPlugin(object):
 
         try:
             controller.logger.phase(f"TOPOLOGY SETUP :: {name}")
+            controller._invoke_with_args(controller.set_artifacts)
             controller._invoke_with_args(controller.topology_setup)
             controller._op_state.set_success("topology_setup")
         finally:
@@ -559,7 +560,7 @@ class MultihostPlugin(object):
                 hostdir=True,
                 type="topology_setup",
                 path=f"topologies/{name}/topology_setup",
-                collectable={x: [x] for x in controller.hosts},
+                collectable={x: [x, controller] for x in controller.hosts},
                 outcome=outcome,
                 logger=controller.logger,
             )
@@ -588,7 +589,7 @@ class MultihostPlugin(object):
                 hostdir=True,
                 type="topology_teardown",
                 path=f"topologies/{name}/topology_teardown",
-                collectable={x: [x] for x in controller.hosts},
+                collectable={x: [x, controller] for x in controller.hosts},
                 outcome=outcome,
                 logger=controller.logger,
             )
