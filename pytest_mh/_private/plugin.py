@@ -17,7 +17,7 @@ from .marks import TopologyMark
 from .multihost import MultihostArtifactsMode, MultihostConfig, MultihostHost
 from .topology import Topology
 from .topology_controller import TopologyController
-from .types import MultihostOutcome
+from .types import MultihostArtifactCollectionType, MultihostArtifactsType, MultihostOutcome
 
 MarkStashKey = pytest.StashKey[TopologyMark | None]()
 
@@ -492,6 +492,16 @@ class MultihostPlugin(object):
                 if host._op_state.check_success("pytest_setup"):
                     outcome = "passed"
 
+                self._collect_artifacts(
+                    id=host.hostname,
+                    hostdir=False,
+                    type="pytest_setup",
+                    path=f"hosts/{host.hostname}/pytest_setup",
+                    collectable={host: [host]},
+                    outcome=outcome,
+                    logger=host.logger,
+                )
+
                 self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", outcome)
 
     def _teardown_hosts(self, hosts: list[MultihostHost]) -> None:
@@ -514,6 +524,16 @@ class MultihostPlugin(object):
                     if host._op_state.check_success("pytest_teardown"):
                         outcome = "passed"
 
+                    self._collect_artifacts(
+                        id=host.hostname,
+                        hostdir=False,
+                        type="pytest_teardown",
+                        path=f"hosts/{host.hostname}/pytest_teardown",
+                        collectable={host: [host]},
+                        outcome=outcome,
+                        logger=host.logger,
+                    )
+
                     self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", outcome)
 
         if errors:
@@ -525,14 +545,24 @@ class MultihostPlugin(object):
             raise RuntimeError("Multihost configuration is not present.")
 
         try:
-            controller.logger.phase(f"TOPOLOGY SETUP :: {controller.name}")
+            controller.logger.phase(f"TOPOLOGY SETUP :: {name}")
             controller._invoke_with_args(controller.topology_setup)
             controller._op_state.set_success("topology_setup")
         finally:
-            controller.logger.phase(f"TOPOLOGY SETUP DONE :: {controller.name}")
+            controller.logger.phase(f"TOPOLOGY SETUP DONE :: {name}")
             outcome: MultihostOutcome = "error"
             if controller._op_state.check_success("topology_setup"):
                 outcome = "passed"
+
+            self._collect_artifacts(
+                id=name,
+                hostdir=True,
+                type="topology_setup",
+                path=f"topologies/{name}/topology_setup",
+                collectable={x: [x] for x in controller.hosts},
+                outcome=outcome,
+                logger=controller.logger,
+            )
 
             self.multihost.logger.flush(f"topologies/{name}/topology_setup.log", outcome)
 
@@ -543,17 +573,54 @@ class MultihostPlugin(object):
 
         try:
             if controller._op_state.check_success("topology_setup"):
-                controller.logger.phase(f"TOPOLOGY TEARDOWN :: {controller.name}")
+                controller.logger.phase(f"TOPOLOGY TEARDOWN :: {name}")
                 controller._invoke_with_args(controller.topology_teardown)
                 controller._op_state.set_success("topology_teardown")
         finally:
             self.current_topology = None
-            controller.logger.phase(f"TOPOLOGY TEARDOWN DONE :: {controller.name}")
+            controller.logger.phase(f"TOPOLOGY TEARDOWN DONE :: {name}")
             outcome: MultihostOutcome = "error"
             if controller._op_state.check_success("topology_teardown"):
                 outcome = "passed"
 
+            self._collect_artifacts(
+                id=name,
+                hostdir=True,
+                type="topology_teardown",
+                path=f"topologies/{name}/topology_teardown",
+                collectable={x: [x] for x in controller.hosts},
+                outcome=outcome,
+                logger=controller.logger,
+            )
+
             self.multihost.logger.flush(f"topologies/{name}/topology_teardown.log", outcome)
+
+    def _collect_artifacts(
+        self,
+        *,
+        id: str,
+        hostdir: bool,
+        type: MultihostArtifactsType,
+        path: str,
+        collectable: dict[MultihostHost, list[MultihostArtifactCollectionType]],
+        outcome: MultihostOutcome,
+        logger: MultihostLogger,
+    ) -> None:
+        logger.phase(f"COLLECT ARTIFACTS :: {id}")
+        for host, objects in collectable.items():
+            dest = f"{path}/{host.hostname}" if hostdir else path
+            try:
+                host.artifacts_collector.collect(type, path=dest, outcome=outcome, collect_objects=objects)
+            except Exception as e:
+                self.logger.error(
+                    "An error happend when collecting artifacts",
+                    extra={
+                        "data": {
+                            "Error message": str(e),
+                        }
+                    },
+                )
+        logger.phase(f"COLLECT ARTIFACTS DONE :: {id}")
 
 
 # These pytest hooks must be available outside of the plugin's class because

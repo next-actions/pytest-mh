@@ -8,7 +8,7 @@ from enum import Enum
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Protocol, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
 
 from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHLog, SSHPowerShellProcess, SSHProcess
@@ -16,7 +16,7 @@ from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
 from .misc import OperationStatus, sanitize_path, should_collect_artifacts
 from .topology import Topology
-from .types import MultihostArtifactsMode, MultihostArtifactsType, MultihostOutcome
+from .types import MultihostArtifactCollectionType, MultihostArtifactsMode, MultihostArtifactsType, MultihostOutcome
 from .utils import validate_configuration
 
 if TYPE_CHECKING:
@@ -718,28 +718,6 @@ class MultihostUtility(Generic[HostType]):
         """
         method.__mh_ignore_call = True
         return method
-
-
-class MultihostArtifactCollectionType(Protocol):
-    """
-    Hints that given object supports artifacts collection.
-    """
-
-    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
-        """
-        Return the list of artifacts to collect.
-
-        This just returns :attr:`artifacts`, but it is possible to override this
-        method in order to generate additional artifacts that were not created
-        by the test, or detect which artifacts were created and update the
-        artifacts list.
-
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
-        :return: List of artifacts to collect.
-        :rtype: set[str]
-        """
-        pass
 
 
 class MultihostArtifactsCollector(object):

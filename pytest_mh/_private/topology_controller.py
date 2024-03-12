@@ -126,7 +126,7 @@ class TopologyController(object):
         self.__multihost = multihost
         self.__logger = logger
         self.__topology = topology
-        self.__ns, self.__args = self._build_namespace_and_args(multihost.domains, topology, mapping)
+        self.__ns, self.__args, self.__hosts = self._build_namespace_and_args(multihost.domains, topology, mapping)
 
         self.__initialized = True
 
@@ -135,29 +135,32 @@ class TopologyController(object):
         mh_domains: list[MultihostDomain],
         topology: Topology,
         mapping: dict[str, str],
-    ) -> tuple[SimpleNamespace, dict[str, MultihostHost | list[MultihostHost]]]:
+    ) -> tuple[SimpleNamespace, dict[str, MultihostHost | list[MultihostHost]], list[MultihostHost]]:
         root = SimpleNamespace()
         paths: dict[str, MultihostHost | list[MultihostHost]] = {}
+        hosts: set[MultihostHost] = set()
 
         for mh_domain in mh_domains:
             if mh_domain.id in topology:
-                ns, nspaths = self._build_domain_namespace_and_paths(topology.get(mh_domain.id), mh_domain)
+                ns, nspaths, nshosts = self._build_domain_namespace_and_paths(topology.get(mh_domain.id), mh_domain)
                 setattr(root, mh_domain.id, ns)
                 paths.update(**nspaths)
+                hosts.update(nshosts)
 
         args = {}
         for name, path in mapping.items():
             args[name] = paths[path]
 
-        return (root, args)
+        return (root, args, sorted(hosts, key=lambda x: x.hostname))
 
     def _build_domain_namespace_and_paths(
         self,
         topology_domain: TopologyDomain,
         mh_domain: MultihostDomain,
-    ) -> tuple[SimpleNamespace, dict[str, MultihostHost | list[MultihostHost]]]:
+    ) -> tuple[SimpleNamespace, dict[str, MultihostHost | list[MultihostHost]], set[MultihostHost]]:
         ns = SimpleNamespace()
         paths: dict[str, MultihostHost | list[MultihostHost]] = {}
+        domain_hosts: set[MultihostHost] = set()
 
         for role_name in mh_domain.roles:
             if role_name not in topology_domain:
@@ -165,13 +168,14 @@ class TopologyController(object):
 
             count = topology_domain.get(role_name)
             hosts = [host for host in mh_domain.hosts_by_role(role_name)[:count]]
+            domain_hosts.update(hosts)
             setattr(ns, role_name, hosts)
 
             paths[f"{topology_domain.id}.{role_name}"] = hosts
             for index, host in enumerate(hosts):
                 paths[f"{topology_domain.id}.{role_name}[{index}]"] = host
 
-        return (ns, paths)
+        return (ns, paths, domain_hosts)
 
     def _invoke_with_args(self, cb: Callable) -> Any:
         if self.__args is None:
@@ -253,6 +257,21 @@ class TopologyController(object):
             raise RuntimeError("TopologyController has not been initialized yet")
 
         return self.__ns
+
+    @property
+    def hosts(self) -> list[MultihostHost]:
+        """
+        List of MultihostHost objects available in this topology.
+
+        This property cannot be accessed from the constructor.
+
+        :return: List of MultihostHost objects.
+        :rtype: list[MultihostHost]
+        """
+        if self.__hosts is None:
+            raise RuntimeError("TopologyController has not been initialized yet")
+
+        return self.__hosts
 
     def skip(self) -> str | None:
         """
