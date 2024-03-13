@@ -18,7 +18,7 @@ from .logging import MultihostHostLogger, MultihostLogger
 from .marks import TopologyMark
 from .misc import OperationStatus
 from .topology import Topology
-from .types import MultihostHostOSFamily
+from .types import MultihostOSFamily
 from .utils import validate_configuration
 
 if TYPE_CHECKING:
@@ -359,18 +359,18 @@ class MultihostHost(Generic[DomainType]):
         # Get host operating system information
         os = confdict.get("os", {})
 
-        os_family = str(os.get("family", MultihostHostOSFamily.Linux.value)).lower()
+        os_family = str(os.get("family", MultihostOSFamily.Linux.value)).lower()
         try:
-            self.os_family: MultihostHostOSFamily = MultihostHostOSFamily(os_family)
+            self.os_family: MultihostOSFamily = MultihostOSFamily(os_family)
             """Host operating system os_family."""
         except ValueError:
             raise ValueError(f'Value "{os_family}" is not supported in os_family field of host configuration')
 
         # Set host shell based on the operating system
         match self.os_family:
-            case MultihostHostOSFamily.Linux:
+            case MultihostOSFamily.Linux:
                 self.shell = SSHBashProcess
-            case MultihostHostOSFamily.Windows:
+            case MultihostOSFamily.Windows:
                 self.shell = SSHPowerShellProcess
             case _:
                 raise ValueError(f"Unknown operating system os_family: {self.os_family}")

@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Literal, TypeAlias
 
 
-class MultihostHostOSFamily(Enum):
+class MultihostOSFamily(Enum):
     """
     Host operating system family.
     """
