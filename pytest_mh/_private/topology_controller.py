@@ -3,10 +3,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable
 
+from .artifacts import MultihostArtifactsType, MultihostTopologyControllerArtifacts
 from .logging import MultihostLogger
 from .misc import OperationStatus, invoke_callback
 from .topology import Topology, TopologyDomain
-from .types import MultihostArtifactsType
 
 if TYPE_CHECKING:
     from .multihost import MultihostConfig, MultihostDomain, MultihostHost
@@ -30,6 +30,9 @@ class TopologyController(object):
         :caption: Example topology controller
 
         class ExampleController(TopologyController):
+            def set_artifacts(self, client: ClientHost) -> None:
+                self.artifacts.topology_setup[client] = {"/etc/issue"}
+
             def skip(self, client: ClientHost) -> str | None:
                 result = client.ssh.run(
                     '''
@@ -110,10 +113,10 @@ class TopologyController(object):
         self.__args: dict[str, MultihostHost | list[MultihostHost]] | None = None
         self.__initialized: bool = False
 
-        self.artifacts: set[str] = set()
+        self.artifacts: MultihostTopologyControllerArtifacts = MultihostTopologyControllerArtifacts()
         """
-        List of artifacts that will be automatically collected when a test is
-        finished. This list can be dynamically extended. Values may contain
+        List of artifacts that will be automatically collected at specific
+        places. This list can be dynamically extended. Values may contain
         wildcard character.
         """
 
@@ -281,7 +284,7 @@ class TopologyController(object):
 
         return self.__hosts
 
-    def get_artifacts_list(self, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
 
@@ -290,14 +293,16 @@ class TopologyController(object):
         by the test, or detect which artifacts were created and update the
         artifacts list.
 
+        :param host: Host where the artifacts are being collected.
+        :type host: MultihostHost
         :param type: Type of artifacts that are being collected.
         :type type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        return self.artifacts
+        return self.artifacts.get(host, type)
 
-    def set_artifacts(self) -> None:
+    def set_artifacts(self, *args, **kwargs) -> None:
         """
         Called before :meth:`topology_setup` to set topology artifacts.
 
@@ -306,7 +311,7 @@ class TopologyController(object):
         """
         return
 
-    def skip(self) -> str | None:
+    def skip(self, *args, **kwargs) -> str | None:
         """
         Called before a test is executed.
 
@@ -317,25 +322,25 @@ class TopologyController(object):
         """
         return None
 
-    def topology_setup(self) -> None:
+    def topology_setup(self, *args, **kwargs) -> None:
         """
         Called once before executing the first test of given topology.
         """
         pass
 
-    def topology_teardown(self) -> None:
+    def topology_teardown(self, *args, **kwargs) -> None:
         """
         Called once after all tests for given topology were run.
         """
         pass
 
-    def setup(self) -> None:
+    def setup(self, *args, **kwargs) -> None:
         """
         Called before execution of each test.
         """
         pass
 
-    def teardown(self) -> None:
+    def teardown(self, *args, **kwargs) -> None:
         """
         Called after execution of each test.
         """

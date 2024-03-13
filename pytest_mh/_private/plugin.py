@@ -10,6 +10,7 @@ from typing import Generator, Type
 import pytest
 import yaml
 
+from .artifacts import MultihostArtifactsCollectable, MultihostArtifactsType
 from .data import MultihostItemData
 from .fixtures import MultihostFixture
 from .logging import MultihostLogger
@@ -17,7 +18,7 @@ from .marks import TopologyMark
 from .multihost import MultihostArtifactsMode, MultihostConfig, MultihostHost
 from .topology import Topology
 from .topology_controller import TopologyController
-from .types import MultihostArtifactCollectionType, MultihostArtifactsType, MultihostOutcome
+from .types import MultihostOutcome
 
 MarkStashKey = pytest.StashKey[TopologyMark | None]()
 
@@ -603,7 +604,7 @@ class MultihostPlugin(object):
         hostdir: bool,
         type: MultihostArtifactsType,
         path: str,
-        collectable: dict[MultihostHost, list[MultihostArtifactCollectionType]],
+        collectable: dict[MultihostHost, list[MultihostArtifactsCollectable]],
         outcome: MultihostOutcome,
         logger: MultihostLogger,
     ) -> None:
