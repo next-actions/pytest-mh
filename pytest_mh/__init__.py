@@ -12,7 +12,7 @@ from ._private.multihost import (
     MultihostConfig,
     MultihostDomain,
     MultihostHost,
-    MultihostHostOSFamily,
+    MultihostOSFamily,
     MultihostRole,
     MultihostUtility,
 )
@@ -29,8 +29,8 @@ __all__ = [
     "MultihostFixture",
     "MultihostHost",
     "MultihostHostArtifacts",
-    "MultihostHostOSFamily",
     "MultihostItemData",
+    "MultihostOSFamily",
     "MultihostPlugin",
     "MultihostRole",
     "MultihostTopologyControllerArtifacts",
