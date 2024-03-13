@@ -4,12 +4,15 @@ import logging
 import textwrap
 from logging.handlers import MemoryHandler
 from pathlib import Path
-from typing import Any, Type
+from typing import TYPE_CHECKING, Any, Type
 
 import colorama
 
 from .misc import merge_dict, sanitize_path, should_collect_artifacts
-from .types import MultihostArtifactsMode, MultihostOutcome
+from .types import MultihostOutcome
+
+if TYPE_CHECKING:
+    from .artifacts import MultihostArtifactsMode
 
 
 class MultihostLogger(logging.Logger):

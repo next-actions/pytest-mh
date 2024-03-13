@@ -6,18 +6,12 @@ from typing import Any, Callable, Generator
 
 import pytest
 
+from .artifacts import MultihostArtifactsCollectable
 from .data import MultihostItemData
 from .logging import MultihostLogger
 from .marks import TopologyMark
 from .misc import invoke_callback
-from .multihost import (
-    MultihostArtifactCollectionType,
-    MultihostConfig,
-    MultihostDomain,
-    MultihostHost,
-    MultihostRole,
-    MultihostUtility,
-)
+from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole, MultihostUtility
 from .topology import Topology, TopologyDomain
 from .topology_controller import TopologyController
 
@@ -246,9 +240,9 @@ class MultihostFixture(object):
 
     def _collect_artifacts(self) -> None:
         # Create list of collectable objects
-        collectable: dict[MultihostHost, list[MultihostArtifactCollectionType]] = {}
+        collectable: dict[MultihostHost, list[MultihostArtifactsCollectable]] = {}
         for role in self.roles:
-            host_collection = collectable.setdefault(role.host, [role.host, role])
+            host_collection = collectable.setdefault(role.host, [role.host, self.topology_controller, role])
             host_collection.extend(MultihostUtility.GetUtilityAttributes(role).values())
 
         # Collect artifacts, if an error is raised, we will ignore it since

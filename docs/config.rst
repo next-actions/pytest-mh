@@ -136,3 +136,27 @@ artifacts with a possible wildcard character. For example:
       - /etc/sssd/*
       - /var/log/sssd/*
       - /var/lib/sss/db/*
+
+It is also possible to gather artifacts from
+:meth:`pytest_mh.MultihostHost.pytest_setup` and
+:meth:`pytest_mh.MultihostHost.pytest_teardown` calls. To do that, you need to
+provide artifacts as dictionary with ``pytest_setup``, ``pytest_teardown`` and
+``test`` keys.
+
+
+.. code-block:: yaml
+
+  - hostname: client.test
+    role: client
+    ssh:
+      host: 192.168.100.10
+      user: root
+      password: MySecret123
+    config:
+      artifacts:
+        pytest_setup:
+        - /var/log/host_setup.log
+        pytest_teardown:
+        - /var/log/host_teardown.log
+        test:
+        - /var/log/testrun.log

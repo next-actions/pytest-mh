@@ -4,9 +4,12 @@ from copy import deepcopy
 from functools import partial
 from inspect import getfullargspec
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
-from .types import MultihostArtifactsMode, MultihostOutcome
+from .types import MultihostOutcome
+
+if TYPE_CHECKING:
+    from .artifacts import MultihostArtifactsMode
 
 
 def merge_dict(*args: dict | None):
