@@ -364,6 +364,7 @@ class MultihostPlugin(object):
             return
 
         data.outcome = result.outcome
+        data.result = result
 
     # Hook from pytest-output plugin
     @pytest.hookimpl(optionalhook=True)
