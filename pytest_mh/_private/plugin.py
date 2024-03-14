@@ -53,6 +53,9 @@ class MultihostPlugin(object):
         if self.mh_collect_logs is None:
             self.mh_collect_logs = self.mh_collect_artifacts
 
+        # pytest options
+        self.pytest_opt_collect_only: bool = pytest_config.getoption("collectonly")
+
     @classmethod
     def GetLogger(cls) -> logging.Logger:
         """
@@ -161,7 +164,8 @@ class MultihostPlugin(object):
             return
 
         # Run pytest_teardown on all hosts required by selected tests
-        self._teardown_hosts(self.required_hosts)
+        if not self.pytest_opt_collect_only:
+            self._teardown_hosts(self.required_hosts)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_make_collect_report(self, collector: pytest.Collector) -> Generator[None, pytest.CollectReport, None]:
@@ -265,8 +269,8 @@ class MultihostPlugin(object):
         # Sort required host by name to provide deterministic runs
         self.required_hosts = sorted(required_hosts_set, key=lambda x: x.hostname)
 
-    @pytest.hookimpl(tryfirst=True)
-    def pytest_collection_finish(self, session: pytest.Session) -> None:
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_collection_finish(self, session: pytest.Session) -> Generator:
         # Log required hosts
         self.logger.info("")
         self.logger.info("")
@@ -274,6 +278,12 @@ class MultihostPlugin(object):
         for host in self.required_hosts:
             self.logger.info(f"  {host.role}: {host.hostname}")
         self.logger.info("")
+
+        yield
+
+        # Run pytest_setup on all hosts required by selected tests
+        if not self.pytest_opt_collect_only:
+            self._setup_hosts(self.required_hosts)
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_setup(self, item: pytest.Item) -> None:
@@ -294,9 +304,6 @@ class MultihostPlugin(object):
         if self.multihost is None or data is None or data.topology_mark is None:
             return
         mark: TopologyMark = data.topology_mark
-
-        # Run pytest_setup on all hosts required by selected tests
-        self._setup_hosts(self.required_hosts)
 
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
