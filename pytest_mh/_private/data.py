@@ -28,6 +28,11 @@ class MultihostItemData(object):
         Test run outcome, available in fixture finalizers.
         """
 
+        self.result: pytest.TestReport | None = None
+        """
+        Pytest test result.
+        """
+
     def _init(self) -> None:
         """
         Postponed initialization. This is called once we know that current

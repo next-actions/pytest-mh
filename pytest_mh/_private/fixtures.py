@@ -384,5 +384,8 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
         yield mh
         mh.log_phase("TEST DONE")
     finally:
+        if data.outcome == "failed" and data.result is not None:
+            mh.logger.error(data.result.longreprtext)
+
         mh.split_log_file("test.log")
         mh._exit()
