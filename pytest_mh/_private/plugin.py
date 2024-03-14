@@ -266,6 +266,16 @@ class MultihostPlugin(object):
         self.required_hosts = sorted(required_hosts_set, key=lambda x: x.hostname)
 
     @pytest.hookimpl(tryfirst=True)
+    def pytest_collection_finish(self, session: pytest.Session) -> None:
+        # Log required hosts
+        self.logger.info("")
+        self.logger.info("")
+        self.logger.info(self._fmt_bold("Selected tests will use the following hosts:"))
+        for host in self.required_hosts:
+            self.logger.info(f"  {host.role}: {host.hostname}")
+        self.logger.info("")
+
+    @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_setup(self, item: pytest.Item) -> None:
         """
         Create fixtures requested in :class:`~pytest_mh.TopologyMark`
