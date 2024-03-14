@@ -182,38 +182,37 @@ class MultihostLogger(logging.Logger):
     def log(self, level, msg, *args, **kwargs):
         super().warning(level, msg, *args, **self._msgdata(kwargs))
 
-    def clear(self) -> None:
+    def split(self, path: str | Path) -> None:
         """
-        Clear current log records buffer without writing it anywhere.
-        """
-        if isinstance(self.handler, ManualMemoryHandler):
-            self.handler.clear()
+        Move current buffer to a file that will be written later.
 
-    def write_to_file(self, path: str | Path) -> None:
-        """
-        Write current log records buffer to a file and clear the buffer.
+        The files can be written by :meth:`write_files`
 
-        :param path: Destination file path, relative to artifacts directory.
+        :param path: Destination file path.
         :type path: str | Path
         """
         if isinstance(self.handler, ManualMemoryHandler):
             dest = self.artifacts_dir / sanitize_path(path)
-            self.handler.write_to_file(dest)
+            self.handler.split(str(dest))
 
-    def flush(self, path: str | Path, outcome: MultihostOutcome) -> None:
+    def flush(self, outcome: MultihostOutcome, path: str | Path | None = None) -> None:
         """
         Either write logger content to a file or clear it, depending on the
         outcome of the test or operation and selected artifacts mode.
 
-        :param path: Log path relative to artifacts directory.
-        :type path: str | Path
         :param outcome: Test or operation outcome.
         :type outcome: MultihostOutcome
+        :param path: Destination file path, if None :meth:`split` should be called first, defaults to None.
+        :type path: str | Path | None
         """
-        if should_collect_artifacts(self.artifacts_mode, outcome):
-            self.write_to_file(path)
-        else:
-            self.clear()
+        if path is not None:
+            self.split(path)
+
+        if isinstance(self.handler, ManualMemoryHandler):
+            if should_collect_artifacts(self.artifacts_mode, outcome):
+                self.handler.write_files()
+            else:
+                self.handler.clear()
 
     def _msgdata(self, kwargs) -> dict[str, Any]:
         if self.extra:
@@ -289,6 +288,8 @@ class ManualMemoryHandler(MemoryHandler):
     def __init__(self) -> None:
         super().__init__(capacity=0, flushLevel=0, target=None, flushOnClose=False)
 
+        self.files: dict[str, list[logging.LogRecord]] = {}
+
     def shouldFlush(self, record: logging.LogRecord) -> bool:
         """
         This handler does not flush automatically.
@@ -300,25 +301,52 @@ class ManualMemoryHandler(MemoryHandler):
         """
         return False
 
+    def split(self, path: str) -> None:
+        """
+        Move current buffer to a file that will be written later.
+
+        The files can be written by :meth:`write_files`
+
+        :param path: Destination file path.
+        :type path: str
+        """
+        self.files[path] = self.buffer.copy()
+        self.clear()
+
     def clear(self) -> None:
         """
         Clear current buffer without writing it anywhere.
         """
         self.buffer.clear()
 
-    def write_to_file(self, path: str | Path) -> None:
+    def write_to_file(self, path: str | Path, content: list[logging.LogRecord] | None = None) -> None:
         """
         Write current buffer to a file and clear the buffer.
 
         :param path: Destination file path.
         :type path: str | Path
+        :param content: Log records that will be written, current buffer if None, defaults to None.
+        :type content: list[logging.LogRecord] | None
         """
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-        handler = logging.FileHandler(path)
-        handler.setLevel(self.level)
-        handler.setFormatter(self.formatter)
+        current_buffer = self.buffer
+        self.buffer = content if content is not None else current_buffer
 
-        self.setTarget(handler)
-        self.flush()
-        self.setTarget(None)
+        try:
+            handler = logging.FileHandler(path)
+            handler.setLevel(self.level)
+            handler.setFormatter(self.formatter)
+
+            self.setTarget(handler)
+            self.flush()
+        finally:
+            self.setTarget(None)
+            self.buffer = current_buffer
+
+    def write_files(self) -> None:
+        """
+        Write all buffered files to disk.
+        """
+        for path, content in self.files.items():
+            self.write_to_file(path, content)

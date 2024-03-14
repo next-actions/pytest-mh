@@ -282,12 +282,14 @@ class MultihostFixture(object):
         if errors:
             raise Exception(errors)
 
-    def _flush_logs(self) -> None:
+    def split_log_file(self, name: str) -> None:
         """
-        Write log messages produced by current test case to a file, or clear
-        them if no artifacts should be generated.
+        Split current log records into a log file.
+
+        :param name: Log file name.
+        :type name: str
         """
-        self.logger.flush(Path(f"tests/{self.request.node.name}") / "test.log", self.data.outcome)
+        self.logger.split(Path(f"tests/{self.request.node.name}") / name)
 
     def _invoke_phase(self, name: str, cb: Callable, catch: bool = False) -> Exception | None:
         self.log_phase(name)
@@ -316,14 +318,14 @@ class MultihostFixture(object):
         if self._skip():
             return self
 
-        self.log_phase("BEGIN")
-
         try:
             self._invoke_phase("SETUP TOPOLOGY", self._topology_setup)
             self._invoke_phase("SETUP TEST", self._setup)
         except Exception:
             self.data.outcome = "error"
             raise
+        finally:
+            self.split_log_file("setup.log")
 
         return self
 
@@ -336,8 +338,8 @@ class MultihostFixture(object):
         errors.append(self._invoke_phase("TEARDOWN TEST", self._teardown, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._topology_teardown, catch=True))
 
-        self.log_phase("END")
-        self._flush_logs()
+        self.split_log_file("teardown.log")
+        self.logger.flush(self.data.outcome)
 
         errors = [x for x in errors if x is not None]
         if errors:
@@ -382,4 +384,5 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
         yield mh
         mh.log_phase("TEST DONE")
     finally:
+        mh.split_log_file("test.log")
         mh._exit()

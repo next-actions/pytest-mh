@@ -503,7 +503,7 @@ class MultihostPlugin(object):
                     logger=host.logger,
                 )
 
-                self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_setup.log", outcome)
+                self.multihost.logger.flush(outcome, f"hosts/{host.hostname}/pytest_setup.log")
 
     def _teardown_hosts(self, hosts: list[MultihostHost]) -> None:
         # Silent mypy false positive
@@ -535,7 +535,7 @@ class MultihostPlugin(object):
                         logger=host.logger,
                     )
 
-                    self.multihost.logger.flush(f"hosts/{host.hostname}/pytest_teardown.log", outcome)
+                    self.multihost.logger.flush(outcome, f"hosts/{host.hostname}/pytest_teardown.log")
 
         if errors:
             raise Exception(errors)
@@ -566,7 +566,7 @@ class MultihostPlugin(object):
                 logger=controller.logger,
             )
 
-            self.multihost.logger.flush(f"topologies/{name}/topology_setup.log", outcome)
+            self.multihost.logger.flush(outcome, f"topologies/{name}/topology_setup.log")
 
     def _teardown_topology(self, name: str, controller: TopologyController) -> None:
         # Silent mypy false positive
@@ -595,7 +595,7 @@ class MultihostPlugin(object):
                 logger=controller.logger,
             )
 
-            self.multihost.logger.flush(f"topologies/{name}/topology_teardown.log", outcome)
+            self.multihost.logger.flush(outcome, f"topologies/{name}/topology_teardown.log")
 
     def _collect_artifacts(
         self,
