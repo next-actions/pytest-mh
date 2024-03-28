@@ -215,28 +215,65 @@ class MultihostFixture(object):
 
         return None
 
-    def _topology_setup(self) -> None:
+    def _setup_hosts(self) -> None:
         """
-        Run per-test setup from topology controller.
+        Run per-test setup of each host.
+        """
+        for item in self.hosts:
+            item.setup()
+            item._op_state.set_success("setup")
+
+    def _setup_topology(self) -> None:
+        """
+        Run per-test setup of topology controller.
         """
         self.topology_controller._invoke_with_args(self.topology_controller.setup)
         self.topology_controller._op_state.set_success("setup")
 
-    def _topology_teardown(self) -> None:
+    def _setup_roles(self) -> None:
+        """
+        Run per-test setup of each role.
+        """
+        for item in self.roles:
+            item.setup()
+            item._op_state.set_success("setup")
+
+    def _teardown_roles(self) -> None:
+        """
+        Run per-test teardown of each role.
+        """
+        errors = []
+        for item in self.roles:
+            if item._op_state.check_success("setup"):
+                try:
+                    item.teardown()
+                except Exception as e:
+                    errors.append(e)
+
+        if errors:
+            raise Exception(errors)
+
+    def _teardown_topology(self) -> None:
         """
         Run per-test teardown from topology controller.
         """
         if self.topology_controller._op_state.check_success("setup"):
             self.topology_controller._invoke_with_args(self.topology_controller.teardown)
 
-    def _setup(self) -> None:
+    def _teardown_hosts(self) -> None:
         """
-        Setup multihost. A setup method is called on each host and role
-        to initialize the test environment to expected state.
+        Run per-test teardown of each host.
         """
-        for item in self.hosts + self.roles:
-            item.setup()
-            item._op_state.set_success("setup")
+        errors = []
+        for item in self.hosts:
+            if item._op_state.check_success("setup"):
+                try:
+                    item.teardown()
+                except Exception as e:
+                    errors.append(e)
+
+        if errors:
+            raise Exception(errors)
 
     def _collect_artifacts(self) -> None:
         # Create list of collectable objects
@@ -264,23 +301,6 @@ class MultihostFixture(object):
                         }
                     },
                 )
-
-    def _teardown(self) -> None:
-        """
-        Teardown multihost. The purpose of this method is to revert any changes
-        that were made during a test run. It is automatically called when the
-        test is finished.
-        """
-        errors = []
-        for item in self.roles + self.hosts:
-            if item._op_state.check_success("setup"):
-                try:
-                    item.teardown()
-                except Exception as e:
-                    errors.append(e)
-
-        if errors:
-            raise Exception(errors)
 
     def split_log_file(self, name: str) -> None:
         """
@@ -319,8 +339,9 @@ class MultihostFixture(object):
             return self
 
         try:
-            self._invoke_phase("SETUP TOPOLOGY", self._topology_setup)
-            self._invoke_phase("SETUP TEST", self._setup)
+            self._invoke_phase("SETUP HOSTS", self._setup_hosts)
+            self._invoke_phase("SETUP TOPOLOGY", self._setup_topology)
+            self._invoke_phase("SETUP ROLES", self._setup_roles)
         except Exception:
             self.data.outcome = "error"
             raise
@@ -335,8 +356,9 @@ class MultihostFixture(object):
 
         errors: list[Exception | None] = []
         errors.append(self._invoke_phase("COLLECT ARTIFACTS", self._collect_artifacts, catch=True))
-        errors.append(self._invoke_phase("TEARDOWN TEST", self._teardown, catch=True))
-        errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._topology_teardown, catch=True))
+        errors.append(self._invoke_phase("TEARDOWN ROLES", self._teardown_roles, catch=True))
+        errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._teardown_topology, catch=True))
+        errors.append(self._invoke_phase("TEARDOWN HOSTS", self._teardown_hosts, catch=True))
 
         self.split_log_file("teardown.log")
         self.logger.flush(self.data.outcome)
