@@ -11,7 +11,14 @@ from .data import MultihostItemData
 from .logging import MultihostLogger
 from .marks import TopologyMark
 from .misc import invoke_callback
-from .multihost import MultihostConfig, MultihostDomain, MultihostHost, MultihostRole, MultihostUtility
+from .multihost import (
+    MultihostConfig,
+    MultihostDomain,
+    MultihostHost,
+    MultihostRole,
+    mh_utility_setup_dependencies,
+    mh_utility_teardown_dependencies,
+)
 from .topology import Topology, TopologyDomain
 from .topology_controller import TopologyController
 
@@ -236,6 +243,13 @@ class MultihostFixture(object):
         self.topology_controller._invoke_with_args(self.topology_controller.setup)
         self.topology_controller._op_state.set_success("setup")
 
+    def _setup_utils(self) -> None:
+        """
+        Run utility setup for each role.
+        """
+        for item in self.roles:
+            mh_utility_setup_dependencies(item)
+
     def _setup_roles(self) -> None:
         """
         Run per-test setup of each role.
@@ -258,6 +272,13 @@ class MultihostFixture(object):
 
         if errors:
             raise Exception(errors)
+
+    def _teardown_utils(self) -> None:
+        """
+        Run utility teardown for each role.
+        """
+        for item in self.roles:
+            mh_utility_teardown_dependencies(item)
 
     def _teardown_topology(self) -> None:
         """
@@ -347,6 +368,7 @@ class MultihostFixture(object):
         try:
             self._invoke_phase("SETUP HOSTS", self._setup_hosts)
             self._invoke_phase("SETUP TOPOLOGY", self._setup_topology)
+            self._invoke_phase("SETUP UTILS", self._setup_utils)
             self._invoke_phase("SETUP ROLES", self._setup_roles)
         except Exception:
             self.data.outcome = "error"
@@ -363,6 +385,7 @@ class MultihostFixture(object):
         errors: list[Exception | None] = []
         errors.append(self._invoke_phase("COLLECT ARTIFACTS", self._collect_artifacts, catch=True))
         errors.append(self._invoke_phase("TEARDOWN ROLES", self._teardown_roles, catch=True))
+        errors.append(self._invoke_phase("TEARDOWN UTILS", self._teardown_utils, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._teardown_topology, catch=True))
         errors.append(self._invoke_phase("TEARDOWN HOSTS", self._teardown_hosts, catch=True))
 
