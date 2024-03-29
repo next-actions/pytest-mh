@@ -227,6 +227,9 @@ class MultihostFixture(object):
         Run per-test setup of each host.
         """
         for item in self.hosts:
+            item._op_state.clear("setup")
+
+        for item in self.hosts:
             item.setup()
             item._op_state.set_success("setup")
 

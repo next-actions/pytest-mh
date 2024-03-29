@@ -135,6 +135,16 @@ class OperationStatus(object):
         """
         self.states[name] = state
 
+    def clear(self, name: str) -> None:
+        """
+        Clear state of the operation.
+
+        :param name: Operation name.
+        :type name: str
+        """
+        if name in self.states:
+            del self.states[name]
+
     def set_success(self, name: str) -> None:
         """
         Mark operation as successful.

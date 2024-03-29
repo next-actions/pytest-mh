@@ -199,3 +199,6 @@ def test_OperationStatus():
 
     assert op.check_failure("teardown")
     assert not op.check_failure("setup")
+
+    op.clear("setup")
+    assert not op.check_success("setup")
