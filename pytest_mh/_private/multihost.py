@@ -37,6 +37,7 @@ class _MultihostRoleMeta(ABCMeta):
     possible that inherited classed will require ABC, therefore we have to
     support that out of the box.
     """
+
     def __call__(cls, *args, **kwargs) -> Any:
         obj = super().__call__(*args, **kwargs)
 
@@ -619,17 +620,15 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
 
     def setup(self) -> None:
         """
-        Setup all :class:`MultihostUtility` objects
-        that are attributes of this class.
+        Called before execution of each test.
         """
-        mh_utility_setup_dependencies(self)
+        pass
 
     def teardown(self) -> None:
         """
-        Teardown all :class:`MultihostUtility` objects
-        that are attributes of this class.
+        Called after execution of each test.
         """
-        mh_utility_teardown_dependencies(self)
+        pass
 
     def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
         """
