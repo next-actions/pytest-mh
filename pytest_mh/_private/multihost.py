@@ -645,6 +645,9 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
     _mh_utility_used: bool
 
     def __init__(self, host: HostType) -> None:
+        self._op_state: OperationStatus = OperationStatus()
+        """Keep state of setup and teardown methods."""
+
         """
         :param host: Remote host instance.
         :type host: HostType
@@ -733,6 +736,7 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         for util in cls.GetUtilityAttributes(o).values():
             util.setup()
+            util._op_state.set_success("setup")
 
     @classmethod
     def TeardownUtilityAttributes(cls, o: object) -> None:
@@ -745,16 +749,21 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         errors = []
         for util in cls.GetUtilityAttributes(o).values():
-            if util._mh_utility_used and util._mh_utility_call_teardown_when_used:
+            if (
+                util._mh_utility_used
+                and util._mh_utility_call_teardown_when_used
+                and util._op_state.check_success("setup_when_used")
+            ):
                 try:
                     util.teardown_when_used()
                 except Exception as e:
                     errors.append(e)
 
-            try:
-                util.teardown()
-            except Exception as e:
-                errors.append(e)
+            if util._op_state.check_success("setup"):
+                try:
+                    util.teardown()
+                except Exception as e:
+                    errors.append(e)
 
         if errors:
             raise Exception(errors)
@@ -786,6 +795,7 @@ def mh_utility_used(method):
             self._mh_utility_used = True
             if self._mh_utility_call_setup_when_used:
                 self.setup_when_used()
+                self._op_state.set_success("setup_when_used")
 
         return method(self, *args, **kwargs)
 
