@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Any, Literal, TypeAlias
 
 from .. import MultihostHost, MultihostRole, MultihostUtility
@@ -21,7 +21,7 @@ PortSpec: TypeAlias = int | tuple[int, ProtocolSpec]
 """Firewall port specification."""
 
 
-class Firewall(ABC, MultihostUtility):
+class Firewall(MultihostUtility):
     """
     Configure host firewall.
 

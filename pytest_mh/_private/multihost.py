@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
@@ -23,6 +23,74 @@ from .utils import validate_configuration
 
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
+
+
+class _MultihostUtilityMeta(ABCMeta):
+    """
+    MultihostUtility metaclass.
+
+    It takes care of automatic invocation of setup_when_used.
+
+    ABCMeta is not strictly needed for MultihostUtility, but it is quite
+    possible that inherited classed will require ABC, therefore we have to
+    support that out of the box.
+    """
+
+    def __new__(cls, name: str, bases: tuple, attrs: dict[str, Any]) -> _MultihostUtilityMeta:
+        # We only decorate stuff from inherited classes
+        if name not in ("MultihostUtility"):
+            for attr, value in attrs.items():
+                # Do not decorate private stuff
+                if attr.startswith("_"):
+                    continue
+
+                # Do not decorate stuff from our base classes
+                if attr in MultihostUtility.__dict__:
+                    continue
+
+                # Do not decorate @staticmethod and @classmethod
+                if isinstance(value, (staticmethod, classmethod)):
+                    continue
+
+                # Do not decorate stuff marked with @mh_utility_ignore_use
+                if hasattr(value, "_mh_utility_ignore_use") and value._mh_utility_ignore_use:
+                    continue
+
+                # Decorate supported fields so when used it will automatically
+                # invoke setup_when_used()
+
+                # Methods and other callables
+                if callable(value):
+                    attrs[attr] = mh_utility_used(value)
+                    continue
+
+                # @property
+                if isinstance(value, property):
+                    fget = mh_utility_used(value.fget) if value.fget is not None else None
+                    fset = mh_utility_used(value.fset) if value.fset is not None else None
+                    fdel = mh_utility_used(value.fdel) if value.fdel is not None else None
+
+                    attrs[attr] = property(fget, fset, fdel, value.__doc__)
+                    continue
+
+        return super().__new__(cls, name, bases, attrs)
+
+    def __init__(self, name: str, bases: tuple, attrs: dict[str, Any]) -> None:
+        # define special attributes
+        if name in ("MultihostUtility"):
+            self._mh_utility_call_setup_when_used = False
+            self._mh_utility_call_teardown_when_used = False
+            self._mh_utility_used = False
+            return super().__init__(name, bases, attrs)
+
+        # we only want to call it if it is defined in inherited classes
+        if "setup_when_used" in attrs:
+            self._mh_utility_call_setup_when_used = True
+
+        if "teardown_when_used" in attrs:
+            self._mh_utility_call_teardown_when_used = True
+
+        super().__init__(name, bases, attrs)
 
 
 class MultihostConfig(ABC):
@@ -554,7 +622,7 @@ class MultihostRole(Generic[HostType]):
         )
 
 
-class MultihostUtility(Generic[HostType]):
+class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
     """
     Base class for utility functions that operate on remote hosts, such as
     writing a file or managing SSSD.
@@ -563,7 +631,18 @@ class MultihostUtility(Generic[HostType]):
     is a subclass of :class:`MultihostRole`. In this case, :func:`setup` and
     :func:`teardown` methods are called automatically when the object is created
     and destroyed to ensure proper setup and clean up on the remote host.
+
+    .. note::
+
+        MultihostUtility uses custom metaclass that inherits from ABCMeta.
+        Therefore all subclasses can use @abstractmethod any other abc
+        decorators without directly inheriting ABCMeta class from ABC.
     """
+
+    # Following attributes are set by metaclass
+    _mh_utility_call_setup_when_used: bool
+    _mh_utility_call_teardown_when_used: bool
+    _mh_utility_used: bool
 
     def __init__(self, host: HostType) -> None:
         """
@@ -585,24 +664,6 @@ class MultihostUtility(Generic[HostType]):
         places. This list can be dynamically extended. Values may contain
         wildcard character.
         """
-
-        # Enable first use setup
-        disallowed = [
-            "artifacts",
-            "get_artifacts_list",
-            "setup",
-            "teardown",
-            "setup_when_used",
-            "teardown_when_used",
-            "GetUtilityAttributes",
-            "SetupUtilityAttributes",
-            "TeardownUtilityAttributes",
-        ]
-        for name, method in inspect.getmembers(self, inspect.ismethod):
-            if name in disallowed or name.startswith("_") or hasattr(method, "__mh_ignore_call"):
-                continue
-
-            setattr(self, name, self.__setup_when_used(method))
 
     def setup(self) -> None:
         """
@@ -648,18 +709,6 @@ class MultihostUtility(Generic[HostType]):
         """
         return self.artifacts
 
-    def __setup_when_used(self, method):
-        @wraps(method)
-        def wrapper(*args, **kwargs):
-            if not self.used:
-                self.used = True
-                self.setup_when_used()
-
-            self.used = True
-            return method(*args, **kwargs)
-
-        return wrapper
-
     @staticmethod
     def GetUtilityAttributes(o: object) -> dict[str, MultihostUtility]:
         """
@@ -696,7 +745,7 @@ class MultihostUtility(Generic[HostType]):
         """
         errors = []
         for util in cls.GetUtilityAttributes(o).values():
-            if util.used:
+            if util._mh_utility_used and util._mh_utility_call_teardown_when_used:
                 try:
                     util.teardown_when_used()
                 except Exception as e:
@@ -710,12 +759,54 @@ class MultihostUtility(Generic[HostType]):
         if errors:
             raise Exception(errors)
 
-    @classmethod
-    def IgnoreCall(cls, method):
-        """
-        Calling a method decorated with IgnoreCall does not execute neither
-        :meth:`setup_when_used` nor :meth:`teardown_when_used`. It does not
-        count as "using" the class.
-        """
-        method.__mh_ignore_call = True
-        return method
+
+def mh_utility_used(method):
+    """
+    Decorator for :class:`MultihostUtility` methods defined in inherited classes.
+
+    Calling decorated method will first invoke :meth:`MultihostUtility.setup_when_called`,
+    unless other methods were already called.
+
+    .. note::
+
+        Callables and methods decorated with @property are decorated automatically.
+
+        This decorator can be used to decorate fields declared in __init__ or
+        descriptors not handled by pytest-mh.
+
+    :param method: Method to decorate.
+    :type method: Callable
+    :return: Decorated method.
+    :rtype: Callable
+    """
+
+    @wraps(method)
+    def wrapper(self: MultihostUtility, *args, **kwargs):
+        if not self._mh_utility_used:
+            self._mh_utility_used = True
+            if self._mh_utility_call_setup_when_used:
+                self.setup_when_used()
+
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+def mh_utility_ignore_use(method):
+    """
+    Decorator for :class:`MultihostUtility` methods defined in inherited classes.
+
+    Decorated method will not count as "using the class" and therefore it
+    will not invoke :meth:`MultihostUtility.setup_when_called`.
+
+    .. note::
+
+        This is the opposite of :func:`mh_utility_used`.
+
+    :param method: Method to decorate.
+    :type method: Callable
+    :return: Decorated method.
+    :rtype: Callable
+    """
+    method._mh_utility_ignore_use = True
+    return method
