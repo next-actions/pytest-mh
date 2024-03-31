@@ -40,10 +40,28 @@ class _MultihostRoleMeta(ABCMeta):
     def __call__(cls, *args, **kwargs) -> Any:
         obj = super().__call__(*args, **kwargs)
 
-        obj._mh_utility_dependencies = set()
+        # Get list of MultihostUtilities used by this object
+        obj._mh_utility_dependencies = []
+        deps: list[MultihostUtility] = list()
         for arg in obj.__dict__.values():
             if isinstance(arg, MultihostUtility):
-                obj._mh_utility_dependencies.add(arg)
+                deps.append(arg)
+
+        # Now sort the dependencies, first by class name, then by cross-utility requirements
+        deps = sorted(set(deps), key=lambda x: x.__class__.__name__)
+
+        # Now include utilities that do not depend on other utilities
+        for util in deps.copy():
+            if not util._mh_utility_dependencies:
+                obj._mh_utility_dependencies.append(util)
+                deps.remove(util)
+
+        # Now sort all utilities that depends on other
+        while deps:
+            for util in deps.copy():
+                if util._mh_utility_dependencies.issubset(obj._mh_utility_dependencies):
+                    obj._mh_utility_dependencies.append(util)
+                    deps.remove(util)
 
         return obj
 
@@ -574,7 +592,7 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
     """
 
     # Following attributes are set by metaclass
-    _mh_utility_dependencies: set[MultihostUtility]
+    _mh_utility_dependencies: list[MultihostUtility]
 
     def __init__(
         self,
@@ -678,6 +696,22 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
     _mh_utility_call_setup: bool
     _mh_utility_call_teardown: bool
     _mh_utility_used: bool
+
+    # Set in __new__
+    _mh_utility_dependencies: set[MultihostUtility]
+
+    def __new__(cls, *args, **kwargs):
+        """
+        Find all MultihostUtility objects in the constructor.
+        """
+        obj = super().__new__(cls)
+        obj._mh_utility_dependencies = set()
+
+        for arg in [*args, *kwargs.values()]:
+            if isinstance(arg, MultihostUtility):
+                obj._mh_utility_dependencies.add(arg)
+
+        return obj
 
     def __init__(self, host: HostType) -> None:
         self._op_state: OperationStatus = OperationStatus()
@@ -1045,7 +1079,7 @@ def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
     :type obj: MultihostRole
     """
     errors = []
-    for util in obj._mh_utility_dependencies:
+    for util in reversed(obj._mh_utility_dependencies):
         try:
             mh_utility_exit(util, "mh_utility_dependencies")
         except Exception as e:
