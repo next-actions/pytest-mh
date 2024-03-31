@@ -602,14 +602,14 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
         Setup all :class:`MultihostUtility` objects
         that are attributes of this class.
         """
-        MultihostUtility.SetupUtilityAttributes(self)
+        mh_utility_setup_dependencies(self)
 
     def teardown(self) -> None:
         """
         Teardown all :class:`MultihostUtility` objects
         that are attributes of this class.
         """
-        MultihostUtility.TeardownUtilityAttributes(self)
+        mh_utility_teardown_dependencies(self)
 
     def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
         """
@@ -742,65 +742,6 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         return self.artifacts
 
-    @staticmethod
-    def GetUtilityAttributes(o: object) -> dict[str, MultihostUtility]:
-        """
-        Get all attributes of the ``o`` that are instance of
-        :class:`MultihostUtility`.
-
-        :param o: Any object.
-        :type o: object
-        :return: Dictionary {attribute name: value}
-        :rtype: dict[str, MultihostUtility]
-        """
-        if not hasattr(o, "_mh_utility_dependencies"):
-            raise KeyError("Object does not have _mh_utility_dependencies attribute")
-
-        return o._mh_utility_dependencies
-
-    @classmethod
-    def SetupUtilityAttributes(cls, o: object) -> None:
-        """
-        Setup all :class:`MultihostUtility` objects attributes of the given
-        object.
-
-        :param o: Any object.
-        :type o: object
-        """
-        for util in cls.GetUtilityAttributes(o).values():
-            util.setup()
-            util._op_state.set_success("setup")
-
-    @classmethod
-    def TeardownUtilityAttributes(cls, o: object) -> None:
-        """
-        Teardown all :class:`MultihostUtility` objects attributes of the given
-        object.
-
-        :param o: Any object.
-        :type o: object
-        """
-        errors = []
-        for util in cls.GetUtilityAttributes(o).values():
-            if (
-                util._mh_utility_used
-                and util._mh_utility_call_teardown_when_used
-                and util._op_state.check_success("setup_when_used")
-            ):
-                try:
-                    util.teardown_when_used()
-                except Exception as e:
-                    errors.append(e)
-
-            if util._op_state.check_success("setup"):
-                try:
-                    util.teardown()
-                except Exception as e:
-                    errors.append(e)
-
-        if errors:
-            raise Exception(errors)
-
 
 def mh_utility_used(method):
     """
@@ -853,3 +794,68 @@ def mh_utility_ignore_use(method):
     """
     method._mh_utility_ignore_use = True
     return method
+
+
+def mh_utility_setup(util: MultihostUtility) -> None:
+    """
+    Setup MultihostUtility.
+
+    :param util: Multihost utility object.
+    :type util: MultihostUtility
+    """
+    util.setup()
+    util._op_state.set_success("setup")
+
+
+def mh_utility_teardown(util: MultihostUtility) -> None:
+    """
+    Teardown MultihostUtility.
+
+    :param util: Multihost utility object.
+    :type util: MultihostUtility
+    """
+    errors = []
+    if util._mh_utility_call_teardown_when_used and util._mh_utility_used:
+         if util._op_state.check_success("setup_when_used"):
+            try:
+                util.teardown_when_used()
+            except Exception as e:
+                errors.append(e)
+
+    if util._op_state.check_success("setup"):
+        try:
+            util.teardown()
+        except Exception as e:
+            errors.append(e)
+
+    if errors:
+        raise Exception(errors)
+
+
+def mh_utility_setup_dependencies(obj: MultihostRole) -> None:
+    """
+    Setup all :class:`MultihostUtility` objects attributes of given object.
+
+    :param obj: Multihost role.
+    :type obj: MultihostRole
+    """
+    for util in obj._mh_utility_dependencies:
+        mh_utility_setup(util)
+
+
+def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
+    """
+    Teardown all :class:`MultihostUtility` objects attributes of given object.
+
+    :param obj: Multihost role.
+    :type obj: MultihostRole
+    """
+    errors = []
+    for util in obj._mh_utility_dependencies:
+        try:
+            mh_utility_teardown(util)
+        except Exception as e:
+            errors.append(e)
+
+    if errors:
+        raise Exception(errors)
