@@ -243,7 +243,7 @@ class MultihostFixture(object):
         collectable: dict[MultihostHost, list[MultihostArtifactsCollectable]] = {}
         for role in self.roles:
             host_collection = collectable.setdefault(role.host, [role.host, self.topology_controller, role])
-            host_collection.extend(MultihostUtility.GetUtilityAttributes(role).values())
+            host_collection.extend(role._mh_utility_dependencies)
 
         # Collect artifacts, if an error is raised, we will ignore it since
         # teardown is more important

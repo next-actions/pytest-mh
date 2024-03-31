@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from abc import ABC, ABCMeta, abstractmethod
 from functools import wraps
 from pathlib import Path
@@ -23,6 +22,28 @@ from .utils import validate_configuration
 
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
+
+
+class _MultihostRoleMeta(ABCMeta):
+    """
+    MultihostRole metaclass.
+
+    It finds all MultihostUtility set in the constructor and add it to the
+    list of dependencies.
+
+    ABCMeta is not strictly needed for MultihostRole, but it is quite
+    possible that inherited classed will require ABC, therefore we have to
+    support that out of the box.
+    """
+    def __call__(cls, *args, **kwargs) -> Any:
+        obj = super().__call__(*args, **kwargs)
+
+        obj._mh_utility_dependencies = set()
+        for arg in obj.__dict__.values():
+            if isinstance(arg, MultihostUtility):
+                obj._mh_utility_dependencies.add(arg)
+
+        return obj
 
 
 class _MultihostUtilityMeta(ABCMeta):
@@ -535,14 +556,23 @@ class MultihostHost(Generic[DomainType]):
 HostType = TypeVar("HostType", bound=MultihostHost)
 
 
-class MultihostRole(Generic[HostType]):
+class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
     """
     Base role class. Roles are the main interface to the remote hosts that can
     be directly accessed in test cases as fixtures.
 
     All changes to the remote host that were done through the role object API
     are automatically reverted when a test is finished.
+
+    .. note::
+
+        MultihostRole uses custom metaclass that inherits from ABCMeta.
+        Therefore all subclasses can use @abstractmethod any other abc
+        decorators without directly inheriting ABCMeta class from ABC.
     """
+
+    # Following attributes are set by metaclass
+    _mh_utility_dependencies: set[MultihostUtility]
 
     def __init__(
         self,
@@ -723,7 +753,10 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         :return: Dictionary {attribute name: value}
         :rtype: dict[str, MultihostUtility]
         """
-        return dict(inspect.getmembers(o, lambda attr: isinstance(attr, MultihostUtility)))
+        if not hasattr(o, "_mh_utility_dependencies"):
+            raise KeyError("Object does not have _mh_utility_dependencies attribute")
+
+        return o._mh_utility_dependencies
 
     @classmethod
     def SetupUtilityAttributes(cls, o: object) -> None:
