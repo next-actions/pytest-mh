@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, ABCMeta, abstractmethod
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generator, Generic, Type, TypeVar
 
 from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHPowerShellProcess, SSHProcess
@@ -830,6 +831,30 @@ def mh_utility_teardown(util: MultihostUtility) -> None:
 
     if errors:
         raise Exception(errors)
+
+
+@contextmanager
+def mh_utility(util: MultihostUtility) -> Generator[MultihostUtility, None, None]:
+    """
+    On-demand use of a multihost utility object with a context manager.
+
+    This can be used to automatically setup and teardown a multihost utility
+    object that is created on-demand inside a test.
+
+    .. code-block:: python
+
+        with mh_utility(MyUtility(...)) as util:
+            util.do_stuff()
+    """
+    # Mark utility as used so we do not call setup twice (one directly here, and
+    # second time via @mh_utility_used decorator). Since the utility is created
+    # on demand, we can always call the setup immediately.
+    util._mh_utility_used = True
+    mh_utility_setup(util)
+    try:
+        yield util
+    finally:
+        mh_utility_teardown(util)
 
 
 def mh_utility_setup_dependencies(obj: MultihostRole) -> None:
