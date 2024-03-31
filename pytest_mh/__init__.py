@@ -15,6 +15,7 @@ from ._private.multihost import (
     MultihostOSFamily,
     MultihostRole,
     MultihostUtility,
+    mh_utility,
     mh_utility_ignore_use,
     mh_utility_used,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "MultihostRole",
     "MultihostTopologyControllerArtifacts",
     "MultihostUtility",
+    "mh_utility",
     "mh_utility_ignore_use",
     "mh_utility_used",
     "pytest_addoption",
