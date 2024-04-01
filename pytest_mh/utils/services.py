@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from .. import MultihostHost, MultihostUtility
+from collections import deque
+
+from .. import MultihostHost, MultihostReentrantUtility
 from ..ssh import SSHLog, SSHProcess, SSHProcessResult
 
 __all__ = ["SystemdServices"]
 
 
-class SystemdServices(MultihostUtility):
+class SystemdServices(MultihostReentrantUtility):
     """
     Manage remote services.
     """
@@ -14,8 +16,24 @@ class SystemdServices(MultihostUtility):
     def __init__(self, host: MultihostHost) -> None:
         super().__init__(host)
         self.initial_states: dict[str, bool] = {}
+        self.__states: deque[dict[str, bool]] = deque()
 
-    def teardown(self) -> None:
+    def __enter__(self) -> SystemdServices:
+        """
+        Saves current state.
+
+        :return: Self.
+        :rtype: SystemdServices
+        """
+        self.__states.append(self.initial_states)
+        self.initial_states = {}
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Revert all changes done during current context.
+        """
         # Restart all services that were touched
         self.reload_daemon()
         for service, state in self.initial_states.items():
@@ -30,6 +48,8 @@ class SystemdServices(MultihostUtility):
                     raise_on_error=False,
                     log_level=SSHLog.Error,
                 )
+
+        self.initial_states = self.__states.pop()
 
     def async_start(self, service: str) -> SSHProcess:
         """
