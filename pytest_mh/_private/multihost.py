@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, ABCMeta, abstractmethod
+from collections import deque
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
@@ -60,14 +61,14 @@ class _MultihostUtilityMeta(ABCMeta):
 
     def __new__(cls, name: str, bases: tuple, attrs: dict[str, Any]) -> _MultihostUtilityMeta:
         # We only decorate stuff from inherited classes
-        if name not in ("MultihostUtility"):
+        if name not in ("MultihostUtility", "MultihostReentrantUtility"):
             for attr, value in attrs.items():
                 # Do not decorate private stuff
                 if attr.startswith("_"):
                     continue
 
                 # Do not decorate stuff from our base classes
-                if attr in MultihostUtility.__dict__:
+                if attr in MultihostUtility.__dict__ or attr in MultihostReentrantUtility.__dict__:
                     continue
 
                 # Do not decorate @staticmethod and @classmethod
@@ -99,7 +100,7 @@ class _MultihostUtilityMeta(ABCMeta):
 
     def __init__(self, name: str, bases: tuple, attrs: dict[str, Any]) -> None:
         # define special attributes
-        if name in ("MultihostUtility"):
+        if name in ("MultihostUtility", "MultihostReentrantUtility"):
             self._mh_utility_call_setup = False
             self._mh_utility_call_teardown = False
             self._mh_utility_used = False
@@ -753,6 +754,44 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         return mh_utility_postpone_setup(self)
 
 
+class MultihostReentrantUtility(MultihostUtility[HostType]):
+    """
+    Reentrant multihost utility.
+
+    It provides the enter and exit methods that can be called multiple times in
+    order to create nested states.
+
+    The utility can be used as a context manager, leaving the context will
+    restore the system to the state during the context enter.
+    """
+
+    def __init__(self, host: HostType) -> None:
+        super().__init__(host)
+        self._mh_exit_stack: deque[tuple[str, bool]] = deque()
+
+    @abstractmethod
+    def __enter__(self) -> MultihostReentrantUtility:
+        """
+        Enter new utility context.
+
+        Typically, a utility saves its state and starts a fresh context.
+
+        :return: Self.
+        :rtype: MultihostReentrantUtility
+        """
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Leave utility context.
+
+        Typically, a utility restores its state to the previous context and
+        reverts all changes done on the host.
+        """
+        pass
+
+
 def mh_utility_postpone_setup(cls):
     """
     Class decorator that will postpone calling setup of :class:`MultihostUtility`.
@@ -819,6 +858,12 @@ def mh_utility_used(method):
             self._mh_utility_used = True
             mh_utility_setup(self)
 
+            if isinstance(self, MultihostReentrantUtility):
+                # Last enter was skipped because the utility was not yet used,
+                # we will call it now to save state that we can return in exit.
+                where, _ = self._mh_exit_stack.pop()
+                mh_utility_enter(self, where)
+
         return method(self, *args, **kwargs)
 
     return wrapper
@@ -881,6 +926,72 @@ def mh_utility_teardown(util: MultihostUtility) -> None:
     util.teardown()
 
 
+def mh_utility_enter(util: MultihostUtility, where: str) -> None:
+    """
+    Enter MultihostReentrantUtility.
+
+    This is essentially noop if anything else then MultihostReentrantUtility
+    is given, but we keep the type broader to simplify code flow.
+
+    :param util: Multihost utility.
+    :type util: MultihostUtility
+    :param where: Where do we enter the utility.
+    :type where: str
+    """
+    if not isinstance(util, MultihostReentrantUtility):
+        return
+
+    # Do not enter the utility if it was not used yet but postpone setup was requested.
+    # However we add a mocked record to indicate that exit should not be called either.
+    if util._mh_utility_postpone_setup and not util._mh_utility_used:
+        util._mh_exit_stack.append((where, False))
+        return
+
+    # We cannot enter/exit if setup was not successful
+    if not util._op_state.check_success("setup"):
+        raise RuntimeError("Trying to call utility enter without successful setup")
+
+    try:
+        util.__enter__()
+        util._mh_exit_stack.append((where, True))
+    except Exception:
+        util._mh_exit_stack.append((where, False))
+        raise
+
+
+def mh_utility_exit(util: MultihostUtility, where: str) -> None:
+    """
+    Exit MultihostReentrantUtility.
+
+    This is essentially noop if anything else then MultihostReentrantUtility
+    is given, but we keep the type broader to simplify code flow.
+
+    :param util: Multihost utility.
+    :type util: MultihostUtility
+    :param where: Where did we enter the utility.
+    :type where: str
+    """
+    if not isinstance(util, MultihostReentrantUtility):
+        return
+
+    # We cannot enter/exit if setup was not successful
+    if not util._op_state.check_success("setup"):
+        return
+
+    if not util._mh_exit_stack:
+        raise IndexError("Calling exit but enter was not called")
+
+    enter_where, enter_result = util._mh_exit_stack.pop()
+    if enter_where != where:
+        raise IndexError(f"Calling exit from unexpected place {where}, expected {enter_where}")
+
+    if not enter_result:
+        # enter failed, let's not do exit
+        return
+
+    util.__exit__(None, None, None)
+
+
 @contextmanager
 def mh_utility(util: MultihostUtility) -> Generator[MultihostUtility, None, None]:
     """
@@ -891,8 +1002,13 @@ def mh_utility(util: MultihostUtility) -> Generator[MultihostUtility, None, None
 
     .. code-block:: python
 
-        with mh_utility(MyUtility(...)) as util:
-            util.do_stuff()
+        with mh_utility(LinuxFileSystem(role.host)) as fs:
+            fs.write("/root/test", "content")
+            with fs:
+                fs.write("/root/test", "new_content")
+                assert fs.read("/root/test") == "new_content"
+
+            assert fs.read("/root/test") == "content"
     """
     # Mark utility as used so we do not call setup twice (one directly here, and
     # second time via @mh_utility_used decorator). Since the utility is created
@@ -900,7 +1016,11 @@ def mh_utility(util: MultihostUtility) -> Generator[MultihostUtility, None, None
     util._mh_utility_used = True
     mh_utility_setup(util)
     try:
-        yield util
+        mh_utility_enter(util, "mh_utility")
+        try:
+            yield util
+        finally:
+            mh_utility_exit(util, "mh_utility")
     finally:
         mh_utility_teardown(util)
 
@@ -914,6 +1034,7 @@ def mh_utility_setup_dependencies(obj: MultihostRole) -> None:
     """
     for util in obj._mh_utility_dependencies:
         mh_utility_setup(util)
+        mh_utility_enter(util, "mh_utility_dependencies")
 
 
 def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
@@ -926,10 +1047,14 @@ def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
     errors = []
     for util in obj._mh_utility_dependencies:
         try:
-            if not util._mh_utility_postpone_setup or util._mh_utility_used:
-                mh_utility_teardown(util)
+            mh_utility_exit(util, "mh_utility_dependencies")
         except Exception as e:
             errors.append(e)
+        finally:
+            try:
+                mh_utility_teardown(util)
+            except Exception as e:
+                errors.append(e)
 
     if errors:
         raise Exception(errors)
