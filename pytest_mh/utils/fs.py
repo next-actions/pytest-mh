@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import base64
 import textwrap
+from collections import deque
 
-from .. import MultihostHost, MultihostUtility
+from .. import MultihostHost, MultihostReentrantUtility
 from ..ssh import SSHLog, SSHProcessResult
 
 __all__ = ["LinuxFileSystem"]
 
 
-class LinuxFileSystem(MultihostUtility):
+class LinuxFileSystem(MultihostReentrantUtility):
     """
     Perform file system operations on remote host.
 
@@ -22,20 +23,32 @@ class LinuxFileSystem(MultihostUtility):
         :type host: MultihostHost
         """
         super().__init__(host)
+        self.__states: deque[tuple[list[str], dict[str, str]]] = deque()
         self.__rollback: list[str] = []
         self.__backup: dict[str, str] = {}
 
-    def teardown(self):
+    def __enter__(self) -> LinuxFileSystem:
         """
-        Revert all file system changes.
+        Saves current state.
 
-        :meta private:
+        :return: Self.
+        :rtype: LinuxFileSystem
+        """
+        self.__states.append((self.__rollback, self.__backup))
+        self.__rollback = []
+        self.__backup = {}
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """
+        Revert all changes done during current context.
         """
         cmd = "\n".join(reversed(self.__rollback))
         if cmd:
             self.host.ssh.run(cmd)
 
-        super().teardown()
+        self.__rollback, self.__backup = self.__states.pop()
 
     def mkdir(self, path: str, *, mode: str | None = None, user: str | None = None, group: str | None = None) -> None:
         """
