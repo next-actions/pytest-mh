@@ -17,6 +17,7 @@ from ._private.multihost import (
     MultihostUtility,
     mh_utility,
     mh_utility_ignore_use,
+    mh_utility_postpone_setup,
     mh_utility_used,
 )
 from ._private.plugin import MultihostPlugin, pytest_addoption, pytest_configure
@@ -39,6 +40,7 @@ __all__ = [
     "MultihostTopologyControllerArtifacts",
     "MultihostUtility",
     "mh_utility",
+    "mh_utility_postpone_setup",
     "mh_utility_ignore_use",
     "mh_utility_used",
     "pytest_addoption",

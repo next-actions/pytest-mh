@@ -24,13 +24,13 @@ class LinuxTrafficControl(MultihostUtility):
         self.__restore_filters: dict[str, int] = dict()
         self.__band: int = 2
 
-    def setup_when_used(self) -> None:
+    def setup(self) -> None:
         """
         Setup traffic control configuration.
 
         :meta private:
         """
-        super().setup_when_used()
+        super().setup()
 
         # Let's find out the available interfaces
         result = self.host.ssh.run("ip -o address", log_level=SSHLog.Error)
@@ -50,7 +50,7 @@ class LinuxTrafficControl(MultihostUtility):
 
         self.host.ssh.run(commands, log_level=SSHLog.Error)
 
-    def teardown_when_used(self) -> None:
+    def teardown(self) -> None:
         """
         Revert all traffic control changes.
 
@@ -60,7 +60,7 @@ class LinuxTrafficControl(MultihostUtility):
         for iter in self.__restore_root:
             tear += iter + "\n"
         self.host.ssh.run(tear, log_level=SSHLog.Error)
-        super().teardown_when_used()
+        super().teardown()
 
     def add_delay(self, hostname: str, time: str | int):
         """

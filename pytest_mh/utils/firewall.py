@@ -244,14 +244,14 @@ class Firewalld(Firewall):
         not remove "accept" rule but the "drop" rule takes precedence.
         """
 
-    def teardown_when_used(self) -> None:
+    def teardown(self) -> None:
         """
         Revert all firewall changes.
 
         :meta private:
         """
         self.host.ssh.exec(["firewall-cmd", "--reload"])
-        super().teardown_when_used()
+        super().teardown()
 
     @property
     def inbound(self) -> FirewalldInboundRules:
@@ -609,19 +609,19 @@ class WindowsFirewall(Firewall):
         self._rules: list[str] = []
         self._backup: str = "C:\\.mh_firewall.bak.wfw"
 
-    def setup_when_used(self):
+    def setup(self):
         """
         Create a backup of current firewall configuration.
 
         :meta private:
         """
-        super().setup_when_used()
+        super().setup()
         self.logger.info(f"Windows Firewall: creating backup at '{self._backup}'")
         self.host.ssh.run(
             f"Remove-Item {self._backup}; netsh advfirewall export {self._backup}", log_level=SSHLog.Error
         )
 
-    def teardown_when_used(self):
+    def teardown(self):
         """
         Revert all firewall changes.
 
@@ -629,7 +629,7 @@ class WindowsFirewall(Firewall):
         """
         self.logger.info(f"Windows Firewall: restoring from '{self._backup}'")
         self.host.ssh.run(f"netsh advfirewall reset; netsh advfirewall import {self._backup}", log_level=SSHLog.Error)
-        super().teardown_when_used()
+        super().teardown()
 
     @property
     def inbound(self) -> WindowsFirewallInboundRules:
