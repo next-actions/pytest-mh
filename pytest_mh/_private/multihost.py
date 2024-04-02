@@ -100,17 +100,17 @@ class _MultihostUtilityMeta(ABCMeta):
     def __init__(self, name: str, bases: tuple, attrs: dict[str, Any]) -> None:
         # define special attributes
         if name in ("MultihostUtility"):
-            self._mh_utility_call_setup_when_used = False
-            self._mh_utility_call_teardown_when_used = False
+            self._mh_utility_call_setup = False
+            self._mh_utility_call_teardown = False
             self._mh_utility_used = False
             return super().__init__(name, bases, attrs)
 
-        # we only want to call it if it is defined in inherited classes
-        if "setup_when_used" in attrs:
-            self._mh_utility_call_setup_when_used = True
+        # we only want to call setup and teardown if it is defined in inherited classes
+        if "setup" in attrs:
+            self._mh_utility_call_setup = True
 
-        if "teardown_when_used" in attrs:
-            self._mh_utility_call_teardown_when_used = True
+        if "teardown" in attrs:
+            self._mh_utility_call_teardown = True
 
         super().__init__(name, bases, attrs)
 
@@ -670,9 +670,12 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         decorators without directly inheriting ABCMeta class from ABC.
     """
 
+    # Classvar. This can be overridden by mh_utility_postpone_setup.
+    _mh_utility_postpone_setup: bool = False
+
     # Following attributes are set by metaclass
-    _mh_utility_call_setup_when_used: bool
-    _mh_utility_call_teardown_when_used: bool
+    _mh_utility_call_setup: bool
+    _mh_utility_call_teardown: bool
     _mh_utility_used: bool
 
     def __init__(self, host: HostType) -> None:
@@ -711,18 +714,6 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         pass
 
-    def setup_when_used(self) -> None:
-        """
-        Setup the object when it is used for the first time.
-        """
-        pass
-
-    def teardown_when_used(self) -> None:
-        """
-        Teardown the object only if it was used.
-        """
-        pass
-
     def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
@@ -743,17 +734,75 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         return self.artifacts
 
+    def postpone_setup(self) -> MultihostUtility:
+        """
+        Postpone setup on this instance of MultihostUtility.
+
+        .. code-block:: python
+            :caption: Example usage
+
+            class MyRole(MultihostRole):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+
+                    self.firewall: Firewalld = Firewalld(self.host).postpone_setup()
+
+        :return: Self.
+        :rtype: MultihostUtility
+        """
+        return mh_utility_postpone_setup(self)
+
+
+def mh_utility_postpone_setup(cls):
+    """
+    Class decorator that will postpone calling setup of :class:`MultihostUtility`.
+
+    Decorated class will not invoke setup() before each test immediately but it
+    will be postponed to the point when the utility is actually used for the
+    first time in the test. This can be used to avoid costly utility setup
+    on utilities that are used only sporadically.
+
+    If the utility is not used then setup and teardown method are ignored.
+
+    .. code-block:: python
+        :caption: Example
+
+        @mh_utility_postpone_setup
+        class ExampleUtility(MultihostUtility):
+            def setup(self):
+                pass
+
+            def teardown(self):
+                pass
+
+    .. seealso::
+
+        There are other decorators that can affect the behavior of postponed
+        setup.
+
+            * :func:`mh_utility_used`
+            * :func:`mh_utility_ignore_use`
+
+    :param cls: Class to decorate.
+    :type cls: type
+    :return: Decorated class.
+    :rtype: type
+    """
+    cls._mh_utility_postpone_setup = True
+    return cls
+
 
 def mh_utility_used(method):
     """
     Decorator for :class:`MultihostUtility` methods defined in inherited classes.
 
-    Calling decorated method will first invoke :meth:`MultihostUtility.setup_when_called`,
+    Calling decorated method will first invoke :meth:`MultihostUtility.setup`,
     unless other methods were already called.
 
     .. note::
 
-        Callables and methods decorated with @property are decorated automatically.
+        Callables and methods decorated with @property are decorated
+        automatically.
 
         This decorator can be used to decorate fields declared in __init__ or
         descriptors not handled by pytest-mh.
@@ -766,11 +815,9 @@ def mh_utility_used(method):
 
     @wraps(method)
     def wrapper(self: MultihostUtility, *args, **kwargs):
-        if not self._mh_utility_used:
+        if self._mh_utility_postpone_setup and not self._mh_utility_used:
             self._mh_utility_used = True
-            if self._mh_utility_call_setup_when_used:
-                self.setup_when_used()
-                self._op_state.set_success("setup_when_used")
+            mh_utility_setup(self)
 
         return method(self, *args, **kwargs)
 
@@ -782,7 +829,7 @@ def mh_utility_ignore_use(method):
     Decorator for :class:`MultihostUtility` methods defined in inherited classes.
 
     Decorated method will not count as "using the class" and therefore it
-    will not invoke :meth:`MultihostUtility.setup_when_called`.
+    will not invoke :meth:`MultihostUtility.setup`.
 
     .. note::
 
@@ -804,6 +851,13 @@ def mh_utility_setup(util: MultihostUtility) -> None:
     :param util: Multihost utility object.
     :type util: MultihostUtility
     """
+    if util._mh_utility_postpone_setup and not util._mh_utility_used:
+        return
+
+    if not util._mh_utility_call_setup:
+        util._op_state.set_success("setup")
+        return
+
     util.setup()
     util._op_state.set_success("setup")
 
@@ -815,22 +869,16 @@ def mh_utility_teardown(util: MultihostUtility) -> None:
     :param util: Multihost utility object.
     :type util: MultihostUtility
     """
-    errors = []
-    if util._mh_utility_call_teardown_when_used and util._mh_utility_used:
-         if util._op_state.check_success("setup_when_used"):
-            try:
-                util.teardown_when_used()
-            except Exception as e:
-                errors.append(e)
+    if util._mh_utility_postpone_setup and not util._mh_utility_used:
+        return
 
-    if util._op_state.check_success("setup"):
-        try:
-            util.teardown()
-        except Exception as e:
-            errors.append(e)
+    if not util._mh_utility_call_teardown:
+        return
 
-    if errors:
-        raise Exception(errors)
+    if not util._op_state.check_success("setup"):
+        return
+
+    util.teardown()
 
 
 @contextmanager
@@ -878,7 +926,8 @@ def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
     errors = []
     for util in obj._mh_utility_dependencies:
         try:
-            mh_utility_teardown(util)
+            if not util._mh_utility_postpone_setup or util._mh_utility_used:
+                mh_utility_teardown(util)
         except Exception as e:
             errors.append(e)
 
