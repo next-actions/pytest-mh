@@ -26,26 +26,22 @@ if TYPE_CHECKING:
     from .fixtures import MultihostFixture
 
 
-class _MultihostRoleMeta(ABCMeta):
+class _MultihostDependencyMeta(ABCMeta):
     """
-    MultihostRole metaclass.
+    Base meta class that computes on which utilities a class depends.
 
-    It finds all MultihostUtility set in the constructor and add it to the
-    list of dependencies.
-
-    ABCMeta is not strictly needed for MultihostRole, but it is quite
-    possible that inherited classed will require ABC, therefore we have to
-    support that out of the box.
+    It finds all MultihostUtility of given type and add it to the list of
+    dependencies.
     """
 
-    def __call__(cls, *args, **kwargs) -> Any:
+    def __call__(cls, types: type[MultihostUtility], *args, **kwargs) -> Any:
         obj = super().__call__(*args, **kwargs)
 
         # Get list of MultihostUtilities used by this object
         obj._mh_utility_dependencies = []
         deps: list[MultihostUtility] = list()
         for arg in obj.__dict__.values():
-            if isinstance(arg, MultihostUtility):
+            if isinstance(arg, types):
                 deps.append(arg)
 
         # Now sort the dependencies, first by class name, then by cross-utility requirements
@@ -65,6 +61,24 @@ class _MultihostRoleMeta(ABCMeta):
                     deps.remove(util)
 
         return obj
+
+
+class _MultihostRoleMeta(_MultihostDependencyMeta):
+    """
+    MultihostRole metaclass.
+    """
+
+    def __call__(cls, *args, **kwargs) -> Any:
+        return super().__call__(MultihostUtility, *args, **kwargs)
+
+
+class _MultihostHostMeta(_MultihostDependencyMeta):
+    """
+    MultihostHost metaclass.
+    """
+
+    def __call__(cls, *args, **kwargs) -> Any:
+        return super().__call__(MultihostReentrantUtility, *args, **kwargs)
 
 
 class _MultihostUtilityMeta(ABCMeta):
@@ -382,9 +396,18 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 DomainType = TypeVar("DomainType", bound=MultihostDomain)
 
 
-class MultihostHost(Generic[DomainType]):
+class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
     """
     Base multihost host class.
+
+    .. note::
+
+        Host objects may contain MultihostReentrantUtility objects. These
+        utilities are automatically setup, entered, exited and teared down.
+
+        It may also contain MultihostUtility objects, but setup and teardown of
+        these utilities must be handled manually by in the host or topology
+        setup/teardown methods to create the required scope.
 
     .. code-block:: yaml
         :caption: Example configuration in YAML format
@@ -408,6 +431,9 @@ class MultihostHost(Generic[DomainType]):
     * Required fields: ``hostname``, ``role``
     * Optional fields: ``artifacts``, ``config``, ``os``, ``ssh``
     """
+
+    # Following attributes are set by metaclass
+    _mh_utility_dependencies: list[MultihostUtility]
 
     def __init__(self, domain: DomainType, confdict: dict[str, Any]):
         """
@@ -1058,27 +1084,43 @@ def mh_utility(util: MultihostUtility) -> Generator[MultihostUtility, None, None
         mh_utility_teardown(util)
 
 
-def mh_utility_setup_dependencies(obj: MultihostRole) -> None:
+def mh_utility_setup_dependencies(
+    obj: MultihostRole | MultihostHost,
+    types: list[type[MultihostUtility]] = [MultihostUtility, MultihostReentrantUtility],
+) -> None:
     """
     Setup all :class:`MultihostUtility` objects attributes of given object.
 
-    :param obj: Multihost role.
-    :type obj: MultihostRole
+    :param obj: Multihost role or host object.
+    :type obj: MultihostRole | MultihostHost
+    :param types: Which MultihostUtility classes should be setup.
+    :type types: list[type[MultihostUtility]]
     """
     for util in obj._mh_utility_dependencies:
+        if not isinstance(util, tuple(types)):
+            continue
+
         mh_utility_setup(util)
         mh_utility_enter(util, "mh_utility_dependencies")
 
 
-def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
+def mh_utility_teardown_dependencies(
+    obj: MultihostRole | MultihostHost,
+    types: list[type[MultihostUtility]] = [MultihostUtility, MultihostReentrantUtility],
+) -> None:
     """
     Teardown all :class:`MultihostUtility` objects attributes of given object.
 
-    :param obj: Multihost role.
-    :type obj: MultihostRole
+    :param obj: Multihost role or host object.
+    :type obj: MultihostRole | MultihostHost
+    :param types: Which MultihostUtility classes should be setup.
+    :type types: list[type[MultihostUtility]]
     """
     errors = []
     for util in reversed(obj._mh_utility_dependencies):
+        if not isinstance(util, tuple(types)):
+            continue
+
         try:
             mh_utility_exit(util, "mh_utility_dependencies")
         except Exception as e:
@@ -1088,6 +1130,46 @@ def mh_utility_teardown_dependencies(obj: MultihostRole) -> None:
                 mh_utility_teardown(util)
             except Exception as e:
                 errors.append(e)
+
+    if errors:
+        raise Exception(errors)
+
+
+def mh_utility_enter_dependencies(obj: MultihostRole | MultihostHost, where: str) -> None:
+    """
+    Setup all :class:`MultihostUtility` objects attributes of given object.
+
+    :param obj: Multihost role or host object.
+    :type obj: MultihostRole | MultihostHost
+    :param where: Where do we enter the utility.
+    :type where: str
+    """
+    for util in obj._mh_utility_dependencies:
+        util._op_state.clear(f"__enter__{where}")
+
+    for util in obj._mh_utility_dependencies:
+        util._op_state.set(f"__enter__{where}", "called")
+        mh_utility_enter(util, where)
+
+
+def mh_utility_exit_dependencies(obj: MultihostRole | MultihostHost, where: str) -> None:
+    """
+    Teardown all :class:`MultihostUtility` objects attributes of given object.
+
+    :param obj: Multihost role or host object.
+    :type obj: MultihostRole | MultihostHost
+    :param where: Where do we enter the utility.
+    :type where: str
+    """
+    errors = []
+    for util in reversed(obj._mh_utility_dependencies):
+        if not util._op_state.check(f"__enter__{where}", "called"):
+            continue
+
+        try:
+            mh_utility_exit(util, where)
+        except Exception as e:
+            errors.append(e)
 
     if errors:
         raise Exception(errors)
