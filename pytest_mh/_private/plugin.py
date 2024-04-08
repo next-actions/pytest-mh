@@ -15,7 +15,16 @@ from .data import MultihostItemData
 from .fixtures import MultihostFixture
 from .logging import MultihostLogger
 from .marks import TopologyMark
-from .multihost import MultihostArtifactsMode, MultihostConfig, MultihostHost
+from .multihost import (
+    MultihostArtifactsMode,
+    MultihostConfig,
+    MultihostHost,
+    MultihostReentrantUtility,
+    mh_utility_enter_dependencies,
+    mh_utility_exit_dependencies,
+    mh_utility_setup_dependencies,
+    mh_utility_teardown_dependencies,
+)
 from .topology import Topology
 from .topology_controller import TopologyController
 from .types import MultihostOutcome
@@ -506,22 +515,29 @@ class MultihostPlugin(object):
             raise RuntimeError("Multihost configuration is not present.")
 
         for host in hosts:
+            outcome: MultihostOutcome = "error"
             try:
-                host.logger.phase(f"PYTEST SETUP :: {host.hostname}")
-                host.pytest_setup()
-                host._op_state.set_success("pytest_setup")
-            finally:
-                host.logger.phase(f"PYTEST SETUP DONE :: {host.hostname}")
-                outcome: MultihostOutcome = "error"
-                if host._op_state.check_success("pytest_setup"):
-                    outcome = "passed"
+                try:
+                    host.logger.phase(f"PYTEST SETUP HOST UTILS :: {host.hostname}")
+                    mh_utility_setup_dependencies(host, [MultihostReentrantUtility])
+                    host._op_state.set_success("pytest_setup_utils")
+                finally:
+                    host.logger.phase(f"PYTEST SETUP HOST UTILS DONE :: {host.hostname}")
 
+                try:
+                    host.logger.phase(f"PYTEST SETUP :: {host.hostname}")
+                    host.pytest_setup()
+                    host._op_state.set_success("pytest_setup")
+                    outcome = "passed"
+                finally:
+                    host.logger.phase(f"PYTEST SETUP DONE :: {host.hostname}")
+            finally:
                 self._collect_artifacts(
                     id=host.hostname,
                     hostdir=False,
                     type="pytest_setup",
                     path=f"hosts/{host.hostname}/pytest_setup",
-                    collectable={host: [host]},
+                    collectable={host: [host, *host._mh_utility_dependencies]},
                     outcome=outcome,
                     logger=host.logger,
                 )
@@ -535,30 +551,37 @@ class MultihostPlugin(object):
 
         errors = []
         for host in hosts:
-            if host._op_state.check_success("pytest_setup"):
+            outcome: MultihostOutcome = "error"
+            try:
                 try:
                     host.logger.phase(f"PYTEST TEARDOWN :: {host.hostname}")
-                    host.pytest_teardown()
-                    host._op_state.set_success("pytest_teardown")
+                    if host._op_state.check_success("pytest_setup"):
+                        host.pytest_teardown()
                 except Exception as e:
                     errors.append(e)
                 finally:
                     host.logger.phase(f"PYTEST TEARDOWN DONE :: {host.hostname}")
-                    outcome: MultihostOutcome = "error"
-                    if host._op_state.check_success("pytest_teardown"):
-                        outcome = "passed"
 
-                    self._collect_artifacts(
-                        id=host.hostname,
-                        hostdir=False,
-                        type="pytest_teardown",
-                        path=f"hosts/{host.hostname}/pytest_teardown",
-                        collectable={host: [host]},
-                        outcome=outcome,
-                        logger=host.logger,
-                    )
+                try:
+                    host.logger.phase(f"PYTEST TEARDOWN HOST UTILS :: {host.hostname}")
+                    mh_utility_teardown_dependencies(host, [MultihostReentrantUtility])
+                    outcome = "passed"
+                except Exception as e:
+                    errors.append(e)
+                finally:
+                    host.logger.phase(f"PYTEST TEARDOWN HOST UTILS DONE :: {host.hostname}")
+            finally:
+                self._collect_artifacts(
+                    id=host.hostname,
+                    hostdir=False,
+                    type="pytest_teardown",
+                    path=f"hosts/{host.hostname}/pytest_teardown",
+                    collectable={host: [host, *host._mh_utility_dependencies]},
+                    outcome=outcome,
+                    logger=host.logger,
+                )
 
-                    self.multihost.logger.flush(outcome, f"hosts/{host.hostname}/pytest_teardown.log")
+                self.multihost.logger.flush(outcome, f"hosts/{host.hostname}/pytest_teardown.log")
 
         if errors:
             raise Exception(errors)
@@ -568,23 +591,30 @@ class MultihostPlugin(object):
         if self.multihost is None:
             raise RuntimeError("Multihost configuration is not present.")
 
+        outcome: MultihostOutcome = "error"
         try:
-            controller.logger.phase(f"TOPOLOGY SETUP :: {name}")
-            controller._invoke_with_args(controller.set_artifacts)
-            controller._invoke_with_args(controller.topology_setup)
-            controller._op_state.set_success("topology_setup")
-        finally:
-            controller.logger.phase(f"TOPOLOGY SETUP DONE :: {name}")
-            outcome: MultihostOutcome = "error"
-            if controller._op_state.check_success("topology_setup"):
-                outcome = "passed"
+            try:
+                controller.logger.phase(f"TOPOLOGY SETUP ENTER HOST UTILS :: {name}")
+                for host in controller.hosts:
+                    mh_utility_enter_dependencies(host, "topology_setup")
+            finally:
+                controller.logger.phase(f"TOPOLOGY SETUP ENTER HOST UTILS DONE :: {name}")
 
+            try:
+                controller.logger.phase(f"TOPOLOGY SETUP :: {name}")
+                controller._invoke_with_args(controller.set_artifacts)
+                controller._invoke_with_args(controller.topology_setup)
+                controller._op_state.set_success("topology_setup")
+                outcome = "passed"
+            finally:
+                controller.logger.phase(f"TOPOLOGY SETUP DONE :: {name}")
+        finally:
             self._collect_artifacts(
                 id=name,
                 hostdir=True,
                 type="topology_setup",
                 path=f"topologies/{name}/topology_setup",
-                collectable={x: [x, controller] for x in controller.hosts},
+                collectable={x: [x, *x._mh_utility_dependencies, controller] for x in controller.hosts},
                 outcome=outcome,
                 logger=controller.logger,
             )
@@ -596,24 +626,38 @@ class MultihostPlugin(object):
         if self.multihost is None:
             raise RuntimeError("Multihost configuration is not present.")
 
+        outcome: MultihostOutcome = "error"
         try:
-            if controller._op_state.check_success("topology_setup"):
+            errors = []
+            try:
                 controller.logger.phase(f"TOPOLOGY TEARDOWN :: {name}")
-                controller._invoke_with_args(controller.topology_teardown)
-                controller._op_state.set_success("topology_teardown")
-        finally:
-            self.current_topology = None
-            controller.logger.phase(f"TOPOLOGY TEARDOWN DONE :: {name}")
-            outcome: MultihostOutcome = "error"
-            if controller._op_state.check_success("topology_teardown"):
-                outcome = "passed"
+                if controller._op_state.check_success("topology_setup"):
+                    controller._invoke_with_args(controller.topology_teardown)
+            except Exception as e:
+                errors.append(e)
+            finally:
+                self.current_topology = None
+                controller.logger.phase(f"TOPOLOGY TEARDOWN DONE :: {name}")
 
+            controller.logger.phase(f"TOPOLOGY TEARDOWN EXIT HOST UTILS :: {name}")
+            for host in controller.hosts:
+                try:
+                    mh_utility_exit_dependencies(host, "topology_setup")
+                except Exception as e:
+                    errors.append(e)
+            controller.logger.phase(f"TOPOLOGY TEARDOWN EXIT HOST UTILS DONE :: {name}")
+
+            if errors:
+                raise Exception(errors)
+
+            outcome = "passed"
+        finally:
             self._collect_artifacts(
                 id=name,
                 hostdir=True,
                 type="topology_teardown",
                 path=f"topologies/{name}/topology_teardown",
-                collectable={x: [x, controller] for x in controller.hosts},
+                collectable={x: [x, *x._mh_utility_dependencies, controller] for x in controller.hosts},
                 outcome=outcome,
                 logger=controller.logger,
             )

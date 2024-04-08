@@ -16,6 +16,8 @@ from .multihost import (
     MultihostDomain,
     MultihostHost,
     MultihostRole,
+    mh_utility_enter_dependencies,
+    mh_utility_exit_dependencies,
     mh_utility_setup_dependencies,
     mh_utility_teardown_dependencies,
 )
@@ -228,6 +230,13 @@ class MultihostFixture(object):
 
         return None
 
+    def _setup_hosts_utils(self) -> None:
+        """
+        Enter reentrant utilities in each host.
+        """
+        for item in self.hosts:
+            mh_utility_enter_dependencies(item, "test")
+
     def _setup_hosts(self) -> None:
         """
         Run per-test setup of each host.
@@ -305,6 +314,20 @@ class MultihostFixture(object):
         if errors:
             raise Exception(errors)
 
+    def _teardown_hosts_utils(self) -> None:
+        """
+        Exit reentrant utilities in each host.
+        """
+        errors = []
+        for item in self.hosts:
+            try:
+                mh_utility_exit_dependencies(item, "test")
+            except Exception as e:
+                errors.append(e)
+
+        if errors:
+            raise Exception(errors)
+
     def _collect_artifacts(self) -> None:
         # Create list of collectable objects
         collectable: dict[MultihostHost, list[MultihostArtifactsCollectable]] = {}
@@ -369,6 +392,7 @@ class MultihostFixture(object):
             return self
 
         try:
+            self._invoke_phase("SETUP ENTER HOSTS UTILS", self._setup_hosts_utils)
             self._invoke_phase("SETUP HOSTS", self._setup_hosts)
             self._invoke_phase("SETUP TOPOLOGY", self._setup_topology)
             self._invoke_phase("SETUP UTILS", self._setup_utils)
@@ -391,6 +415,7 @@ class MultihostFixture(object):
         errors.append(self._invoke_phase("TEARDOWN UTILS", self._teardown_utils, catch=True))
         errors.append(self._invoke_phase("TEARDOWN TOPOLOGY", self._teardown_topology, catch=True))
         errors.append(self._invoke_phase("TEARDOWN HOSTS", self._teardown_hosts, catch=True))
+        errors.append(self._invoke_phase("TEARDOWN EXIT HOSTS UTILS", self._teardown_hosts_utils, catch=True))
 
         self.split_log_file("teardown.log")
         self.logger.flush(self.data.outcome)
