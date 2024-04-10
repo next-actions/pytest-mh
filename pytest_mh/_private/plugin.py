@@ -342,24 +342,29 @@ class MultihostPlugin(object):
 
             data.topology_mark.apply(mh, item.funcargs)
 
-    @pytest.hookimpl(trylast=True)
-    def pytest_runtest_teardown(self, item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_runtest_teardown(self, item: pytest.Item, nextitem: pytest.Item | None) -> Generator:
         """
         Teardown topology if we detect a topology switch.
 
         :meta private:
         """
-        if self.multihost is None:
-            return
+        # Inner teardown callback may raise error, but we still need to call
+        # topology teardown if needed.
+        try:
+            yield
+        finally:
+            if self.multihost is None:
+                return
 
-        data: MultihostItemData | None = MultihostItemData.GetData(item)
-        if data is None or data.topology_mark is None:
-            return
-        mark: TopologyMark = data.topology_mark
+            data: MultihostItemData | None = MultihostItemData.GetData(item)
+            if data is None or data.topology_mark is None:
+                return
+            mark: TopologyMark = data.topology_mark
 
-        # Execute per-topology teardown if topology changed.
-        if self._topology_switch(item, nextitem):
-            self._teardown_topology(mark.name, mark.controller)
+            # Execute per-topology teardown if topology changed.
+            if self._topology_switch(item, nextitem):
+                self._teardown_topology(mark.name, mark.controller)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
