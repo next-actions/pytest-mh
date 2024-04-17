@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import textwrap
 from collections import deque
+from typing import Self
 
 from .. import MultihostHost, MultihostReentrantUtility
 from ..ssh import SSHLog, SSHProcessResult
@@ -27,12 +28,12 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.__rollback: list[str] = []
         self.__backup: dict[str, str] = {}
 
-    def __enter__(self) -> LinuxFileSystem:
+    def __enter__(self) -> Self:
         """
         Saves current state.
 
         :return: Self.
-        :rtype: LinuxFileSystem
+        :rtype: Self
         """
         self.__states.append((self.__rollback, self.__backup))
         self.__rollback = []

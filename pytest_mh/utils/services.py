@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from typing import Self
 
 from .. import MultihostHost, MultihostReentrantUtility
 from ..ssh import SSHLog, SSHProcess, SSHProcessResult
@@ -18,12 +19,12 @@ class SystemdServices(MultihostReentrantUtility):
         self.initial_states: dict[str, bool] = {}
         self.__states: deque[dict[str, bool]] = deque()
 
-    def __enter__(self) -> SystemdServices:
+    def __enter__(self) -> Self:
         """
         Saves current state.
 
         :return: Self.
-        :rtype: SystemdServices
+        :rtype: Self
         """
         self.__states.append(self.initial_states)
         self.initial_states = {}
