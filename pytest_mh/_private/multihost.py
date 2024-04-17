@@ -5,7 +5,7 @@ from collections import deque
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Generic, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Type, TypeVar
 
 from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHPowerShellProcess, SSHProcess
@@ -794,7 +794,7 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         return self.artifacts
 
-    def postpone_setup(self) -> MultihostUtility:
+    def postpone_setup(self) -> Self:
         """
         Postpone setup on this instance of MultihostUtility.
 
@@ -808,7 +808,7 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
                     self.firewall: Firewalld = Firewalld(self.host).postpone_setup()
 
         :return: Self.
-        :rtype: MultihostUtility
+        :rtype: Self
         """
         return mh_utility_postpone_setup(self)
 

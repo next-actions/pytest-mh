@@ -5,7 +5,7 @@ import os
 import shlex
 import textwrap
 from enum import Enum, auto
-from typing import Any, Generator, Type
+from typing import Any, Generator, Self, Type
 
 import colorama as c
 import pssh.clients.base.single
@@ -188,7 +188,7 @@ class SSHProcess(object):
 
         return self.__process.stdin
 
-    def run(self) -> SSHProcess:
+    def run(self) -> Self:
         """
         Execute the command.
 
