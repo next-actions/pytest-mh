@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable, Generic
 
 from .artifacts import MultihostArtifactsType, MultihostTopologyControllerArtifacts
 from .logging import MultihostLogger
 from .misc import OperationStatus, invoke_callback
+from .multihost import ConfigType, MultihostDomain, MultihostHost
 from .topology import Topology, TopologyDomain
 
-if TYPE_CHECKING:
-    from .multihost import MultihostConfig, MultihostDomain, MultihostHost
 
-
-class TopologyController(object):
+class TopologyController(Generic[ConfigType]):
     """
     Topology controller can be associated with a topology via TopologyMark
     to provide additional per-topology hooks such as per-topology setup
@@ -106,7 +104,7 @@ class TopologyController(object):
         """Keep state of setup and teardown methods."""
 
         self.__name: str | None = None
-        self.__multihost: MultihostConfig | None = None
+        self.__multihost: ConfigType | None = None
         self.__logger: MultihostLogger | None = None
         self.__topology: Topology | None = None
         self.__ns: SimpleNamespace | None = None
@@ -123,7 +121,7 @@ class TopologyController(object):
     def _init(
         self,
         name: str,
-        multihost: MultihostConfig,
+        multihost: ConfigType,
         logger: MultihostLogger,
         topology: Topology,
         mapping: dict[str, str],
@@ -225,7 +223,7 @@ class TopologyController(object):
         return self.__topology
 
     @property
-    def multihost(self) -> MultihostConfig:
+    def multihost(self) -> ConfigType:
         """
         Multihost configuration.
 
