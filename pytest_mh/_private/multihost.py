@@ -168,6 +168,9 @@ class MultihostConfig(ABC):
             self.required_fields, confdict, error_fmt='"{key}" property is missing in configuration'
         )
 
+        self.confdict: dict[str, Any] = confdict
+        """Multihost configuration dictionary given to the constructor."""
+
         self.logger: MultihostLogger = logger
         """Multihost logger"""
 
@@ -280,6 +283,9 @@ class MultihostDomain(ABC, Generic[ConfigType]):
         validate_configuration(
             self.required_fields, confdict, error_fmt='"{key}" property is missing in domain configuration'
         )
+
+        self.confdict: dict[str, Any] = confdict
+        """Multihost domain configuration dictionary given to the constructor."""
 
         self.mh_config: ConfigType = config
         """Multihost configuration"""
@@ -452,6 +458,9 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         validate_configuration(
             self.required_fields, confdict, error_fmt='"{key}" property is missing in host configuration'
         )
+
+        self.confdict: dict[str, Any] = confdict
+        """Multihost host configuration dictionary given to the constructor."""
 
         # Required
         self.mh_domain: DomainType = domain
