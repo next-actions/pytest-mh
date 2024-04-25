@@ -16,7 +16,6 @@ from .artifacts import (
     MultihostHostArtifacts,
 )
 from .logging import MultihostHostLogger, MultihostLogger
-from .marks import TopologyMark
 from .misc import OperationStatus
 from .topology import Topology
 from .types import MultihostOSFamily
@@ -24,6 +23,7 @@ from .utils import validate_configuration
 
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
+    from .marks import TopologyMark
 
 
 class _MultihostDependencyMeta(ABCMeta):
@@ -204,6 +204,8 @@ class MultihostConfig(ABC):
         """
         Class name of the type or subtype of :class:`TopologyMark`.
         """
+        from .marks import TopologyMark
+
         return TopologyMark
 
     def create_domain(self, domain: dict[str, Any]) -> MultihostDomain:
