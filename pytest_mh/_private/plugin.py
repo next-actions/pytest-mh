@@ -4,7 +4,9 @@ import inspect
 import logging
 import sys
 import textwrap
+from os import _exit
 from pathlib import Path
+from signal import SIGINT, signal
 from typing import Generator, Type
 
 import pytest
@@ -95,6 +97,37 @@ class MultihostPlugin(object):
         except Exception as e:
             raise IOError(f'Unable to open multihost configuration "{path}": {str(e)}')
 
+    def sigint_handler(self, sig, frame) -> None:
+        # This should not happen
+        if self.multihost is None:
+            self.logger.error("multihost can not be None, terminating")
+            exit(1)
+
+        # User really wants to exit now, ignore teardown
+        if self.multihost._sigint:
+            self.logger.info(
+                "SIGINT received, terminating immediately. "
+                "Teardown was not run, therefore hosts are in undefined state."
+            )
+            _exit(1)
+
+        self.multihost._sigint = True
+
+        # If we are in test, we can terminate gracefully immediately. Teardowns will run.
+        if self.multihost._in_test:
+            pytest.skip("SIGINT received, aborting running test.")
+
+        # Otherwise we have to wait for setup/teardown to finish
+        self.logger.info("")
+        self.logger.info("")
+        self.logger.info("SIGINT received SIGINT, I will finish current test and exit gracefully.")
+        self.logger.info(
+            "If you want to exit immediately, press CTRL-C one more time. "
+            "In this case, however, hosts will end up in an undefined state "
+            "since teardown methods will not run completely."
+        )
+        self.logger.info("")
+
     def setup(self) -> None:
         """
         Read and apply multihost configuration.
@@ -161,6 +194,8 @@ class MultihostPlugin(object):
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
         self.logger.info(f"  collect logs: {self.mh_collect_logs}")
         self.logger.info("")
+
+        signal(SIGINT, self.sigint_handler)
 
     @pytest.hookimpl(trylast=True)
     def pytest_sessionfinish(self, session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
@@ -314,6 +349,9 @@ class MultihostPlugin(object):
             return
         mark: TopologyMark = data.topology_mark
 
+        if self.multihost._sigint:
+            pytest.exit("Aborted because SIGINT was received.")
+
         # Execute per-topology setup if topology is switched.
         if self._topology_switch(None, item):
             self.current_topology = mark.name
@@ -372,7 +410,7 @@ class MultihostPlugin(object):
             mark: TopologyMark = data.topology_mark
 
             # Execute per-topology teardown if topology changed.
-            if self._topology_switch(item, nextitem):
+            if self._topology_switch(item, nextitem) or self.multihost._sigint:
                 self._teardown_topology(mark.name, mark.controller)
 
     @pytest.hookimpl(hookwrapper=True)

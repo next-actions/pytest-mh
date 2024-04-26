@@ -192,6 +192,16 @@ class MultihostConfig(ABC):
         for domain in confdict["domains"]:
             self.domains.append(self.create_domain(domain))
 
+        self._in_test: bool = False
+        """
+        Process is currently inside a test.
+        """
+
+        self._sigint: bool = False
+        """
+        SIGINT (CTRL-C) was received.
+        """
+
     @property
     def required_fields(self) -> list[str]:
         """
