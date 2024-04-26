@@ -454,9 +454,16 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
     try:
         mh._enter()
         mh.log_phase("TEST")
+
+        data.multihost._in_test = True
+        if data.multihost._sigint:
+            pytest.skip("SIGINT received, aborting running test.")
+
         yield mh
+
         mh.log_phase("TEST DONE")
     finally:
+        data.multihost._in_test = False
         if data.outcome == "failed" and data.result is not None:
             mh.logger.error(data.result.longreprtext)
 
