@@ -473,5 +473,7 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
         if data.outcome == "failed" and data.result is not None:
             mh.logger.error(data.result.longreprtext)
 
-        mh.split_log_file("test.log")
+        if not mh._skipped:
+            mh.split_log_file("test.log")
+
         mh._exit()
