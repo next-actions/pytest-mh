@@ -212,7 +212,7 @@ class MultihostLogger(logging.Logger):
             if should_collect_artifacts(self.artifacts_mode, outcome):
                 self.handler.write_files()
             else:
-                self.handler.clear()
+                self.handler.clear_all()
 
     def _msgdata(self, kwargs) -> dict[str, Any]:
         if self.extra:
@@ -319,6 +319,13 @@ class ManualMemoryHandler(MemoryHandler):
         """
         self.buffer.clear()
 
+    def clear_all(self) -> None:
+        """
+        Clear current buffer and buffered files without writing it anywhere.
+        """
+        self.clear()
+        self.files.clear()
+
     def write_to_file(self, path: str | Path, content: list[logging.LogRecord] | None = None) -> None:
         """
         Write current buffer to a file and clear the buffer.
@@ -350,3 +357,5 @@ class ManualMemoryHandler(MemoryHandler):
         """
         for path, content in self.files.items():
             self.write_to_file(path, content)
+
+        self.files.clear()
