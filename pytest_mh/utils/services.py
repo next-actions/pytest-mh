@@ -38,6 +38,7 @@ class SystemdServices(MultihostReentrantUtility):
         # Restart all services that were touched
         self.reload_daemon()
         for service, state in self.initial_states.items():
+            self.logger.info(f'systemd: restoring "{service}" to {"started" if state else "stopped"}')
             self.host.ssh.run(
                 f'systemctl stop "{service}" || systemctl status "{service}"',
                 raise_on_error=False,
@@ -293,4 +294,8 @@ class SystemdServices(MultihostReentrantUtility):
             return
 
         result = self.host.ssh.run(f'systemctl status "{service}"', log_level=SSHLog.Silent, raise_on_error=False)
-        self.initial_states[service] = result.rc == 0
+
+        if result.rc == 0 or (result.rc == 3 and "Active: activating" in result.stdout):
+            self.initial_states[service] = True
+        else:
+            self.initial_states[service] = False
