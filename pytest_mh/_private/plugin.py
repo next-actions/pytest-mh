@@ -357,6 +357,9 @@ class MultihostPlugin(object):
             self.current_topology = mark.name
             self._setup_topology(mark.name, mark.controller)
 
+        if not mark.controller._op_state.check_success("topology_setup"):
+            pytest.skip("Error in topology setup")
+
         # Make mh fixture always available
         if "mh" not in item.fixturenames:
             item.fixturenames.append("mh")
