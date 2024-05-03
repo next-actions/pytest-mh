@@ -5,7 +5,7 @@ import os
 import shlex
 import textwrap
 from enum import Enum, auto
-from typing import Any, Generator, Self, Type
+from typing import Any, Generator, NoReturn, Self, Type
 
 import colorama as c
 import pssh.clients.base.single
@@ -260,6 +260,9 @@ class SSHProcess(object):
         code = self.__conn._eagain_errcode(self.__process.channel.get_exit_status, -1)
 
         result = SSHProcessResult(code, self.__stdout, self.__stderr)
+        result._error = SSHProcessError(
+            self.id, self.command, result.rc, self.cwd, self.env, self.input, result.stdout, result.stderr
+        )
 
         if self.__log_level == SSHLog.Error and result.rc != 0:
             self.__logger.error(
@@ -330,9 +333,7 @@ class SSHProcess(object):
                     pass
 
         if raise_on_error and result.rc != 0:
-            raise SSHProcessError(
-                self.id, self.command, result.rc, self.cwd, self.env, self.input, result.stdout, result.stderr
-            )
+            result.throw()
 
         return result
 
@@ -490,6 +491,23 @@ class SSHProcessResult(object):
         self.stderr: str = "\n".join(stderr)
         self.stdout_lines: list[str] = stdout
         self.stderr_lines: list[str] = stderr
+
+        self._error: SSHProcessError | None = None
+
+    def throw(self) -> NoReturn:
+        """
+        Raise SSHProcessError for this command manually.
+
+        The error is available to raise even if return code is 0. Therefore the
+        caller may choose to raise the error on any condition, not just the
+        return code.
+
+        :raises SSHProcessError: Error generated for this process result.
+        """
+        if self._error is None:
+            raise ValueError("No error is set.")
+
+        raise self._error
 
 
 class SSHProcessError(Exception):
