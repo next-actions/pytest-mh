@@ -24,9 +24,9 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :type host: MultihostHost
         """
         super().__init__(host)
-        self.__states: deque[tuple[list[str], dict[str, str]]] = deque()
+        self.__states: deque[tuple[list[str], dict[str, tuple[str, str]]]] = deque()
         self.__rollback: list[str] = []
-        self.__backup: dict[str, str] = {}
+        self.__backup: dict[str, tuple[str, str]] = {}
 
     def __enter__(self) -> Self:
         """
@@ -45,9 +45,19 @@ class LinuxFileSystem(MultihostReentrantUtility):
         """
         Revert all changes done during current context.
         """
-        cmd = "\n".join(reversed(self.__rollback))
-        if cmd:
-            self.host.ssh.run(cmd)
+        if self.__rollback:
+            self.host.logger.info(
+                "Reverting file system changes",
+                extra={
+                    "data": {
+                        "Paths": [f"{path} ({state})" for path, (_, state) in sorted(self.__backup.items())],
+                    }
+                },
+            )
+
+            cmd = "\n".join(reversed(self.__rollback))
+            if cmd:
+                self.host.ssh.run(cmd, log_level=SSHLog.Error)
 
         self.__rollback, self.__backup = self.__states.pop()
 
@@ -91,6 +101,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :param group: Group, defaults to None
         :type group: str | None, optional
         """
+        backup_exists = path in self.__backup
         self.backup(path)
         self.logger.info(f'Creating directory "{path}" (with parents)')
         result = self.host.ssh.run(
@@ -103,8 +114,14 @@ class LinuxFileSystem(MultihostReentrantUtility):
             log_level=SSHLog.Error,
         )
 
-        if result.stdout:
-            self.__rollback.append(f"rm --force --recursive '{result.stdout}'")
+        if result.stdout and result.stdout != path:
+            if not backup_exists:
+                action, _ = self.__backup.pop(path)
+                self.__rollback.remove(action)
+
+            action = f"rm --force --recursive '{result.stdout}'"
+            self.__rollback.append(action)
+            self.__backup[result.stdout] = (action, "delete")
 
     def mktmp(
         self,
@@ -147,7 +164,9 @@ class LinuxFileSystem(MultihostReentrantUtility):
         if not tmpfile:
             raise OSError("Temporary file was not created")
 
-        self.__rollback.append(f"rm --force '{tmpfile}'")
+        action = f"rm --force '{tmpfile}'"
+        self.__backup[tmpfile] = (action, "delete")
+        self.__rollback.append(action)
 
         if contents is not None:
             if dedent:
@@ -428,7 +447,6 @@ class LinuxFileSystem(MultihostReentrantUtility):
             input=encoded,
             log_level=SSHLog.Error,
         )
-        self.__rollback.append(f"rm --force '{remote_path}'")
 
     def upload_to_tmp(
         self,
@@ -533,24 +551,26 @@ class LinuxFileSystem(MultihostReentrantUtility):
             tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
             cp --force --archive '{path}' "$tmp"
             echo "cp --force --archive '$tmp' '{path}' && rm --force '$tmp'"
+            echo "restore file"
         elif [ -d '{path}' ]; then
             tmp=`mktemp -d /tmp/mh.fs.rollback.XXXXXXXXX`
             cp --force --archive '{path}/.' "$tmp"
             echo "rm --force --recursive '{path}' && mv --force '$tmp' '{path}'"
+            echo "restore directory"
         elif [ ! -d '{path}' ] && [ ! -f '{path}' ]; then
             echo "rm --force --recursive '{path}'"
+            echo "delete"
         fi
         """,
             log_level=SSHLog.Error,
         )
 
-        action = result.stdout.strip()
-        if action:
-            self.__rollback.append(action)
-            self.__backup[path] = action
-            return True
+        action = result.stdout_lines[-2]
+        state = result.stdout_lines[-1]
 
-        return False
+        self.__rollback.append(action)
+        self.__backup[path] = (action, state)
+        return state != "delete"
 
     def restore(self, path: str) -> bool:
         """
@@ -566,12 +586,14 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :return: True if the backup of path exists and it was restored, False otherwise.
         :rtype: bool
         """
-        action = self.__backup.get(path)
-        if action is None:
+        item = self.__backup.get(path)
+        if item is None:
             # Backup is not present
             return False
 
-        self.logger.info(f'Restoring "{path}" from backup')
+        action, state = item
+
+        self.logger.info(f'Restoring "{path}" from backup ({state})')
         self.host.ssh.run(action, log_level=SSHLog.Error)
 
         self.__rollback.remove(action)
