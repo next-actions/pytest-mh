@@ -10,6 +10,7 @@ from .topology_controller import TopologyController
 
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
+    from .multihost import MultihostRole
 
 
 class TopologyMark(object):
@@ -90,8 +91,8 @@ class TopologyMark(object):
         """
         Create required fixtures by modifying pytest.Item.funcargs.
 
-        :param mh: _description_
-        :type mh: Multihost
+        :param mh: Multihost fixture.
+        :type mh: MultihostFixture
         :param funcargs: Pytest test item ``funcargs`` that will be modified.
         :type funcargs: dict[str, Any]
         """
@@ -101,6 +102,23 @@ class TopologyMark(object):
             for name in names:
                 if name in funcargs:
                     funcargs[name] = value
+
+    def map_fixtures_to_roles(self, mh: MultihostFixture) -> dict[str, MultihostRole | list[MultihostRole]]:
+        """
+        Return all topology fixtures mapped to role object(s).
+
+        :param mh: Multihost fixture.
+        :type mh: MultihostFixture
+        :return: Dynamic fixtures mapped to roles.
+        :rtype: dict[str, MultihostRole | list[MultihostRole]]
+        """
+        funcargs: dict[str, MultihostRole | list[MultihostRole] | None] = {name: None for name in self.fixtures.keys()}
+        self.apply(mh, funcargs)
+
+        # To satisfy mypy
+        out: dict[str, MultihostRole | list[MultihostRole]] = {x: y for x, y in funcargs.items() if y is not None}
+
+        return out
 
     def export(self) -> dict:
         """
