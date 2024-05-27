@@ -116,6 +116,11 @@ class MultihostFixture(object):
         Available MultihostHost objects.
         """
 
+        self.fixtures: dict[str, MultihostRole | list[MultihostRole]] = {}
+        """
+        All dynamic fixtures defined in the topology mapped from name to :class:`MultihostRole`.
+        """
+
         self.ns: SimpleNamespace = SimpleNamespace()
         """
         Roles as object accessible through topology path, e.g. ``mh.ns.domain_id.role_name``.
@@ -130,6 +135,7 @@ class MultihostFixture(object):
 
         self.roles = sorted([x for x in self._paths.values() if isinstance(x, MultihostRole)], key=lambda x: x.role)
         self.hosts = sorted(list({x.host for x in self.roles}), key=lambda x: x.hostname)
+        self.fixtures = self.topology_mark.map_fixtures_to_roles(self)
 
     def _domain_to_namespace(self, domain: MultihostDomain, topology_domain: TopologyDomain) -> SimpleNamespace:
         ns = SimpleNamespace()
