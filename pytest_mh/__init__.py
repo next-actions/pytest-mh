@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from ._private.artifacts import MultihostHostArtifacts, MultihostTopologyControllerArtifacts
+from ._private.artifacts import MultihostArtifactsType, MultihostHostArtifacts, MultihostTopologyControllerArtifacts
 from ._private.data import MultihostItemData
 from ._private.fixtures import MultihostFixture, mh
 from ._private.marks import KnownTopologyBase, KnownTopologyGroupBase, TopologyMark
@@ -29,6 +29,7 @@ __all__ = [
     "mh",
     "KnownTopologyBase",
     "KnownTopologyGroupBase",
+    "MultihostArtifactsType",
     "MultihostConfig",
     "MultihostDomain",
     "MultihostFixture",
