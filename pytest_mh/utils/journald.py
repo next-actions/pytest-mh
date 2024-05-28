@@ -4,7 +4,7 @@ from typing import Any
 
 from pytest_mh.cli import CLIBuilder, CLIBuilderArgs
 
-from .. import MultihostHost, MultihostUtility
+from .. import MultihostArtifactsType, MultihostHost, MultihostUtility
 from ..ssh import SSHLog, SSHProcessResult
 
 __all__ = ["JournaldUtils"]
@@ -21,19 +21,43 @@ class JournaldUtils(MultihostUtility):
         :type host: MultihostHost
         """
         super().__init__(host)
+
         self._test_start: str = ""
+        self._cursor: str = ""
+
+    @property
+    def now(self) -> str:
+        """
+        :return: Current date and time that can be used to filter the journal.
+        :rtype: str
+        """
+        return self.host.ssh.exec(["date", "+%Y-%m-%d %H:%M:%S"], log_level=SSHLog.Error).stdout.strip()
 
     def setup(self) -> None:
         """
         Called before execution of each test.
         """
-        self.clear()
+        self._test_start = self.now
+
+    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+        """
+        Dump journald into file that can be collected.
+
+        :param host: Host where the artifacts are being collected.
+        :type host: MultihostHost
+        :param type: Type of artifacts that are being collected.
+        :type type: MultihostArtifactsType
+        :return: List of artifacts to collect.
+        :rtype: set[str]
+        """
+        self.host.ssh.run(f"journalctl --since '{self._test_start}' > /var/log/journald.log")
+        return {"/var/log/journald.log"}
 
     def clear(self) -> None:
         """
         Reset timestamp
         """
-        self._test_start = self.host.ssh.exec(["date", "--rfc-3339=ns"], log_level=SSHLog.Error).stdout[0:19]
+        self._cursor = self.now
 
     def journalctl(
         self,
@@ -84,7 +108,7 @@ class JournaldUtils(MultihostUtility):
         """
         cli: CLIBuilder = CLIBuilder(self.host.ssh)
         if current:
-            since = since if since else self._test_start
+            since = since if since else self._cursor
 
         args = args if args else []
         builder: CLIBuilderArgs = {
