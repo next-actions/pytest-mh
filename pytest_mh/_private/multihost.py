@@ -700,8 +700,6 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param host: Host where the artifacts are being collected.
-        :type host: MultihostHost
         :param type: Type of artifacts that are being collected.
         :type type: MultihostArtifactsType
         :return: List of artifacts to collect.
