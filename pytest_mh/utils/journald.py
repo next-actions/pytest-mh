@@ -31,7 +31,7 @@ class JournaldUtils(MultihostUtility):
         :return: Current date and time that can be used to filter the journal.
         :rtype: str
         """
-        return self.host.ssh.exec(["date", "+%Y-%m-%d %H:%M:%S"], log_level=SSHLog.Error).stdout.strip()
+        return self.host.ssh.exec(["date", "+%Y-%m-%d %H:%M:%S.%N"], log_level=SSHLog.Error).stdout.strip()
 
     def setup(self) -> None:
         """
