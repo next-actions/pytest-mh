@@ -4,10 +4,11 @@ import inspect
 import logging
 import sys
 import textwrap
+from functools import partial, wraps
 from os import _exit
 from pathlib import Path
 from signal import SIGINT, signal
-from typing import Generator, Type
+from typing import Generator, Literal, Type, get_type_hints
 
 import pytest
 import yaml
@@ -22,6 +23,7 @@ from .multihost import (
     MultihostConfig,
     MultihostHost,
     MultihostReentrantUtility,
+    MultihostRole,
     mh_utility_enter_dependencies,
     mh_utility_exit_dependencies,
     mh_utility_setup_dependencies,
@@ -819,3 +821,70 @@ def pytest_configure(config: pytest.Config):
     )
 
     config.pluginmanager.register(MultihostPlugin(config), "MultihostPlugin")
+
+
+def mh_fixture(scope: Literal["function"] = "function"):
+    """
+    This creates a function-scoped pytest fixture that can access MultihostRole
+    objects that are available to the test directly.
+
+    .. note::
+
+        For this to work correctly, all multihost fixtures have to be correctly
+        typed. It will not work without the type hints.
+
+    At this moment, only ``function`` scope is supported.
+
+    .. code-block:: python
+
+        @mh_fixture()
+        def my_fixture(client: Client, request: pytest.FixtureRequest):
+            pass
+
+        @pytest.mark.topology(KnownTopology.LDAP)
+        def test_example(client: Client, ldap: LDAP, my_fixture):
+            pass
+
+    :param scope: Fixture scope, defaults to "function"
+    :type scope: Literal[&quot;function&quot;], optional
+    """
+
+    def decorator(fn):
+        full_sig = inspect.signature(fn)
+        mh_args = []
+        for arg, hint in get_type_hints(fn).items():
+            if issubclass(hint, MultihostRole):
+                mh_args.append(arg)
+                continue
+
+        @wraps(fn)
+        def wrapper(mh: MultihostFixture, *args, **kwargs):
+            if "mh" in full_sig.parameters:
+                kwargs["mh"] = mh
+
+            for arg in mh_args:
+                if arg not in mh.fixtures:
+                    raise KeyError(f"{fn.__name__}: Parameter {arg} is not a valid topology fixture")
+
+                kwargs[arg] = mh.fixtures[arg]
+
+            return fn(*args, **kwargs)
+
+        # Bound multihost parameters
+        cb = wraps(fn)(partial(wrapper, **{arg: None for arg in mh_args}))
+
+        # Create pytest fixture
+        fixture = pytest.fixture(scope="function")(cb)
+
+        # Mock parameters so they are correctly recognized by pytest fixture
+        partial_parameters = [inspect.Parameter("mh", inspect._POSITIONAL_OR_KEYWORD)]
+        partial_parameters.extend(
+            [param for key, param in full_sig.parameters.items() if key != "mh" and key not in mh_args]
+        )
+        fixture.__pytest_wrapped__.obj.func.__signature__ = inspect.Signature(
+            partial_parameters, return_annotation=full_sig.return_annotation
+        )
+
+        return fixture
+
+    return decorator
