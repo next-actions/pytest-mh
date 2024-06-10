@@ -85,7 +85,7 @@ class LinuxTrafficControl(MultihostUtility):
         commands = "set -e\n"
         for interface in self.__interfaces:
             commands += (
-                f"tc qdisc add dev {interface} parent 1:{self.__band} handle {self.__band*10}: netem "
+                f"tc qdisc add dev {interface} parent 1:{self.__band} handle {self.__band * 10}: netem "
                 f"delay {time_unit}\n"
             )
             for ip in ip_list:
@@ -120,6 +120,6 @@ class LinuxTrafficControl(MultihostUtility):
             for band in bands:
                 commands += f"tc filter del dev {interface} prio {band}\n"
 
-            commands += f"tc qdisc del dev {interface} parent 1:{band} handle {band*10}: netem\n"
+            commands += f"tc qdisc del dev {interface} parent 1:{band} handle {band * 10}: netem\n"
 
         self.host.ssh.run(commands, log_level=SSHLog.Error)
