@@ -93,17 +93,26 @@ class SSHOutputBuffer(Generator):
 
         :rtype: str
         """
+        chunk: bytes = b""
         while not self.eof:
             self.channel.poll(timeout=1000, stderr=self.stderr)
-            chunk = self.channel.recv(stderr=self.stderr)
-            if chunk is None:
+            new_chunk: bytes | None = self.channel.recv(stderr=self.stderr)
+
+            if new_chunk is None:
                 self.eof = True
-                return ""
+            else:
+                chunk += new_chunk
 
-            if not chunk:
+            try:
+                out = chunk.decode("utf-8")
+                return out
+            except UnicodeDecodeError:
+                # Error if we don't have anything more to read
+                if self.eof:
+                    raise
+
+                # Otherwise concat with next chunk and see if we can decode it then
                 continue
-
-            return chunk.decode("utf-8")
 
         return ""
 
