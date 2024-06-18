@@ -7,6 +7,8 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Type, TypeVar
 
+import pytest
+
 from ..cli import CLIBuilder
 from ..ssh import SSHBashProcess, SSHClient, SSHPowerShellProcess, SSHProcess
 from .artifacts import (
@@ -831,6 +833,37 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         return mh_utility_postpone_setup(self)
 
+    def pytest_report_teststatus(
+        self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
+    ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+        """
+        See :func:`pytest.hookspec.pytest_report_teststatus` for more information.
+
+        .. warning::
+
+            This hook is currently called only if ``report.when == 'call'``,
+            that is only after the test is run. This may however change in the
+            future, therefore it is recommended to add a test to your code as
+            well.
+
+            .. code-block:: python
+
+                class Example(MultihostUtility):
+                    def pytest_report_teststatus(self, report, config):
+                        if report.when != 'call':
+                            return None
+
+                        return ("error", "X", "MYERROR")
+
+        :param report: Pytest report.
+        :type report: pytest.CollectReport | pytest.TestReport
+        :param config: Pytest config.
+        :type config: pytest.Config
+        :return: Test status.
+        :rtype: tuple[str, str, str | tuple[str, Mapping[str, bool]]] | None
+        """
+        return None
+
 
 class MultihostReentrantUtility(MultihostUtility[HostType]):
     """
@@ -1192,3 +1225,26 @@ def mh_utility_exit_dependencies(obj: MultihostRole | MultihostHost, where: str)
 
     if errors:
         raise Exception(errors)
+
+
+def mh_utility_pytest_report_teststatus(
+    obj: MultihostRole | MultihostHost, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
+) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+    """
+    Run :meth:`MultihostUtility.pytest_report_teststatus` on all utilities.
+
+    :param obj: Multihost role or host object.
+    :type obj: MultihostRole | MultihostHost
+    :param report: Pytest report.
+    :type report: pytest.CollectReport | pytest.TestReport
+    :param config: Pytest config.
+    :type config: pytest.Config
+    :return: Test status.
+    :rtype: tuple[str, str, str | tuple[str, Mapping[str, bool]]] | None
+    """
+    for util in obj._mh_utility_dependencies:
+        result = util.pytest_report_teststatus(report, config)
+        if result is not None:
+            return result
+
+    return None
