@@ -47,6 +47,7 @@ class MultihostPlugin(object):
         self.multihost: MultihostConfig | None = None
         self.topology: Topology | None = None
         self.confdict: dict | None = None
+        self.current_mh: MultihostFixture | None = None
         self.current_topology: str | None = None
         self.required_hosts: list[MultihostHost] = []
 
@@ -392,6 +393,7 @@ class MultihostPlugin(object):
             if not isinstance(mh, MultihostFixture):
                 raise ValueError(f"Fixture mh is not MultihostFixture but {type(mh)}!")
 
+            self.current_mh = mh
             data.topology_mark.apply(mh, item.funcargs)
 
     @pytest.hookimpl(hookwrapper=True)
@@ -406,6 +408,8 @@ class MultihostPlugin(object):
         try:
             yield
         finally:
+            self.current_mh = None
+
             if self.multihost is None:
                 return
 
@@ -417,6 +421,24 @@ class MultihostPlugin(object):
             # Execute per-topology teardown if topology changed.
             if self._topology_switch(item, nextitem) or self.multihost._sigint:
                 self._teardown_topology(mark.name, mark.controller)
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_report_teststatus(
+        self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
+    ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+        if report.when != "call":
+            return None
+
+        if hasattr(report, "_pytest_mh__teststatus"):
+            return report._pytest_mh__teststatus
+
+        if self.current_mh is None:
+            return None
+
+        status = self.current_mh._pytest_report_teststatus(report, config)
+        setattr(report, "_pytest_mh__teststatus", status)
+
+        return status
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(

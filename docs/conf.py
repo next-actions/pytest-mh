@@ -68,3 +68,7 @@ autodoc_default_options = {
 
 autosummary_imported_members = True
 autosummary_ignore_module_all = False
+
+intersphinx_mapping = {
+    "pytest": ("https://docs.pytest.org/en/latest", None),
+}

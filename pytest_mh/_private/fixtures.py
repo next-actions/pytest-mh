@@ -18,6 +18,7 @@ from .multihost import (
     MultihostRole,
     mh_utility_enter_dependencies,
     mh_utility_exit_dependencies,
+    mh_utility_pytest_report_teststatus,
     mh_utility_setup_dependencies,
     mh_utility_teardown_dependencies,
 )
@@ -327,6 +328,19 @@ class MultihostFixture(object):
 
         if errors:
             raise Exception(errors)
+
+    def _pytest_report_teststatus(
+        self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
+    ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+        """
+        Run pytest_report_teststatus on each utility.
+        """
+        for item in self.roles + self.hosts:
+            result = mh_utility_pytest_report_teststatus(item, report, config)
+            if result is not None:
+                return result
+
+        return None
 
     def _collect_artifacts(self) -> None:
         # Create list of collectable objects
