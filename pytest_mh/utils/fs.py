@@ -738,3 +738,22 @@ class LinuxFileSystem(MultihostReentrantUtility):
         mode = f"{user}" if user else ""
         mode += f":{group}" if group else ""
         return self.host.ssh.exec(["chown", mode, *path.split(), *args], log_level=SSHLog.Error)
+
+    def sed(self, command: str, path: str, args: list[str] | None = None) -> SSHProcessResult:
+        """
+        SED command in UNIX stands for stream editor and it can perform lots of
+        functions on file like searching, find and replace, insertion or deletion.
+
+        :param command: Sed command
+        :type command: str
+        :param path: File where changes will happen
+        :type path: str
+        :param args: Additional options, defaults to None
+        :type args: list[str] | None, optional
+        :return: Result of process
+        :rtype: SSHProcessResult
+        """
+        self.backup(path)
+        self.logger.info(f"Running sed {command} on {path}")
+        args = args if args else []
+        return self.host.ssh.exec(["sed", *args, command, path], log_level=SSHLog.Error)
