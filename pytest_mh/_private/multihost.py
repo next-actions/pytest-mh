@@ -508,8 +508,17 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         self.ssh_username: str = ssh.get("username", "root")
         """SSH username, defaults to ``root``."""
 
-        self.ssh_password: str = ssh.get("password", "Secret123")
-        """SSH password, defaults to ``Secret123``."""
+        self.ssh_password: str | None = ssh.get("password", None)
+        """SSH password, defaults to ``Secret123`` if no other authenticate mechanism is set, otherwise ``None``."""
+
+        self.ssh_private_key: str | None = ssh.get("private_key", None)
+        """SSH private key, defaults to ``None``."""
+
+        self.ssh_private_key_password: str | None = ssh.get("private_key_password", None)
+        """SSH private key password, defaults to ``None``."""
+
+        if self.ssh_password is None and self.ssh_private_key is None:
+            self.ssh_password = "Secret123"
 
         # Not configurable
         self.shell: Type[SSHProcess] = SSHBashProcess
@@ -539,6 +548,8 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
             host=self.ssh_host,
             user=self.ssh_username,
             password=self.ssh_password,
+            private_key_path=self.ssh_private_key,
+            private_key_password=self.ssh_private_key_password,
             port=self.ssh_port,
             logger=self.logger,
             shell=self.shell,
