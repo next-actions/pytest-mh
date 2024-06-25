@@ -21,7 +21,9 @@ Basic definition
           host: <ssh host> (optional, defaults to host name)
           port: <ssh port> (optional, defaults to 22)
           username: <ssh username> (optional, defaults to "root")
-          password: <ssh password> (optional, defaults to "Secret123")
+          password: <ssh password> (optional, defaults to "Secret123" or "None" if other authentication method is given)
+          private_key: <ssh private key path> (optional, defaults to "None")
+          private_key_password: <ssh private key password> (optional, defaults to "None")
         config: <additional configuration> (optional, defaults to {})
         artifacts: <list of produced artifacts> (optional, defaults to {})
 
@@ -38,7 +40,10 @@ has ``id`` attribute and defines the list of available hosts.
     IP address), defaults to the value of ``hostname``
   * ``ssh.port``: ssh port, defaults to 22
   * ``ssh.username``: ssh username, defaults to ``root``
-  * ``ssh.password``: ssh password for the user, defaults to ``Secret123``
+  * ``ssh.password``: ssh password for the user, defaults to ``Secret123`` if no
+    other authentication method is set, otherwise it defaults to ``None``
+  * ``ssh.private_key``: path to the ssh private key for authentication, defaults to ``None``
+  * ``ssh.private_key_password``: password to unlock the private key, defaults to ``None``
   * ``config``: additional configuration, place for custom options, see :ref:`custom-config`
   * ``artifacts``: list of artifacts that are automatically downloaded, see :ref:`gathering-artifacts`
 

@@ -5,6 +5,7 @@ import os
 import shlex
 import textwrap
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any, Generator, NoReturn, Self, Type
 
 import colorama as c
@@ -777,7 +778,9 @@ class SSHClient(object):
         host: str,
         *,
         user: str,
-        password: str,
+        password: str | None = None,
+        private_key_path: str | Path | None = None,
+        private_key_password: str | None = None,
         port: int = 22,
         shell: Type[SSHProcess] = SSHBashProcess,
         logger: MultihostLogger,
@@ -787,8 +790,12 @@ class SSHClient(object):
         :type host: BaseRole | str
         :param user: Username to authenticate.
         :type user: str
-        :param password: Password.
-        :type password: str
+        :param password: Password for authentication, defaults to ``None``.
+        :type password: str | None
+        :param private_key_path: Path to the private key for authentication, defaults to ``None``.
+        :type private_key_path: str | Path | None
+        :param private_key_password: Password to unlock the private key, defaults to ``None``.
+        :type private_key_password: str | None
         :param logger: Multihost logger.
         :type logger: MultihostLogger
         :param port: SSH port, defaults to 22
@@ -796,14 +803,50 @@ class SSHClient(object):
         :param shell: User shell used to run commands, defaults to SSHBashProcess
         :type shell: str, optional
         """
+        if password is None and private_key_path is None:
+            raise ValueError("At least one authentication mechanism has to be set.")
+
         self.host: str = host
         self.user: str = user
-        self.password: str = password
         self.port: int = port
         self.shell: Type[SSHProcess] = shell
         self.logger: MultihostLogger = logger
 
+        self.password: str | None = password
+        self.private_key: bytes | None = None
+        self.private_key_password: bytes | None = None
+        self.private_key, self.private_key_password = self._read_private_key(private_key_path, private_key_password)
+
         self.__conn: LibsshSession = LibsshSession()
+
+    def _read_private_key(
+        self,
+        path: str | Path | None = None,
+        password: str | None = None,
+    ) -> tuple[bytes | None, bytes | None]:
+        private_key: bytes | None = None
+        private_key_password: bytes | None = None
+
+        if path is not None:
+            with open(path, "rb") as f:
+                private_key = f.read()
+
+        if password is not None:
+            private_key_password = password.encode("utf-8")
+
+        return private_key, private_key_password
+
+    @property
+    def requested_auth_methods(self) -> list[str]:
+        methods = []
+
+        if self.password is not None:
+            methods.append("password")
+
+        if self.private_key is not None:
+            methods.append("private key")
+
+        return methods
 
     @property
     def connected(self) -> bool:
@@ -825,6 +868,7 @@ class SSHClient(object):
         self.logger.info(
             self.logger.colorize("Opening SSH connection to ", c.Style.BRIGHT)
             + self.logger.colorize(self.host, c.Fore.BLUE, c.Style.BRIGHT)
+            + f" using {'/'.join(self.requested_auth_methods)}"
         )
 
         try:
@@ -832,6 +876,8 @@ class SSHClient(object):
                 host=self.host,
                 user=self.user,
                 password=self.password,
+                private_key=self.private_key,
+                private_key_password=self.private_key_password,
                 port=self.port,
                 host_key_checking=False,
             )
