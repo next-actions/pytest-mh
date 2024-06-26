@@ -50,6 +50,7 @@ class MultihostPlugin(object):
         self.current_mh: MultihostFixture | None = None
         self.current_topology: str | None = None
         self.required_hosts: list[MultihostHost] = []
+        self.pytest_session: pytest.Session | None = None
 
         # CLI options
         self.mh_config: str = pytest_config.getoption("mh_config")
@@ -168,6 +169,8 @@ class MultihostPlugin(object):
 
         :meta private:
         """
+        self.pytest_session = session
+
         # Calling the setup here instead of in constructor to allow running
         # pytest --help and other action-less parameters.
         self.setup()
@@ -435,8 +438,16 @@ class MultihostPlugin(object):
         if self.current_mh is None:
             return None
 
+        # Store current outcome in case it is changed by the hook
+        original_outcome = report.outcome
+
         status = self.current_mh._pytest_report_teststatus(report, config)
         setattr(report, "_pytest_mh__teststatus", status)
+
+        # If the outcome is changed and failed, count it towards failures.
+        if original_outcome != report.outcome and report.failed:
+            if self.pytest_session is not None:
+                self.pytest_session.testsfailed += 1
 
         return status
 
