@@ -338,6 +338,8 @@ class MultihostFixture(object):
         for item in self.roles + self.hosts:
             result = mh_utility_pytest_report_teststatus(item, report, config)
             if result is not None:
+                # Change stored outcome since the hook may have changed it.
+                self.data.outcome = report.outcome
                 return result
 
         return None
