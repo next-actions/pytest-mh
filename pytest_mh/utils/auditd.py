@@ -51,6 +51,7 @@ class Auditd(MultihostUtility[MultihostHost]):
 
         self.artifacts: set[str] = {"/var/log/audit/audit.log"}
         self._backup: str | None = None
+        self._auditd_running: bool = False
 
     def setup(self) -> None:
         """
@@ -61,6 +62,11 @@ class Auditd(MultihostUtility[MultihostHost]):
         result = self.host.ssh.run(
             """
             set -e
+
+            if [ ! -d /var/log/audit ]; then
+                exit 0
+            fi
+
             tmp=`mktemp -d`
             cp -r --archive /var/log/audit "$tmp"
             truncate --size 0 /var/log/audit/audit.log*
@@ -69,7 +75,10 @@ class Auditd(MultihostUtility[MultihostHost]):
             log_level=SSHLog.Error,
         )
 
-        self._backup = result.stdout.strip()
+        tmp_path = result.stdout.strip()
+        if tmp_path:
+            self._auditd_running = True
+            self._backup = tmp_path
 
     def teardown(self) -> None:
         """
@@ -108,7 +117,7 @@ class Auditd(MultihostUtility[MultihostHost]):
         if report.when != "call":
             return None
 
-        if self.avc_mode == "ignore" or report.outcome == "skipped":
+        if not self._auditd_running or self.avc_mode == "ignore" or report.outcome == "skipped":
             return None
 
         self.logger.info("Checking for AVC denials")
