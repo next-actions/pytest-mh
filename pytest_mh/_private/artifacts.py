@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, get_args
 
 from ..ssh import SSHLog
+from .errors import ArtifactsExceptionGroup
 from .misc import sanitize_path, should_collect_artifacts
 from .types import MultihostOSFamily, MultihostOutcome
 
@@ -249,7 +250,7 @@ class MultihostArtifactsCollector(object):
                 errors.append(e)
 
         if errors:
-            raise Exception(errors)
+            raise ArtifactsExceptionGroup("Unable to collect artifacts from all hosts", errors)
 
         # Sort artifacts by name
         artifacts = sorted(artifacts_set)

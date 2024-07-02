@@ -15,6 +15,7 @@ import yaml
 
 from .artifacts import MultihostArtifactsCollectable, MultihostArtifactsType
 from .data import MultihostItemData
+from .errors import TeardownExceptionGroup
 from .fixtures import MultihostFixture
 from .logging import MultihostLogger
 from .marks import TopologyMark
@@ -660,7 +661,7 @@ class MultihostPlugin(object):
                 self.multihost.logger.flush(outcome, f"hosts/{host.hostname}/pytest_teardown.log")
 
         if errors:
-            raise Exception(errors)
+            raise TeardownExceptionGroup("Unable to teardown some hosts (host.pytest_teardown)", errors)
 
     def _setup_topology(self, name: str, controller: TopologyController) -> None:
         # Silent mypy false positive
@@ -724,7 +725,9 @@ class MultihostPlugin(object):
             controller.logger.phase(f"TOPOLOGY TEARDOWN EXIT HOST UTILS DONE :: {name}")
 
             if errors:
-                raise Exception(errors)
+                raise TeardownExceptionGroup(
+                    "Unable to teardown topology (topology_controller.topology_teardown)", errors
+                )
 
             outcome = "passed"
         finally:
