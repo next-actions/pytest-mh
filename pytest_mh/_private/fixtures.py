@@ -8,6 +8,7 @@ import pytest
 
 from .artifacts import MultihostArtifactsCollectable
 from .data import MultihostItemData
+from .errors import TeardownExceptionGroup
 from .logging import MultihostLogger
 from .marks import TopologyMark
 from .misc import invoke_callback
@@ -284,7 +285,7 @@ class MultihostFixture(object):
                     errors.append(e)
 
         if errors:
-            raise Exception(errors)
+            raise TeardownExceptionGroup("Unable to teardown some roles (role.teardown)", errors)
 
     def _teardown_utils(self) -> None:
         """
@@ -313,7 +314,7 @@ class MultihostFixture(object):
                     errors.append(e)
 
         if errors:
-            raise Exception(errors)
+            raise TeardownExceptionGroup("Unable to teardown some hosts (host.teardown)", errors)
 
     def _teardown_hosts_utils(self) -> None:
         """
@@ -327,7 +328,7 @@ class MultihostFixture(object):
                 errors.append(e)
 
         if errors:
-            raise Exception(errors)
+            raise TeardownExceptionGroup("Unable to exit some utilities (util.__exit__)", errors)
 
     def _pytest_report_teststatus(
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
@@ -438,7 +439,7 @@ class MultihostFixture(object):
 
         errors = [x for x in errors if x is not None]
         if errors:
-            raise Exception(errors)
+            raise TeardownExceptionGroup("One or more error occurred during test teardown", errors)
 
 
 @pytest.fixture(scope="function")

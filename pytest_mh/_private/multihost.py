@@ -17,6 +17,7 @@ from .artifacts import (
     MultihostArtifactsType,
     MultihostHostArtifacts,
 )
+from .errors import TeardownExceptionGroup
 from .logging import MultihostHostLogger, MultihostLogger
 from .misc import OperationStatus
 from .topology import Topology
@@ -1195,7 +1196,7 @@ def mh_utility_teardown_dependencies(
                 errors.append(e)
 
     if errors:
-        raise Exception(errors)
+        raise TeardownExceptionGroup("Unable to teardown some utilities (util.teardown)", errors)
 
 
 def mh_utility_enter_dependencies(obj: MultihostRole | MultihostHost, where: str) -> None:
@@ -1235,7 +1236,7 @@ def mh_utility_exit_dependencies(obj: MultihostRole | MultihostHost, where: str)
             errors.append(e)
 
     if errors:
-        raise Exception(errors)
+        raise TeardownExceptionGroup("Unable to exit some utilities (util.__exit__)", errors)
 
 
 def mh_utility_pytest_report_teststatus(
