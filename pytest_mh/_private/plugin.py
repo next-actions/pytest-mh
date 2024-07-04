@@ -332,6 +332,12 @@ class MultihostPlugin(object):
 
         yield
 
+        # Connect to all required hosts to fail quickly if some connection
+        # cannot be established.
+        if self.multihost is not None and not self.multihost.lazy_ssh:
+            for host in self.required_hosts:
+                host.ssh.connect()
+
         # Run pytest_setup on all hosts required by selected tests
         if not self.pytest_opt_collect_only:
             self._setup_hosts(self.required_hosts)

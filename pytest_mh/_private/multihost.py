@@ -561,10 +561,6 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         self.cli: CLIBuilder = CLIBuilder(self.ssh)
         """Command line builder."""
 
-        # Connect to SSH unless lazy ssh is set
-        if not self.mh_domain.mh_config.lazy_ssh:
-            self.ssh.connect()
-
         self.artifacts: MultihostHostArtifacts = MultihostHostArtifacts()
         """
         List of artifacts that will be automatically collected at specific
