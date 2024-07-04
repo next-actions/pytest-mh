@@ -705,28 +705,6 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
         """
         return self.artifacts
 
-    def ssh(self, user: str, password: str, *, shell=SSHBashProcess) -> SSHClient:
-        """
-        Open SSH connection to the host as given user.
-
-        :param user: Username.
-        :type user: str
-        :param password: User password.
-        :type password: str
-        :param shell: Shell that will run the commands, defaults to SSHBashProcess
-        :type shell: str, optional
-        :return: SSH client connection.
-        :rtype: SSHClient
-        """
-        return SSHClient(
-            self.host.ssh_host,
-            user=user,
-            password=password,
-            port=self.host.ssh_port,
-            shell=shell,
-            logger=self.logger,
-        )
-
 
 class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
     """
