@@ -8,5 +8,6 @@ API Reference
 
    pytest_mh
    pytest_mh.cli
-   pytest_mh.ssh
+   pytest_mh.conn
+   pytest_mh.conn.ssh
    pytest_mh.utils

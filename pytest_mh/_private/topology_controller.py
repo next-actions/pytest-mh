@@ -32,7 +32,7 @@ class TopologyController(Generic[ConfigType]):
                 self.artifacts.topology_setup[client] = {"/etc/issue"}
 
             def skip(self, client: ClientHost) -> str | None:
-                result = client.ssh.run(
+                result = client.conn.run(
                     '''
                     # Implement your requirement check here
                     exit 1

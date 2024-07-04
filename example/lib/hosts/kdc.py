@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pytest_mh import MultihostHost
-from pytest_mh.ssh import SSHPowerShellProcess
+from pytest_mh.conn import Powershell
 
 from ..config import ExampleMultihostDomain
 
@@ -30,7 +30,7 @@ class KDCHost(MultihostHost[ExampleMultihostDomain]):
         super().setup()
 
         # Backup KDC data
-        self.ssh.run('kdb5_util dump /tmp/mh.kdc.kdb.backup && rm -f "/tmp/mh.kdc.kdb.backup.dump_ok"')
+        self.conn.run('kdb5_util dump /tmp/mh.kdc.kdb.backup && rm -f "/tmp/mh.kdc.kdb.backup.dump_ok"')
         self.__backup_location = "/tmp/mh.kdc.kdb.backup"
 
     def pytest_teardown(self) -> None:
@@ -39,10 +39,10 @@ class KDCHost(MultihostHost[ExampleMultihostDomain]):
         """
         # Remove backup file
         if self.__backup_location is not None:
-            if self.ssh.shell is SSHPowerShellProcess:
-                self.ssh.exec(["Remove-Item", "-Force", "-Recurse", self.__backup_location])
+            if isinstance(self.conn.shell, Powershell):
+                self.conn.exec(["Remove-Item", "-Force", "-Recurse", self.__backup_location])
             else:
-                self.ssh.exec(["rm", "-fr", self.__backup_location])
+                self.conn.exec(["rm", "-fr", self.__backup_location])
 
         super().teardown()
 
@@ -51,5 +51,5 @@ class KDCHost(MultihostHost[ExampleMultihostDomain]):
         Called after execution of each test.
         """
         # Restore KDC data to its original state
-        self.ssh.run(f'kdb5_util load "{self.__backup_location}"')
+        self.conn.run(f'kdb5_util load "{self.__backup_location}"')
         super().teardown()

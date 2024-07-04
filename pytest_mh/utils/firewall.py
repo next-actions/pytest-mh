@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Literal, TypeAlias
 
 from .. import MultihostHost, MultihostRole, MultihostUtility
-from ..ssh import SSHLog
+from ..conn import ProcessLogLevel
 
 __all__ = ["Firewalld"]
 
@@ -250,7 +250,7 @@ class Firewalld(Firewall):
 
         :meta private:
         """
-        self.host.ssh.exec(["firewall-cmd", "--reload"])
+        self.host.conn.exec(["firewall-cmd", "--reload"])
         super().teardown()
 
     @property
@@ -324,11 +324,15 @@ class Firewalld(Firewall):
 
         if ip_family in ["ipv4", "all"]:
             self.logger.info(f'Firewalld: adding IPv4 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--add-rule", "ipv4", *cmd], log_level=SSHLog.Error)
+            self.host.conn.exec(
+                ["firewall-cmd", "--direct", "--add-rule", "ipv4", *cmd], log_level=ProcessLogLevel.Error
+            )
 
         if ip_family in ["ipv6", "all"]:
             self.logger.info(f'Firewalld: adding IPv6 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--add-rule", "ipv6", *cmd], log_level=SSHLog.Error)
+            self.host.conn.exec(
+                ["firewall-cmd", "--direct", "--add-rule", "ipv6", *cmd], log_level=ProcessLogLevel.Error
+            )
 
         return priority
 
@@ -359,11 +363,15 @@ class Firewalld(Firewall):
 
         if ip_family in ["ipv4", "all"]:
             self.logger.info(f'Firewalld: removing IPv4 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--remove-rule", "ipv4", *cmd], log_level=SSHLog.Error)
+            self.host.conn.exec(
+                ["firewall-cmd", "--direct", "--remove-rule", "ipv4", *cmd], log_level=ProcessLogLevel.Error
+            )
 
         if ip_family in ["ipv6", "all"]:
             self.logger.info(f'Firewalld: removing IPv6 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--remove-rule", "ipv6", *cmd], log_level=SSHLog.Error)
+            self.host.conn.exec(
+                ["firewall-cmd", "--direct", "--remove-rule", "ipv6", *cmd], log_level=ProcessLogLevel.Error
+            )
 
     def add_rich_rule(self, rule: str, priority: int | None = None) -> int:
         """
@@ -389,7 +397,7 @@ class Firewalld(Firewall):
 
         rule = f"rule priority={priority} {rule}"
         self.logger.info(f'Firewalld: adding rich rule "{rule}"')
-        self.host.ssh.exec(["firewall-cmd", "--add-rich-rule", rule], log_level=SSHLog.Error)
+        self.host.conn.exec(["firewall-cmd", "--add-rich-rule", rule], log_level=ProcessLogLevel.Error)
 
         return priority
 
@@ -411,7 +419,7 @@ class Firewalld(Firewall):
         """
         rule = f"rule priority={priority} {rule}"
         self.logger.info(f'Firewalld: removing rich rule  "{rule}"')
-        self.host.ssh.exec(["firewall-cmd", "--remove-rich-rule", rule], log_level=SSHLog.Error)
+        self.host.conn.exec(["firewall-cmd", "--remove-rich-rule", rule], log_level=ProcessLogLevel.Error)
 
 
 class FirewalldInboundRules(FirewallInboundRules):
@@ -578,7 +586,7 @@ class FirewalldOutboundRules(FirewallOutboundRules):
                 )
 
     def __resolve_hostname(self, hostname: str, type: Literal["A", "AAAA"]) -> list[str]:
-        result = self.firewall.host.ssh.exec(["dig", "+short", "-t", type, hostname], log_level=SSHLog.Error)
+        result = self.firewall.host.conn.exec(["dig", "+short", "-t", type, hostname], log_level=ProcessLogLevel.Error)
 
         return result.stdout_lines
 
@@ -617,8 +625,8 @@ class WindowsFirewall(Firewall):
         """
         super().setup()
         self.logger.info(f"Windows Firewall: creating backup at '{self._backup}'")
-        self.host.ssh.run(
-            f"Remove-Item {self._backup}; netsh advfirewall export {self._backup}", log_level=SSHLog.Error
+        self.host.conn.run(
+            f"Remove-Item {self._backup}; netsh advfirewall export {self._backup}", log_level=ProcessLogLevel.Error
         )
 
     def teardown(self):
@@ -628,7 +636,9 @@ class WindowsFirewall(Firewall):
         :meta private:
         """
         self.logger.info(f"Windows Firewall: restoring from '{self._backup}'")
-        self.host.ssh.run(f"netsh advfirewall reset; netsh advfirewall import {self._backup}", log_level=SSHLog.Error)
+        self.host.conn.run(
+            f"netsh advfirewall reset; netsh advfirewall import {self._backup}", log_level=ProcessLogLevel.Error
+        )
         super().teardown()
 
     @property
@@ -690,7 +700,7 @@ class WindowsFirewall(Firewall):
             self.remove_rule(opposite)
 
         self.logger.info(f'Windows Firewall: adding rule: {" ".join([str(x) for x in cmd])}')
-        self.host.ssh.exec(cmd, log_level=SSHLog.Error)
+        self.host.conn.exec(cmd, log_level=ProcessLogLevel.Error)
         self._rules.append(fullname)
 
         return fullname
@@ -704,7 +714,7 @@ class WindowsFirewall(Firewall):
         """
         cmd = ["Remove-NetFirewallRule", "-DisplayName", name]
         self.logger.info(f'Windows Firewall: removing rule: {" ".join([str(x) for x in cmd])}')
-        self.host.ssh.exec(cmd, log_level=SSHLog.Error)
+        self.host.conn.exec(cmd, log_level=ProcessLogLevel.Error)
         self._rules.remove(name)
 
 
@@ -810,7 +820,7 @@ class WindowsFirewallOutboundRules(FirewallOutboundRules):
             self.firewall.add_rule(f"{hostname}", "outbound", action, ["-RemoteAddress", ",".join([*ipv4s, *ipv6s])])
 
     def __resolve_hostname(self, hostname: str, type: Literal["A", "AAAA"]) -> list[str]:
-        result = self.firewall.host.ssh.run(
-            f"(Resolve-DnsName -Type {type} -Name {hostname}).IpAddress", log_level=SSHLog.Error
+        result = self.firewall.host.conn.run(
+            f"(Resolve-DnsName -Type {type} -Name {hostname}).IpAddress", log_level=ProcessLogLevel.Error
         )
         return result.stdout_lines

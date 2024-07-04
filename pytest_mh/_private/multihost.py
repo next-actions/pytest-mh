@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Type, TypeVar
 import pytest
 
 from ..cli import CLIBuilder
-from ..ssh import SSHBashProcess, SSHClient, SSHPowerShellProcess, SSHProcess
+from ..conn import Bash, Connection, Powershell, Process, ProcessError, ProcessInputBuffer, ProcessResult, Shell
+from ..conn.ssh import SSHClient
 from .artifacts import (
     MultihostArtifactsCollector,
     MultihostArtifactsMode,
@@ -497,34 +498,6 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         self.configured_artifacts: MultihostHostArtifacts = MultihostHostArtifacts(confdict.get("artifacts", []))
         """Host artifacts produced during tests, configured by the user."""
 
-        # SSH
-        ssh = confdict.get("ssh", {})
-
-        self.ssh_host: str = ssh.get("host", self.hostname)
-        """SSH host (resolvable hostname or IP address), defaults to :attr:`hostname`."""
-
-        self.ssh_port: int = int(ssh.get("port", 22))
-        """SSH port, defaults to ``22``."""
-
-        self.ssh_username: str = ssh.get("username", "root")
-        """SSH username, defaults to ``root``."""
-
-        self.ssh_password: str | None = ssh.get("password", None)
-        """SSH password, defaults to ``Secret123`` if no other authenticate mechanism is set, otherwise ``None``."""
-
-        self.ssh_private_key: str | None = ssh.get("private_key", None)
-        """SSH private key, defaults to ``None``."""
-
-        self.ssh_private_key_password: str | None = ssh.get("private_key_password", None)
-        """SSH private key password, defaults to ``None``."""
-
-        if self.ssh_password is None and self.ssh_private_key is None:
-            self.ssh_password = "Secret123"
-
-        # Not configurable
-        self.shell: Type[SSHProcess] = SSHBashProcess
-        """Shell used in SSH session."""
-
         # Get host operating system information
         os = confdict.get("os", {})
 
@@ -535,30 +508,27 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         except ValueError:
             raise ValueError(f'Value "{os_family}" is not supported in os_family field of host configuration')
 
+        # Not configurable, since we expect specific shells in our code
+        self.shell: Shell = Bash()
+        """Shell used to run commands over host connection."""
+
         # Set host shell based on the operating system
         match self.os_family:
             case MultihostOSFamily.Linux:
-                self.shell = SSHBashProcess
+                pass
             case MultihostOSFamily.Windows:
-                self.shell = SSHPowerShellProcess
+                self.shell = Powershell()
             case _:
                 raise ValueError(f"Unknown operating system os_family: {self.os_family}")
 
-        # SSH connection
-        self.ssh: SSHClient = SSHClient(
-            host=self.ssh_host,
-            user=self.ssh_username,
-            password=self.ssh_password,
-            private_key_path=self.ssh_private_key,
-            private_key_password=self.ssh_private_key_password,
-            port=self.ssh_port,
-            logger=self.logger,
-            shell=self.shell,
+        # Connection to the host
+        self.conn: Connection[Process[ProcessResult, ProcessInputBuffer], ProcessResult[ProcessError]] = (
+            self.get_connection(self.shell)
         )
-        """SSH client."""
+        """Connection to the host."""
 
         # CLI Builder instance
-        self.cli: CLIBuilder = CLIBuilder(self.ssh)
+        self.cli: CLIBuilder = CLIBuilder(self.conn)
         """Command line builder."""
 
         self.artifacts: MultihostHostArtifacts = MultihostHostArtifacts()
@@ -629,6 +599,28 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         :rtype: set[str]
         """
         return self.configured_artifacts.get(type) | self.artifacts.get(type)
+
+    def get_connection(self, shell: Shell) -> Connection:
+        """
+        Get connection object to the host with given shell.
+
+        This creates a connection object using the information from the
+        multihost configuration. The caller should not make any assumptions
+        about the connection mechanism.
+
+        :param shell: Shell that will be used to run commands.
+        :type shell: Shell
+        :return: Generic connection to the host.
+        :rtype: Connection
+        """
+        conn_confdict = self.confdict.get("conn", {})
+        conn_type = conn_confdict.setdefault("type", "ssh")
+
+        match conn_type:
+            case "ssh":
+                return SSHClient.from_confdict(self, conn_confdict)
+            case _:
+                raise ValueError(f"Unknown connection type: {conn_type}!")
 
 
 HostType = TypeVar("HostType", bound=MultihostHost)

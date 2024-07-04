@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import Any, Callable, Type, TypeAlias
 
-from .ssh import SSHClient, SSHPowerShellProcess, SSHProcess
+from .conn import Connection, Powershell, Shell
 
 
 class CLIBuilder(object):
@@ -32,9 +32,9 @@ class CLIBuilder(object):
         Parameter is a positional argument.
         """
 
-    def __init__(self, ssh: SSHClient) -> None:
-        self.__shell: Type[SSHProcess] = ssh.shell
-        self.__prefix: str = "-" if self.__match_shell(SSHPowerShellProcess) else "--"
+    def __init__(self, conn: Connection) -> None:
+        self.__shell: Shell = conn.shell
+        self.__prefix: str = "-" if self.__match_shell(Powershell) else "--"
 
     def command(self, command: str, args: CLIBuilderArgs) -> str:
         return " ".join(self.__build(command, args, quote_value=True))
@@ -45,8 +45,8 @@ class CLIBuilder(object):
     def args(self, args: CLIBuilderArgs, quote_value=False) -> list[str]:
         return self.__build(None, args, quote_value)
 
-    def __match_shell(self, shell: Type[SSHProcess]):
-        return issubclass(self.__shell, shell)
+    def __match_shell(self, shell: Type[Shell]):
+        return isinstance(self.__shell, shell)
 
     def __build(self, command: str | None, args: CLIBuilderArgs, quote_value: bool) -> list[str]:
         def _get_option(name: str) -> str:
@@ -76,7 +76,7 @@ class CLIBuilder(object):
                 case self.option.POSITIONAL:
                     _add_argv(argv, None, value, _get_value)
                 case self.option.SWITCH:
-                    if self.__match_shell(SSHPowerShellProcess):
+                    if self.__match_shell(Powershell):
                         argv.append(f'{_get_option(key)}:{"$True" if value else "$False"}')
                     else:
                         if value:

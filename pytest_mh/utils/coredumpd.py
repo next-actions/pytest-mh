@@ -6,7 +6,7 @@ from typing import Literal
 import pytest
 
 from .. import MultihostArtifactsType, MultihostHost, MultihostUtility
-from ..ssh import SSHLog
+from ..conn import ProcessLogLevel
 from .fs import LinuxFileSystem
 
 __all__ = ["Coredumpd"]
@@ -94,7 +94,9 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         :rtype: list[str]
         """
         # List the folder, exit with 0 if it does not exist (no core files were produced)
-        result = self.host.ssh.run(f"[ -d '{self.path}' ] && ls -N -1 '{self.path}' || :", log_level=SSHLog.Error)
+        result = self.host.conn.run(
+            f"[ -d '{self.path}' ] && ls -N -1 '{self.path}' || :", log_level=ProcessLogLevel.Error
+        )
 
         return result.stdout_lines
 
@@ -149,14 +151,14 @@ class Coredumpd(MultihostUtility[MultihostHost]):
                 continue
 
             # Dump the information
-            self.host.ssh.run(
+            self.host.conn.run(
                 rf"""
                 journalctl --output=verbose          \
                     'COREDUMP_PID={pid}'             \
                     'COREDUMP_TIMESTAMP={timestamp}' \
                     > '{self.path}/{name}.backtrace'
                 """,
-                log_level=SSHLog.Error,
+                log_level=ProcessLogLevel.Error,
             )
 
         return {self.path}
