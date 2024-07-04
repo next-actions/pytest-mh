@@ -6,7 +6,7 @@ from collections import deque
 from typing import Self
 
 from .. import MultihostHost, MultihostReentrantUtility
-from ..ssh import SSHLog, SSHProcessResult
+from ..conn import ProcessLogLevel, ProcessResult
 
 __all__ = ["LinuxFileSystem"]
 
@@ -57,7 +57,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
 
             cmd = "\n".join(reversed(self.__rollback))
             if cmd:
-                self.host.ssh.run(cmd, log_level=SSHLog.Error)
+                self.host.conn.run(cmd, log_level=ProcessLogLevel.Error)
 
         self.__rollback, self.__backup = self.__states.pop()
 
@@ -76,14 +76,14 @@ class LinuxFileSystem(MultihostReentrantUtility):
         """
         self.backup(path)
         self.logger.info(f'Creating directory "{path}"')
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
                 rm -fr '{path}'
                 mkdir '{path}'
                 {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def mkdir_p(
@@ -104,14 +104,14 @@ class LinuxFileSystem(MultihostReentrantUtility):
         backup_exists = path in self.__backup
         self.backup(path)
         self.logger.info(f'Creating directory "{path}" (with parents)')
-        result = self.host.ssh.run(
+        result = self.host.conn.run(
             f"""
                 set -ex
                 rm -fr '{path}'
                 mkdir -v -p '{path}' | head -1 | sed -E "s/mkdir:[^']+'(.+)'$/\\1/"
                 {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
         if result.stdout and result.stdout != path:
@@ -151,13 +151,13 @@ class LinuxFileSystem(MultihostReentrantUtility):
         """
 
         self.logger.info("Creating temporary file")
-        result = self.host.ssh.run(
+        result = self.host.conn.run(
             """
                 set -ex
                 tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
                 echo $tmp
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
         tmpfile = result.stdout.strip()
@@ -173,11 +173,11 @@ class LinuxFileSystem(MultihostReentrantUtility):
                 contents = textwrap.dedent(contents).strip()
 
             self.logger.info(f'Writing file "{tmpfile}"', extra={"data": {"Contents": contents}})
-            self.host.ssh.run(f"cat > '{tmpfile}'", input=contents, log_level=SSHLog.Error)
+            self.host.conn.run(f"cat > '{tmpfile}'", input=contents, log_level=ProcessLogLevel.Error)
 
         attrs = self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group)
         if attrs:
-            self.host.ssh.run(attrs, log_level=SSHLog.Error)
+            self.host.conn.run(attrs, log_level=ProcessLogLevel.Error)
 
         return tmpfile
 
@@ -191,12 +191,12 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.backup(path)
         self.logger.info(f'Removing file "{path}"')
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
                 rm -fr '{path}'
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def read(self, path: str) -> str:
@@ -209,7 +209,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :rtype: str
         """
         self.logger.info(f'Reading file "{path}"')
-        result = self.host.ssh.exec(["cat", path], log_level=SSHLog.Error)
+        result = self.host.conn.exec(["cat", path], log_level=ProcessLogLevel.Error)
 
         return result.stdout
 
@@ -223,7 +223,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :rtype: bool
         """
         self.logger.info(f'Checking if "{path}" exists')
-        result = self.host.ssh.exec(["ls", path], log_level=SSHLog.Error, raise_on_error=False)
+        result = self.host.conn.exec(["ls", path], log_level=ProcessLogLevel.Error, raise_on_error=False)
 
         if result.rc == 0:
             return True
@@ -262,7 +262,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.backup(path)
         self.logger.info(f'Writing file "{path}"', extra={"data": {"Contents": contents}})
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
 
@@ -274,7 +274,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
                 {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
             """,
             input=contents,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def append(
@@ -300,13 +300,13 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.backup(path)
         self.logger.info(f'Appending to file "{path}"', extra={"data": {"Contents": contents}})
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
                 cat >> '{path}'
             """,
             input=contents,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def touch(
@@ -334,13 +334,13 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.backup(path)
         self.logger.info(f'Touching file "{path}"')
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
                 touch '{path}'
                 {self.__gen_chattrs(path, mode=mode, user=user, group=group)}
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def truncate(
@@ -360,12 +360,12 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.backup(path)
         self.logger.info(f'Truncating file "{path}"', extra={"data": {"Size": size}})
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
                 truncate -s '{size}' '{path}'
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def copy(
@@ -396,13 +396,13 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.backup(dstpath)
         self.logger.info(f'Copying file "{srcpath}" to "{dstpath}"')
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
                 cp --archive '{srcpath}' '{dstpath}'
                 {self.__gen_chattrs(dstpath, mode=mode, user=user, group=group)}
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def upload(
@@ -433,7 +433,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         with open(local_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
 
-        self.host.ssh.run(
+        self.host.conn.run(
             f"""
                 set -ex
 
@@ -445,7 +445,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
                 {self.__gen_chattrs(remote_path, mode=mode, user=user, group=group)}
             """,
             input=encoded,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
     def upload_to_tmp(
@@ -476,7 +476,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         with open(local_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
 
-        self.host.ssh.run(f"base64 --decode > '{tmp_path}'", input=encoded, log_level=SSHLog.Error)
+        self.host.conn.run(f"base64 --decode > '{tmp_path}'", input=encoded, log_level=ProcessLogLevel.Error)
 
         return tmp_path
 
@@ -490,7 +490,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :type local_path: str
         """
         self.logger.info(f'Downloading file "{self.host.hostname}:{remote_path}" to "{local_path}"')
-        result = self.host.ssh.exec(["base64", remote_path], log_level=SSHLog.Error)
+        result = self.host.conn.exec(["base64", remote_path], log_level=ProcessLogLevel.Error)
         with open(local_path, "wb") as f:
             f.write(base64.b64decode(result.stdout))
 
@@ -508,14 +508,14 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.logger.info(
             f'Downloading files from {self.host.hostname} to "{local_path}"', extra={"data": {"Paths": paths}}
         )
-        result = self.host.ssh.run(
+        result = self.host.conn.run(
             f"""
             tmp=`mktemp /tmp/mh.fs.download_files.XXXXXXXXX`
             tar -czvf "$tmp" {' '.join([f'$(compgen -G "{path}")' for path in paths])} &> /dev/null
             base64 "$tmp"
             rm -f "$tmp" &> /dev/null
         """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
         with open(local_path, "wb") as f:
@@ -543,7 +543,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             return True
 
         self.logger.info(f'Creating a backup of "{path}"')
-        result = self.host.ssh.run(
+        result = self.host.conn.run(
             f"""
         set -ex
 
@@ -562,7 +562,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             echo "delete"
         fi
         """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
         action = result.stdout_lines[-2]
@@ -594,7 +594,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         action, state = item
 
         self.logger.info(f'Restoring "{path}" from backup ({state})')
-        self.host.ssh.run(action, log_level=SSHLog.Error)
+        self.host.conn.run(action, log_level=ProcessLogLevel.Error)
 
         self.__rollback.remove(action)
         del self.__backup[path]
@@ -618,7 +618,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
 
     def wc(
         self, file: str, lines: bool = False, word: bool = False, bytes: bool = False, chars: bool = False
-    ) -> SSHProcessResult:
+    ) -> ProcessResult:
         """
         Print newline, word, and byte counts for specific file.
 
@@ -635,7 +635,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :param chars: Print the character counts, defaults to False
         :type chars: bool, optional
         :return: Result of process
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         args = []
         if lines:
@@ -650,7 +650,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         if chars:
             args.append("-m")
 
-        return self.host.ssh.exec(["wc", *args, file], log_level=SSHLog.Error)
+        return self.host.conn.exec(["wc", *args, file], log_level=ProcessLogLevel.Error)
 
     def diff(
         self,
@@ -661,7 +661,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         recursive: bool = False,
         ignore_case: bool = False,
         args: list[str] | None = None,
-    ) -> SSHProcessResult:
+    ) -> ProcessResult:
         """
         Compare files line by line.
         Exit status is 0 if inputs are the same, 1 if different, 2 if trouble.
@@ -679,7 +679,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :param args: Additional options, defaults to None
         :type args: list[str] | None, optional
         :return: Result of process
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         args = args if args else []
         if brief:
@@ -689,9 +689,9 @@ class LinuxFileSystem(MultihostReentrantUtility):
         if ignore_case:
             args.append("--ignore-case")
 
-        return self.host.ssh.exec(["diff", *args, path1, path2], raise_on_error=False)
+        return self.host.conn.exec(["diff", *args, path1, path2], raise_on_error=False)
 
-    def chmod(self, mode: str, path: str, args: list[str] | None = None) -> SSHProcessResult:
+    def chmod(self, mode: str, path: str, args: list[str] | None = None) -> ProcessResult:
         """
         Change file/folder mode bits.
         Mode can be specified in two ways: octal number e.g. "666", "444" or
@@ -704,16 +704,16 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :param args: Additional options, defaults to None
         :type args: list[str] | None, optional
         :return: Result of process
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         self.backup(path)
         self.logger.info(f'Changing mode to "{mode}" for "{path}"')
         args = args if args else []
-        return self.host.ssh.exec(["chmod", *args, mode, path], log_level=SSHLog.Error)
+        return self.host.conn.exec(["chmod", *args, mode, path], log_level=ProcessLogLevel.Error)
 
     def chown(
         self, path: str, user: str | None = None, group: str | None = None, args: list[str] | None = None
-    ) -> SSHProcessResult:
+    ) -> ProcessResult:
         """
         Change file owner and group.
 
@@ -726,7 +726,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :param args: Additional options, defaults to None
         :type args: list[str] | None, optional
         :return: Result of process
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         self.backup(path)
         if user:
@@ -737,9 +737,9 @@ class LinuxFileSystem(MultihostReentrantUtility):
         args = args if args else []
         mode = f"{user}" if user else ""
         mode += f":{group}" if group else ""
-        return self.host.ssh.exec(["chown", mode, *path.split(), *args], log_level=SSHLog.Error)
+        return self.host.conn.exec(["chown", mode, *path.split(), *args], log_level=ProcessLogLevel.Error)
 
-    def sed(self, command: str, path: str, args: list[str] | None = None) -> SSHProcessResult:
+    def sed(self, command: str, path: str, args: list[str] | None = None) -> ProcessResult:
         """
         SED command in UNIX stands for stream editor and it can perform lots of
         functions on file like searching, find and replace, insertion or deletion.
@@ -751,9 +751,9 @@ class LinuxFileSystem(MultihostReentrantUtility):
         :param args: Additional options, defaults to None
         :type args: list[str] | None, optional
         :return: Result of process
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         self.backup(path)
         self.logger.info(f"Running sed {command} on {path}")
         args = args if args else []
-        return self.host.ssh.exec(["sed", *args, command, path], log_level=SSHLog.Error)
+        return self.host.conn.exec(["sed", *args, command, path], log_level=ProcessLogLevel.Error)

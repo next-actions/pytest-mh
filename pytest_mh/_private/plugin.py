@@ -336,7 +336,7 @@ class MultihostPlugin(object):
         # cannot be established.
         if self.multihost is not None and not self.multihost.lazy_ssh:
             for host in self.required_hosts:
-                host.ssh.connect()
+                host.conn.connect()
 
         # Run pytest_setup on all hosts required by selected tests
         if not self.pytest_opt_collect_only:

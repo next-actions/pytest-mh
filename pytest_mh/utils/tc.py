@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .. import MultihostHost, MultihostUtility
-from ..ssh import SSHLog
+from ..conn import ProcessLogLevel
 
 __all__ = ["LinuxTrafficControl"]
 
@@ -33,7 +33,7 @@ class LinuxTrafficControl(MultihostUtility):
         super().setup()
 
         # Let's find out the available interfaces
-        result = self.host.ssh.run("ip -o address", log_level=SSHLog.Error)
+        result = self.host.conn.run("ip -o address", log_level=ProcessLogLevel.Error)
         split_result = result.stdout.splitlines()
 
         for line in split_result:
@@ -48,7 +48,7 @@ class LinuxTrafficControl(MultihostUtility):
             )
             self.__restore_root.add(f"tc qdisc del dev {interface} root")
 
-        self.host.ssh.run(commands, log_level=SSHLog.Error)
+        self.host.conn.run(commands, log_level=ProcessLogLevel.Error)
 
     def teardown(self) -> None:
         """
@@ -59,7 +59,7 @@ class LinuxTrafficControl(MultihostUtility):
         tear: str = ""
         for iter in self.__restore_root:
             tear += iter + "\n"
-        self.host.ssh.run(tear, log_level=SSHLog.Error)
+        self.host.conn.run(tear, log_level=ProcessLogLevel.Error)
         super().teardown()
 
     def add_delay(self, hostname: str, time: str | int):
@@ -79,7 +79,7 @@ class LinuxTrafficControl(MultihostUtility):
 
         self.logger.info(f"Adding network delay {time_unit} to {hostname}")
 
-        ips = self.host.ssh.run(f"dig +short {hostname}", log_level=SSHLog.Error)
+        ips = self.host.conn.run(f"dig +short {hostname}", log_level=ProcessLogLevel.Error)
         ip_list = ips.stdout.splitlines()
 
         commands = "set -e\n"
@@ -95,7 +95,7 @@ class LinuxTrafficControl(MultihostUtility):
                 )
                 self.__restore_filters[ip] = self.__band
 
-        self.host.ssh.run(commands, log_level=SSHLog.Error)
+        self.host.conn.run(commands, log_level=ProcessLogLevel.Error)
         self.__band += 1
 
     def remove_delay(self, hostname: str):
@@ -107,7 +107,7 @@ class LinuxTrafficControl(MultihostUtility):
         """
         self.logger.info(f"Removing network delay to {hostname}")
 
-        ips = self.host.ssh.run(f"dig +short {hostname}", log_level=SSHLog.Error)
+        ips = self.host.conn.run(f"dig +short {hostname}", log_level=ProcessLogLevel.Error)
         ip_list = ips.stdout.splitlines()
 
         bands: set[int] = set()
@@ -122,4 +122,4 @@ class LinuxTrafficControl(MultihostUtility):
 
             commands += f"tc qdisc del dev {interface} parent 1:{band} handle {band * 10}: netem\n"
 
-        self.host.ssh.run(commands, log_level=SSHLog.Error)
+        self.host.conn.run(commands, log_level=ProcessLogLevel.Error)

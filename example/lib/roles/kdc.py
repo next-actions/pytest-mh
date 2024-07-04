@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pytest_mh import MultihostRole
-from pytest_mh.ssh import SSHProcessResult
+from pytest_mh.conn import ProcessResult
 
 from ..hosts.kdc import KDCHost
 
@@ -29,14 +29,14 @@ class KDC(MultihostRole[KDCHost]):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def kadmin(self, command: str) -> SSHProcessResult:
+    def kadmin(self, command: str) -> ProcessResult:
         """
         Run kadmin command on the KDC.
 
         :param command: kadmin command
         :type command: str
         """
-        result = self.host.ssh.exec(["kadmin.local", "-q", command])
+        result = self.host.conn.exec(["kadmin.local", "-q", command])
 
         # Remove "Authenticating as principal root/admin@TEST with password."
         # from the output and keep only output of the command itself.

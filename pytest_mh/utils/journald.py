@@ -5,7 +5,7 @@ from typing import Any
 from pytest_mh.cli import CLIBuilder, CLIBuilderArgs
 
 from .. import MultihostArtifactsType, MultihostHost, MultihostUtility
-from ..ssh import SSHLog, SSHProcessResult
+from ..conn import ProcessLogLevel, ProcessResult
 
 __all__ = ["JournaldUtils"]
 
@@ -31,7 +31,7 @@ class JournaldUtils(MultihostUtility):
         :return: Current date and time that can be used to filter the journal.
         :rtype: str
         """
-        return self.host.ssh.exec(["date", "+%Y-%m-%d %H:%M:%S.%N"], log_level=SSHLog.Error).stdout.strip()
+        return self.host.conn.exec(["date", "+%Y-%m-%d %H:%M:%S.%N"], log_level=ProcessLogLevel.Error).stdout.strip()
 
     def setup(self) -> None:
         """
@@ -50,7 +50,7 @@ class JournaldUtils(MultihostUtility):
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        self.host.ssh.run(f"journalctl --since '{self._test_start}' > /var/log/journald.log")
+        self.host.conn.run(f"journalctl --since '{self._test_start}' > /var/log/journald.log")
         return {"/var/log/journald.log"}
 
     def clear(self) -> None:
@@ -74,7 +74,7 @@ class JournaldUtils(MultihostUtility):
         system: bool = False,
         user: bool = False,
         args: list[Any] | None = None,
-    ) -> SSHProcessResult:
+    ) -> ProcessResult:
         """
         Execute journalctl with given arguments. Show messages only for current test run, by default.
         Note that raise_on_error is False and the command may return non-zero return code.
@@ -104,9 +104,9 @@ class JournaldUtils(MultihostUtility):
         :param args: Additional options, defaults to None
         :type args: list[Any] | None, optional
         :return: SSH process result
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
-        cli: CLIBuilder = CLIBuilder(self.host.ssh)
+        cli: CLIBuilder = CLIBuilder(self.host.conn)
         if current:
             since = since if since else self._cursor
 
@@ -124,7 +124,7 @@ class JournaldUtils(MultihostUtility):
             "user": (cli.option.SWITCH, user),
         }
 
-        return self.host.ssh.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
+        return self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
 
     def is_match(self, pattern: str) -> bool:
         """

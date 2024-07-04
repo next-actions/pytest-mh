@@ -6,7 +6,7 @@ from typing import Literal
 import pytest
 
 from .. import MultihostHost, MultihostUtility
-from ..ssh import SSHLog
+from ..conn import ProcessLogLevel
 
 __all__ = ["Auditd"]
 
@@ -59,7 +59,7 @@ class Auditd(MultihostUtility[MultihostHost]):
         """
         super().setup()
 
-        result = self.host.ssh.run(
+        result = self.host.conn.run(
             """
             set -e
 
@@ -72,7 +72,7 @@ class Auditd(MultihostUtility[MultihostHost]):
             truncate --size 0 /var/log/audit/audit.log*
             echo $tmp
             """,
-            log_level=SSHLog.Error,
+            log_level=ProcessLogLevel.Error,
         )
 
         tmp_path = result.stdout.strip()
@@ -85,7 +85,7 @@ class Auditd(MultihostUtility[MultihostHost]):
         Restore previous audit logs from backup and remove the backup.
         """
         if self._backup is not None:
-            self.host.ssh.run(
+            self.host.conn.run(
                 f"""
                 set -e
 
@@ -96,7 +96,7 @@ class Auditd(MultihostUtility[MultihostHost]):
 
                 rm -fr "{self._backup}"
                 """,
-                log_level=SSHLog.Error,
+                log_level=ProcessLogLevel.Error,
             )
 
         return super().teardown()
@@ -122,8 +122,8 @@ class Auditd(MultihostUtility[MultihostHost]):
 
         self.logger.info("Checking for AVC denials")
 
-        result = self.host.ssh.run(
-            "ausearch --input-logs -m AVC,USER_AVC", raise_on_error=False, log_level=SSHLog.Silent
+        result = self.host.conn.run(
+            "ausearch --input-logs -m AVC,USER_AVC", raise_on_error=False, log_level=ProcessLogLevel.Silent
         )
         if result.rc:
             return None

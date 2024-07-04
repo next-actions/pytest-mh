@@ -5,7 +5,7 @@ from __future__ import annotations
 import textwrap
 
 from pytest_mh import MultihostRole
-from pytest_mh.ssh import SSHProcessError, SSHProcessResult
+from pytest_mh.conn import ProcessError, ProcessResult
 from pytest_mh.utils.fs import LinuxFileSystem
 
 from ..hosts.client import ClientHost
@@ -83,7 +83,7 @@ class Client(MultihostRole[ClientHost]):
 
     def kinit(
         self, principal: str, *, password: str, realm: str | None = None, args: list[str] | None = None
-    ) -> SSHProcessResult:
+    ) -> ProcessResult:
         """
         Run ``kinit`` command.
 
@@ -102,7 +102,7 @@ class Client(MultihostRole[ClientHost]):
         :param args: Additional parameters to ``klist``, defaults to None
         :type args: list[str] | None, optional
         :return: Command result.
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         if args is None:
             args = []
@@ -110,9 +110,9 @@ class Client(MultihostRole[ClientHost]):
         if realm is not None:
             principal = f"{principal}@{realm}"
 
-        return self.host.ssh.exec(["kinit", *args, principal], input=password)
+        return self.host.conn.exec(["kinit", *args, principal], input=password)
 
-    def kvno(self, principal: str, *, realm: str | None = None, args: list[str] | None = None) -> SSHProcessResult:
+    def kvno(self, principal: str, *, realm: str | None = None, args: list[str] | None = None) -> ProcessResult:
         """
         Run ``kvno`` command.
 
@@ -129,7 +129,7 @@ class Client(MultihostRole[ClientHost]):
         :param args: Additional parameters to ``klist``, defaults to None
         :type args: list[str] | None, optional
         :return: Command result.
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         if args is None:
             args = []
@@ -137,23 +137,23 @@ class Client(MultihostRole[ClientHost]):
         if realm is not None:
             principal = f"{principal}@{realm}"
 
-        return self.host.ssh.exec(["kvno", *args, principal])
+        return self.host.conn.exec(["kvno", *args, principal])
 
-    def klist(self, *, args: list[str] | None = None) -> SSHProcessResult:
+    def klist(self, *, args: list[str] | None = None) -> ProcessResult:
         """
         Run ``klist`` command.
 
         :param args: Additional parameters to ``klist``, defaults to None
         :type args: list[str] | None, optional
         :return: Command result.
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         if args is None:
             args = []
 
-        return self.host.ssh.exec(["klist", *args])
+        return self.host.conn.exec(["klist", *args])
 
-    def kswitch(self, principal: str, realm: str) -> SSHProcessResult:
+    def kswitch(self, principal: str, realm: str) -> ProcessResult:
         """
         Run ``kswitch -p principal@realm`` command.
 
@@ -162,16 +162,16 @@ class Client(MultihostRole[ClientHost]):
         :param realm: Kerberos realm that is appended to the principal (``$principal@$realm``)
         :type realm: str
         :return: Command result.
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         if "@" not in principal:
             principal = f"{principal}@{realm}"
 
-        return self.host.ssh.exec(["kswitch", "-p", principal])
+        return self.host.conn.exec(["kswitch", "-p", principal])
 
     def kdestroy(
         self, *, all: bool = False, ccache: str | None = None, principal: str | None = None, realm: str | None = None
-    ) -> SSHProcessResult:
+    ) -> ProcessResult:
         """
         Run ``kdestroy`` command.
 
@@ -190,7 +190,7 @@ class Client(MultihostRole[ClientHost]):
         :param realm: Kerberos realm that is appended to the principal (``$principal@$realm``), defaults to None
         :type realm: str | None, optional
         :return: Command result.
-        :rtype: SSHProcessResult
+        :rtype: ProcessResult
         """
         args = []
 
@@ -208,7 +208,7 @@ class Client(MultihostRole[ClientHost]):
             args.append("-p")
             args.append(principal)
 
-        return self.host.ssh.exec(["kdestroy", *args])
+        return self.host.conn.exec(["kdestroy", *args])
 
     def has_tgt(self, realm: str) -> bool:
         """
@@ -221,7 +221,7 @@ class Client(MultihostRole[ClientHost]):
         """
         try:
             result = self.klist()
-        except SSHProcessError:
+        except ProcessError:
             return False
 
         return f"krbtgt/{realm}@{realm}" in result.stdout

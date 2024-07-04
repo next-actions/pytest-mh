@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, get_args
 
-from ..ssh import SSHLog
+from ..conn import ProcessLogLevel
 from .errors import ArtifactsExceptionGroup
 from .misc import sanitize_path, should_collect_artifacts
 from .types import MultihostOSFamily, MultihostOutcome
@@ -286,7 +286,7 @@ class MultihostArtifactsCollector(object):
             case _:
                 raise ValueError(f"Unknown operating system: {self.host.os_family}")
 
-        result = self.host.ssh.run(command, log_level=SSHLog.Error)
+        result = self.host.conn.run(command, log_level=ProcessLogLevel.Error)
 
         # Return if no artifacts were obtained
         if not result.stdout:

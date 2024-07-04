@@ -236,7 +236,7 @@ See :class:`~pytest_mh.TopologyController` for API documentation
 
     class ExampleController(TopologyController):
         def skip(self, client: ClientHost) -> str | None:
-            result = client.ssh.run(
+            result = client.conn.run(
                 '''
                 # Implement your requirement check here
                 exit 1
