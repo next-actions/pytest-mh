@@ -11,6 +11,7 @@ import pytest
 
 from ..cli import CLIBuilder
 from ..conn import Bash, Connection, Powershell, Process, ProcessError, ProcessInputBuffer, ProcessResult, Shell
+from ..conn.container import ContainerClient
 from ..conn.ssh import SSHClient
 from .artifacts import (
     MultihostArtifactsCollector,
@@ -619,6 +620,8 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         match conn_type:
             case "ssh":
                 return SSHClient.from_confdict(self, conn_confdict)
+            case "podman" | "docker":
+                return ContainerClient.from_confdict(self, conn_confdict)
             case _:
                 raise ValueError(f"Unknown connection type: {conn_type}!")
 
