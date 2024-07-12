@@ -223,6 +223,15 @@ class Firewalld(Firewall):
     All changes are automatically reverted when a test is finished.
     """
 
+    NFT_TABLE_FAMILY: str = "inet"
+    """The IP family for the nft table"""
+
+    NFT_TABLE_NAME: str = "firewalld"
+    """The table for nft rules """
+
+    NFT_OUTPUT_CHAIN: str = "filter_OUTPUT"
+    """The output chain in the ``NFT_TABLE_NAME`` table"""
+
     def __init__(self, host: MultihostHost) -> None:
         """
         :param host: Remote host instance.
@@ -289,81 +298,59 @@ class Firewalld(Firewall):
         self._priority -= 1
         return priority
 
-    def add_direct_rule(
+    def add_nft_rule(
         self,
         chain: str,
         args: list[Any],
-        *,
-        table: str = "filter",
-        ip_family: Literal["ipv4", "ipv6", "all"] = "all",
-        priority: int | None = None,
-    ) -> int:
-        """
-        Add a new direct rule.
-
-        This methods returns a priority of this rule. You need to use this
-        priority if you remove the rule with :meth:`remove_direct_rule`.
-
-        :param chain: iptables chain (e.g. INPUT or OUTPUT).
-        :type chain: str
-        :param args: iptables arguments
-        :type args: list[Any]
-        :param table: iptables table, defaults to "filter"
-        :type table: str, optional
-        :param ip_family: If the rules is added as IPv4, IPv6 rule or both, defaults to ``all``.
-        :type ip_family: Literal["ipv4", "ipv6", "all"], optional
-        :param priority: Rule priority, defaults to None (= auto-assign next value)
-        :type priority: int | None, optional
-        :return: Rule priority, to be used for rule removal.
-        :rtype: int
-        """
-        if priority is None:
-            priority = self._next_priority
-
-        cmd = [table, chain, priority, *args]
-
-        if ip_family in ["ipv4", "all"]:
-            self.logger.info(f'Firewalld: adding IPv4 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--add-rule", "ipv4", *cmd], log_level=SSHLog.Error)
-
-        if ip_family in ["ipv6", "all"]:
-            self.logger.info(f'Firewalld: adding IPv6 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--add-rule", "ipv6", *cmd], log_level=SSHLog.Error)
-
-        return priority
-
-    def remove_direct_rule(
-        self,
-        priority: int,
-        chain: str,
-        args: list[Any],
-        *,
-        table: str = "filter",
-        ip_family: Literal["ipv4", "ipv6", "all"],
     ) -> None:
         """
-        Remove direct rule.
+        Add a new nft rule.
 
-        :param priority: Rule priority.
-        :type priority: int
-        :param chain: iptables chain (e.g. INPUT or OUTPUT).
+        This method adds a nftables rule to the firewall. This rule is added to the
+        firewall's table and chain, but using none of the firewall commands. If it somehow
+        keeps track of the rules, the firewall will not be aware of this one. However, the
+        rule will be removed when the firewall is reloaded or restarted because the firewall
+        seems to forcibly remove the table and chain regardless of the rules.
+
+        :param chain: nftables chain.
         :type chain: str
-        :param args: iptables arguments
+        :param args: nftables arguments
         :type args: list[Any]
-        :param table: iptables table, defaults to "filter"
-        :type table: str, optional
-        :param ip_family: If the rules is removed from IPv4, IPv6 rules or both, defaults to ``all``.
-        :type ip_family: Literal["ipv4", "ipv6", "all"], optional
         """
-        cmd = [table, chain, priority, *args]
+        cmd = [chain, *args]
 
-        if ip_family in ["ipv4", "all"]:
-            self.logger.info(f'Firewalld: removing IPv4 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--remove-rule", "ipv4", *cmd], log_level=SSHLog.Error)
+        self.logger.info(f'Firewalld: adding nft rule: {" ".join([str(x) for x in cmd])}')
+        self.host.ssh.exec(
+            ["nft", "add", "rule", self.NFT_TABLE_FAMILY, self.NFT_TABLE_NAME, *cmd], log_level=SSHLog.Error
+        )
 
-        if ip_family in ["ipv6", "all"]:
-            self.logger.info(f'Firewalld: removing IPv6 direct firewall rule: {" ".join([str(x) for x in cmd])}')
-            self.host.ssh.exec(["firewall-cmd", "--direct", "--remove-rule", "ipv6", *cmd], log_level=SSHLog.Error)
+    def remove_nft_rule(
+        self,
+        chain: str,
+        args: list[Any],
+    ) -> None:
+        """
+        Remove an nft rule.
+
+        :param chain: nftables chain.
+        :type chain: str
+        :param args: nftables arguments
+        :type args: list[Any]
+        """
+        cmd = [chain, *args]
+
+        rule = " ".join([str(x) for x in cmd])
+        self.logger.info(f"Firewalld: removing nft rule: {rule}")
+
+        res = self.host.ssh.exec(
+            ["nft", "-a", "list", "chain", self.NFT_TABLE_FAMILY, self.NFT_TABLE_NAME, chain], log_level=SSHLog.Error
+        )
+        for line in res.stdout_lines:
+            if rule in line:
+                pos = line.find("# handle ")
+                handle = line[pos + len("# handle ") :]
+                self.host.ssh.exec(["nft", "remove", "rule", "handle", handle], log_level=SSHLog.Error)
+                return
 
     def add_rich_rule(self, rule: str, priority: int | None = None) -> int:
         """
@@ -492,16 +479,16 @@ class FirewalldOutboundRules(FirewallOutboundRules):
         self.firewall: Firewalld = firewall
 
     def accept_port(self, port: PortSpec | list[PortSpec]) -> None:
-        self.__add_port(port, action="ACCEPT")
+        self.__add_port(port, action="accept")
 
     def reject_port(self, port: PortSpec | list[PortSpec]) -> None:
-        self.__add_port(port, action="REJECT")
+        self.__add_port(port, action="reject")
 
     def drop_port(self, port: PortSpec | list[PortSpec]) -> None:
-        self.__add_port(port, action="DROP")
+        self.__add_port(port, action="drop")
 
     def accept_host(self, host: HostSpec | list[HostSpec]) -> None:
-        self.__add_host(host, action="ACCEPT")
+        self.__add_host(host, action="accept")
 
     def reject_host(self, host: HostSpec | list[HostSpec]) -> None:
         """
@@ -522,16 +509,16 @@ class FirewalldOutboundRules(FirewallOutboundRules):
         :param host: Hostname, MultihostHost or MultihostRole object.
         :type host: HostSpec | list[HostSpec]
         """
-        self.__add_host(host, action="REJECT")
+        self.__add_host(host, action="reject")
 
     def drop_host(self, host: HostSpec | list[HostSpec]) -> None:
-        self.__add_host(host, action="DROP")
+        self.__add_host(host, action="drop")
 
     def __add_port(
         self,
         port: PortSpec | list[PortSpec],
         *,
-        action: Literal["ACCEPT", "REJECT", "DROP"],
+        action: Literal["accept", "reject", "drop"],
     ) -> None:
         items = port if isinstance(port, list) else [port]
         for item in items:
@@ -541,15 +528,13 @@ class FirewalldOutboundRules(FirewallOutboundRules):
             else:
                 port, protocol = self.firewall.parse_port_spec(item)
 
-            self.firewall.add_direct_rule(
-                chain="OUTPUT", args=["-p", protocol, "--dport", port, "-j", action], table="filter"
-            )
+            self.firewall.add_nft_rule(chain=self.firewall.NFT_OUTPUT_CHAIN, args=[protocol, "dport", port, action])
 
     def __add_host(
         self,
         host: HostSpec | list[HostSpec],
         *,
-        action: Literal["ACCEPT", "REJECT", "DROP"],
+        action: Literal["accept", "reject", "drop"],
     ) -> None:
         items = host if isinstance(host, list) else [host]
         for item in items:
@@ -568,14 +553,10 @@ class FirewalldOutboundRules(FirewallOutboundRules):
             )
 
             for ip in ipv4s:
-                self.firewall.add_direct_rule(
-                    chain="OUTPUT", args=["--destination", ip, "-j", action], table="filter", ip_family="ipv4"
-                )
+                self.firewall.add_nft_rule(chain=self.firewall.NFT_OUTPUT_CHAIN, args=["ip", "daddr", ip, action])
 
             for ip in ipv6s:
-                self.firewall.add_direct_rule(
-                    chain="OUTPUT", args=["--destination", ip, "-j", action], table="filter", ip_family="ipv6"
-                )
+                self.firewall.add_nft_rule(chain=self.firewall.NFT_OUTPUT_CHAIN, args=["ip6", "daddr", ip, action])
 
     def __resolve_hostname(self, hostname: str, type: Literal["A", "AAAA"]) -> list[str]:
         result = self.firewall.host.ssh.exec(["dig", "+short", "-t", type, hostname], log_level=SSHLog.Error)
