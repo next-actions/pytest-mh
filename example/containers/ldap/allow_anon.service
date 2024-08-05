@@ -1,0 +1,10 @@
+[Unit]
+Description=Allow anonymous access
+After=dirsrv@localhost.service
+
+[Service]
+Type=oneshot
+ExecStart=ldapmodify -D "cn=Directory Manager" -w "Secret123" -H ldap://localhost -x -f /root/allow_anon.ldif
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,4 @@
+dn: dc=ldap,dc=test
+changetype: modify
+add: aci
+aci: (targetattr=*)(version 3.0; acl "Enable anyone read"; allow (read, search, compare)(userdn="ldap:///anyone");)

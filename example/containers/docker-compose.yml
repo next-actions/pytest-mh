@@ -1,0 +1,74 @@
+services:
+  dns:
+    restart: always
+    build: dns
+    image: pytest-mh-example-dns
+    container_name: pytest-mh-example-dns
+    volumes:
+    - ./dns/dnsmasq.conf:/etc/dnsmasq.conf
+    cap_add:
+    - NET_RAW
+    - NET_ADMIN
+    - SYS_CHROOT
+    security_opt:
+    - apparmor=unconfined
+    - label=disable
+    - seccomp=unconfined
+    networks:
+      example:
+        ipv4_address: 172.16.200.2
+  ldap:
+    build: ldap
+    image: pytest-mh-example-ldap
+    container_name: pytest-mh-example-ldap
+    hostname: master.ldap.test
+    dns: 172.16.200.2
+    cap_add:
+    - SYS_PTRACE
+    - AUDIT_WRITE
+    - AUDIT_CONTROL
+    - SYS_CHROOT
+    - NET_ADMIN
+    security_opt:
+    - apparmor=unconfined
+    - label=disable
+    - seccomp=unconfined
+    networks:
+      example:
+        ipv4_address: 172.16.200.3
+  client:
+    build: client
+    image: pytest-mh-example-client
+    container_name: pytest-mh-example-client
+    hostname: client.test
+    dns: 172.16.200.2
+    cap_add:
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_RAW
+    - NET_ADMIN
+    - AUDIT_WRITE
+    - AUDIT_CONTROL
+    - SYS_CHROOT
+    - CAP_CHOWN
+    - CAP_DAC_OVERRIDE
+    - CAP_SETGID
+    - CAP_SETUID
+    - CAP_DAC_READ_SEARCH
+    security_opt:
+    - apparmor=unconfined
+    - label=disable
+    - seccomp=unconfined
+    networks:
+      example:
+        ipv4_address: 172.16.200.4
+networks:
+  example:
+    name: example
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 172.16.200.0/24
+         gateway: 172.16.200.1
+     options:
+        driver: host-local

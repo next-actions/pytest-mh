@@ -1,14 +1,16 @@
 domains:
-- id: test
+- id: sudo
   hosts:
-  - hostname: client.test
-    role: client
-    config:
-      realm: TEST
-      krbdomain: test
-      kdc: kdc.test
+  - hostname: master.ldap.test
+    conn:
+      type: ssh
+      host: 172.16.200.3
+    role: ldap
 
-  - hostname: kdc.test
-    role: kdc
+  - hostname: client.test
+    conn:
+      type: ssh
+      host: 172.16.200.4
+    role: client
     artifacts:
-    - /var/log/krb5kdc.log
+    - /var/log/sssd

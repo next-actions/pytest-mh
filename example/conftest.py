@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lib.config import ExampleMultihostConfig
+from framework.config import SUDOMultihostConfig
 
 from pytest_mh import MultihostPlugin
 
@@ -13,4 +13,4 @@ pytest_plugins = ("pytest_mh",)
 # Setup pytest-mh
 def pytest_plugin_registered(plugin) -> None:
     if isinstance(plugin, MultihostPlugin):
-        plugin.config_class = ExampleMultihostConfig
+        plugin.config_class = SUDOMultihostConfig

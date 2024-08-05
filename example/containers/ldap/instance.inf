@@ -1,0 +1,13 @@
+[general]
+config_version = 2
+start = False
+full_machine_name = master.ldap.test
+
+[slapd]
+instance_name = localhost
+root_dn = cn=Directory Manager
+root_password = Secret123
+
+[backend-userroot]
+suffix = dc=ldap,dc=test
+create_suffix_entry = True

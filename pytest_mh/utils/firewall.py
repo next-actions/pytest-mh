@@ -7,7 +7,7 @@ from typing import Any, Literal, TypeAlias
 from .. import MultihostHost, MultihostRole, MultihostUtility
 from ..conn import ProcessLogLevel
 
-__all__ = ["Firewalld"]
+__all__ = ["Firewall", "Firewalld", "WindowsFirewall"]
 
 
 HostSpec: TypeAlias = str | MultihostHost | MultihostRole
