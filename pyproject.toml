@@ -35,7 +35,7 @@ files = ["requirements.txt"]
 source = "vcs"
 
 [[tool.mypy.overrides]]
-module = ["pylibsshext.*", "pytest_output.*"]
+module = ["ldap.*", "pylibsshext.*", "pytest_output.*"]
 ignore_missing_imports = true
 
 [tool.isort]

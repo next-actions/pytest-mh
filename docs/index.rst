@@ -4,27 +4,76 @@ pytest_mh - pytest multihost test framework
 .. warning::
 
     This plugin is still actively developed and even though it is mostly stable,
-    we reserve the right to introduce minor breaking changes if it is required for
-    new functionality.
+    we reserve the right to introduce minor breaking changes if it is required
+    for new functionality. Therefore we advice to pin pytest-mh version for your
+    project.
 
-``pytest-mh`` is a pytest plugin that, at a basic level, allows you to run shell
-commands and scripts over SSH on remote Linux or Windows hosts. You use it to
-execute system or application tests for your project on a remote host or hosts
-(or containers) while running pytest locally keeping your local machine intact.
+``pytest-mh`` is a multihost testing pytest framework that you can use to **test
+your application as a complete product**. One of the core features of this
+plugin is to **define set of hosts that are required by your tests** and
+**execute commands on these hosts over SSH, podman or docker** while pytest is
+run locally and your **local machine is kept intact**. This plugin was designed
+especially for a scenario where your application requires multiple hosts to work
+(for example a client/server model), but it can be perfectly used for single
+host applications as well. The plugin also provides many building blocks that
+can help you build a high-level test framework API for your project, including
+full backup and restore support. The tests are written in Python, using the
+pytest runner, but **your application can be written in any language**.
 
-The plugin also provides building blocks that can be used to setup and teardown
-your tests, perform automatic clean up of all changes done on the remote host,
-and build a flexible and unified high-level API to manipulate the hosts from
-your tests.
+.. note::
+
+  pytest-mh plugin is designed to test your project as a full product, which is
+  often referred to as **system, application or black-box testing**, when your
+  project is installed on a host and system commands are run in order to test
+  its functionality. **It is not designed for unit testing.**
+
+What are the core features of pytest-mh?
+========================================
+
+* Define what hosts are required to run a test. If any of required host is not
+  available, the test is skipped. :doc:`articles/extending/multihost-topologies`
+* Run commands on remote hosts or containers via SSH, podman or docker.
+  :doc:`articles/running-commands`
+* Run single test against multiple backends: :ref:`topology_parametrization`
+* Write high-level API for your testing framework: :doc:`articles/extending`
+* Extensive custom setup and teardown logic with various setup/teardown hooks: :doc:`articles/life-cycle/setup-and-teardown`
+* Automatic static and dynamic artifacts collection: :doc:`articles/life-cycle/artifacts-collection`
+* Automatic change test result based on additional conditions: :doc:`articles/life-cycle/changing-test-status`
+* Skip tests if the hosts are missing any required features: :doc:`articles/life-cycle/skipping-tests`
+* Automatic backup and restore of hosts state: :doc:`articles/tips-and-tricks/backup-restore`
+* Out of the box: write and read files and other file system operations with automatic changes reversion: :doc:`articles/bundled-utilities/fs`
+* Out of the box: start, stop and manage systemd services: :doc:`articles/bundled-utilities/services`
+* Out of the box: manipulate system firewall: :doc:`articles/bundled-utilities/firewall`
+* Out of the box: auto detection of AVC denials: :doc:`articles/bundled-utilities/auditd`
+* Out of the box: auto detection of coredumps: :doc:`articles/bundled-utilities/coredumpd`
+* Out of the box: check journald logs: :doc:`articles/bundled-utilities/journald`
+* Out of the box: delay network traffic: :doc:`articles/bundled-utilities/tc`
+
+Do I want to use pytest-mh?
+===========================
+
+* **Does your program affect the host in any way?** If yes, it is safer to run
+  it in virtual machine or in a container to avoid affecting your local host.
+  ``pytest-mh`` takes care of that.
+* **Does your program use client-server model?** If yes, it is better to run the
+  client and the server on separate machines to make the tests more real.
+  ``pytest-mh`` takes care of that.
+* **Does your program communicate with multiple backends?** If yes, you need to
+  be able to assign each test to a specific backend and also be able to reuse a
+  single test for multiple backends. ``pytest-mh`` takes care of that.
+* **Do you need complex tests that changes state of the system, file system or
+  other programs or databases?** If yes, you need to make sure that all changes
+  are reverted when a test is done so the test does not affect other tests.
+  ``pytest-mh`` takes care of that.
 
 .. code-block:: python
-    :caption: Example test taken from SSSD demo
+    :caption: Example test taken from SSSD project
 
     @pytest.mark.topology(KnownTopology.AD)
     @pytest.mark.topology(KnownTopology.LDAP)
     @pytest.mark.topology(KnownTopology.IPA)
     @pytest.mark.topology(KnownTopology.Samba)
-    def test__id(client: Client, provider: GenericProvider):
+    def test_id(client: Client, provider: GenericProvider):
         u = provider.user("tuser").add()
         provider.group("tgroup_1").add().add_member(u)
         provider.group("tgroup_2").add().add_member(u)
@@ -38,70 +87,26 @@ your tests.
 
 .. seealso::
 
-    A real life example of how ``pytest-mh`` can help test your code can be
-    seen in the `SSSD
-    <https://github.com/SSSD/sssd/tree/master/src/tests/system>`__ project.
+    This project was originally created for `SSSD <https://sssd.io>`__ and you
+    can use `sssd-test-framework
+    <https://github.com/SSSD/sssd-test-framework>`__ (built on top of pytest-mh)
+    and `the sssd tests
+    <https://github.com/SSSD/sssd/tree/master/src/tests/system>`__ for
+    inspiration.
 
-When do I want use the framework?
-*********************************
-
-* **Does your program affect the host in any way?** If yes, it is safer to run it in
-  virtual machine or in a container to avoid affecting your local host.
-  ``pytest-mh`` takes care of that.
-* **Does your program use client-server model?** If yes, it is better to run the
-  client and the server on separate machines to make the tests more real.
-  ``pytest-mh`` takes care of that.
-* **Does your program communicate with multiple backends?** If yes, you need to
-  be able to assign each test to a specific backend and also be able to reuse a
-  single test for multiple backends. ``pytest-mh`` takes care of that.
-* **Do you need complex tests that changes state of the system, file system or
-  other programs or databases?** If yes, you need to make sure that all changes
-  are reverted when a test is done so the test does not affect other tests.
-  ``pytest-mh`` takes care of that.
-* Does your program **talk to LDAP/IPA/AD/Samba/Kerberos**? If yes, ``pytest-mh``
-  can help you with that.
-* **Do you use** `pytest-multihost
-  <https://pypi.org/project/pytest-multihost/>`__ **framework for your current
-  tests?** ``pytest-mh`` is a full Python 3 re-implementation of the old
-  ``pytest-multihost`` plugin. It builds on all its features and takes it to
-  a whole new level. You definitely want to switch to ``pytest-mh``,
-  however it is not backwards compatible.
-
-When I don't want to use it?
-****************************
-
-* Do you want to test your Python code? Then this plugin will not help
-  you. It is designed for running system or applications tests, i.e. testing
-  your application as a whole.
-
-What does the framework do?
-***************************
-
-* Allows you to **run commands over SSH on remote hosts** (or virtual machines or
-  containers) using bash or Powershell.
-* Allows you to **define your own roles with a provide fully typed API** to your
-  tests that fulfills all your needs.
-* All **changes that you do on the remote host during a single test can be
-  completely reverted** so they do not affect other tests.
-* Defines an available **multihost topology** - what roles are available in your
-  current setup.
-* **Associates each test with certain topology** - defines what roles are
-  required to run the test.
-* Supports **topology parametrization** - a single test can run on multiple
-  topologies.
-* **Run only tests that can be run on available topology**.
-* Provides **access to roles through dynamic pytest fixtures**.
-* **The code is fully typed** - you get rich suggestions from your editor and the
-  types can be fully checked.
-* **Everything can be extended**.
+Table of Contents
+=================
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   quick-start
-   config
-   topology
-   classes
-   runtime-requirements
-   pytest
-   api
+    articles/get-started
+    articles/extending
+    articles/life-cycle
+    articles/bundled-utilities
+    articles/running-commands
+    articles/mhc-yaml
+    articles/writing-tests
+    articles/running-tests
+    articles/tips-and-tricks
+    api

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .multihost import MultihostHost
 
 
+# +DOCS/MultihostArtifactsType
 MultihostArtifactsType: TypeAlias = Literal[
     "pytest_setup", "pytest_teardown", "topology_setup", "topology_teardown", "test"
 ]
@@ -28,6 +29,7 @@ Multihost artifacts type.
 * ``topology_teardown``: collected after :meth:`TopologyController.topology_teardown`
 * ``test``: collected after each test run
 """
+# -DOCS/MultihostArtifactsType
 
 
 MultihostArtifactsMode: TypeAlias = Literal["never", "on-failure", "always"]

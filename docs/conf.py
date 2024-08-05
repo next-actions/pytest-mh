@@ -51,6 +51,15 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 #
 html_theme = "sphinx_rtd_theme"
 
+# These folders are copied to the documentation's HTML output
+html_static_path = ["_static"]
+
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = [
+    "css/custom.css",
+]
+
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
@@ -70,5 +79,6 @@ autosummary_imported_members = True
 autosummary_ignore_module_all = False
 
 intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
     "pytest": ("https://docs.pytest.org/en/latest", None),
 }
