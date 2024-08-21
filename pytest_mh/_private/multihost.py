@@ -818,7 +818,8 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
     ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
         """
-        See :func:`pytest.hookspec.pytest_report_teststatus` for more information.
+        See pytest built-in hook
+        :func:`~_pytest.hookspec.pytest_report_teststatus` for more information.
 
         .. warning::
 
