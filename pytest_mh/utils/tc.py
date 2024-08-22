@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .. import MultihostHost, MultihostUtility
+from .. import MultihostHost, MultihostRole, MultihostUtility
 from ..conn import ProcessLogLevel
 
 __all__ = ["LinuxTrafficControl"]
@@ -62,16 +62,30 @@ class LinuxTrafficControl(MultihostUtility):
         self.host.conn.run(tear, log_level=ProcessLogLevel.Error)
         super().teardown()
 
-    def add_delay(self, hostname: str, time: str | int):
+    def _get_hostname(self, host: str | MultihostHost | MultihostRole) -> str:
+        if isinstance(host, str):
+            return host
+
+        if isinstance(host, MultihostHost):
+            return host.hostname
+
+        if isinstance(host, MultihostRole):
+            return host.host.hostname
+
+        raise ValueError(f"Invalid type of host: {type(host)}, expeted str | MultihostHost | MultihostRole")
+
+    def add_delay(self, host: str | MultihostHost | MultihostRole, time: str | int):
         """
         Add delay to the network connection. A maximum of 15 connections can be delayed at a time. It is recommended
         to specify the delay from minimum to maximum to avoid starvation.
 
-        :param hostname: Target hostname.
-        :type hostname: str
+        :param host: Target hostname or multihost host or role.
+        :type host: str | MultihostHost | MultihostRole
         :param time: Delay. Units can be specified; if not specified, the default is milliseconds.
         :type time: str | int
         """
+        hostname = self._get_hostname(host)
+
         if isinstance(time, int):
             time_unit = f"{time}ms"
         else:
@@ -98,13 +112,15 @@ class LinuxTrafficControl(MultihostUtility):
         self.host.conn.run(commands, log_level=ProcessLogLevel.Error)
         self.__band += 1
 
-    def remove_delay(self, hostname: str):
+    def remove_delay(self, host: str | MultihostHost | MultihostRole):
         """
         Remove delay in the network connection.
 
-        :param hostname: Target hostname.
-        :type hostname: str
+        :param host: Target hostname or multihost host or role.
+        :type host: str | MultihostHost | MultihostRole
         """
+        hostname = self._get_hostname(host)
+
         self.logger.info(f"Removing network delay to {hostname}")
 
         ips = self.host.conn.run(f"dig +short {hostname}", log_level=ProcessLogLevel.Error)
