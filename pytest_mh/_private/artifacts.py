@@ -149,7 +149,7 @@ class MultihostArtifactsCollectable(Protocol):
     Protocol: object supports artifacts collection.
     """
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
 
@@ -160,8 +160,8 @@ class MultihostArtifactsCollectable(Protocol):
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
@@ -212,7 +212,7 @@ class MultihostArtifactsCollector(object):
 
     def collect(
         self,
-        type: MultihostArtifactsType,
+        artifacts_type: MultihostArtifactsType,
         *,
         path: str,
         outcome: MultihostOutcome,
@@ -221,8 +221,8 @@ class MultihostArtifactsCollector(object):
         """
         Collect artifacts to $artifacts_dir/$path/$collection_path.
 
-        :param type: Artifacts type.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Artifacts type.
+        :type artifacts_type: MultihostArtifactsType
         :param path: Artifacts path relative to artifacts directory.
         :type path: str
         :param outcome: Test or operation outcome.
@@ -245,7 +245,7 @@ class MultihostArtifactsCollector(object):
         artifacts_set: set[str] = set()
         for obj in collect_objects:
             try:
-                artifacts_set.update(obj.get_artifacts_list(self.host, type))
+                artifacts_set.update(obj.get_artifacts_list(self.host, artifacts_type))
             except Exception as e:
                 errors.append(e)
 

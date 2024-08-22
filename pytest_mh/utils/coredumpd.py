@@ -125,14 +125,14 @@ class Coredumpd(MultihostUtility[MultihostHost]):
 
         return (pid, timestamp)
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Dump backtrace and other information from generated core files for easy access.
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
