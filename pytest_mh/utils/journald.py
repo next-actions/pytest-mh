@@ -126,25 +126,29 @@ class JournaldUtils(MultihostUtility):
 
         return self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
 
-    def is_match(self, pattern: str) -> bool:
+    def is_match(self, pattern: str, unit: str | None = None) -> bool:
         """
         Search the logs for a pattern.
 
         :param pattern: Pattern to be searched for
         :type pattern: str
+        :param unit: Search only messages for given systemd unit, defaults to None
+        :type unit: str | None, optional
         :return: True, if pattern found
         :rtype: bool
         """
-        return self.journalctl(grep=pattern).rc == 0
+        return self.journalctl(grep=pattern, unit=unit).rc == 0
 
-    def count(self, pattern: str) -> int:
+    def count(self, pattern: str, unit: str | None = None) -> int:
         """
         Search the logs for a pattern and return number of occurrences.
 
         :param pattern: Pattern to be searched for
         :type pattern: str
+        :param unit: Search only messages for given systemd unit, defaults to None
+        :type unit: str | None, optional
         :return: Number of occurrences of the pattern
         :rtype: int
         """
-        process = self.journalctl(grep=pattern)
+        process = self.journalctl(grep=pattern, unit=unit)
         return len(process.stdout_lines) if process.rc == 0 else 0
