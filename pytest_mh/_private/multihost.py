@@ -176,6 +176,9 @@ class MultihostConfig(ABC):
         self.confdict: dict[str, Any] = confdict
         """Multihost configuration dictionary given to the constructor."""
 
+        self.config: dict[str, Any] = confdict.get("config", {})
+        """Custom configuration."""
+
         self.logger: MultihostLogger = logger
         """Multihost logger"""
 
@@ -301,6 +304,9 @@ class MultihostDomain(ABC, Generic[ConfigType]):
 
         self.confdict: dict[str, Any] = confdict
         """Multihost domain configuration dictionary given to the constructor."""
+
+        self.config: dict[str, Any] = confdict.get("config", {})
+        """Custom configuration."""
 
         self.mh_config: ConfigType = config
         """Multihost configuration"""
