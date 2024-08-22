@@ -282,7 +282,7 @@ class TopologyController(Generic[ConfigType]):
 
         return self.__hosts
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
 
@@ -293,12 +293,12 @@ class TopologyController(Generic[ConfigType]):
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        return self.artifacts.get(host, type)
+        return self.artifacts.get(host, artifacts_type)
 
     def set_artifacts(self, *args, **kwargs) -> None:
         """

@@ -39,14 +39,14 @@ class JournaldUtils(MultihostUtility):
         """
         self._test_start = self.now
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Dump journald into file that can be collected.
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """

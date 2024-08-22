@@ -589,7 +589,7 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         """
         pass
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
 
@@ -600,12 +600,12 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        return self.configured_artifacts.get(type) | self.artifacts.get(type)
+        return self.configured_artifacts.get(artifacts_type) | self.artifacts.get(artifacts_type)
 
     def get_connection(self, shell: Shell) -> Connection:
         """
@@ -688,7 +688,7 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
         """
         pass
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
 
@@ -699,8 +699,8 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
@@ -784,7 +784,7 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         pass
 
-    def get_artifacts_list(self, host: MultihostHost, type: MultihostArtifactsType) -> set[str]:
+    def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
         Return the list of artifacts to collect.
 
@@ -795,8 +795,8 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
-        :param type: Type of artifacts that are being collected.
-        :type type: MultihostArtifactsType
+        :param artifacts_type: Type of artifacts that are being collected.
+        :type artifacts_type: MultihostArtifactsType
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
