@@ -149,20 +149,29 @@ class TopologyMark(object):
 
     @classmethod
     def ExpandMarkers(cls, item: pytest.Item) -> list[pytest.Mark]:
+        def _process_list(topology_list: list):
+            out = []
+            for topology in topology_list:
+                if not isinstance(topology, (TopologyMark, KnownTopologyBase)):
+                    raise TypeError(f"Expected TopologyMark or KnownTopologyBase, got {type(topology)}")
+
+                out.append(pytest.mark.topology(topology))
+
+            return out
+
         out = []
         for mark in item.iter_markers("topology"):
-            # Add KnownTopologyGroupBase which values contains list[TopologyMark]
+            # Add KnownTopologyGroupBase which values contains list[TopologyMark | KnownTopologyBase]
             if isinstance(mark.args[0], KnownTopologyGroupBase) and isinstance(mark.args[0].value, list):
-                for topology in mark.args[0].value:
-                    out.append(pytest.mark.topology(topology))
+                out.extend(_process_list(mark.args[0].value))
                 continue
 
-            # Add list[TopologyMark | KnownTopology]
+            # Add list[TopologyMark | KnownTopologyBase]
             if isinstance(mark.args[0], list):
-                for topology in mark.args[0]:
-                    out.append(pytest.mark.topology(topology))
+                out.extend(_process_list(mark.args[0]))
                 continue
 
+            # Other markers will be created from arguments using TopologyMark.Create
             out.append(mark)
 
         return out
