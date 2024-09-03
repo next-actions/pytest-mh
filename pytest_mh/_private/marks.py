@@ -205,12 +205,12 @@ class TopologyMark(object):
             return mark.args[0].value
 
         # Generic constructor.
-        return cls._CreateFromArgs(item, mark.args, mark.kwargs)
+        return cls.CreateFromArgs(item, mark.args, mark.kwargs)
 
     @classmethod
-    def _CreateFromArgs(cls, item: pytest.Function, args: Tuple, kwargs: Mapping[str, Any]) -> TopologyMark:
+    def CreateFromArgs(cls, item: pytest.Function, args: Tuple, kwargs: Mapping[str, Any]) -> TopologyMark:
         """
-        Create :class:`TopologyMark` from pytest marker arguments.
+        Create :class:`TopologyMark` from pytest.mark.topology arguments.
 
         .. warning::
 
