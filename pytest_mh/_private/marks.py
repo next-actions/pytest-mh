@@ -294,19 +294,26 @@ class KnownTopologyGroupBase(Enum):
 
         @final
         @unique
+        class KnownTopology(KnownTopologyBase):
+            A = TopologyMark(
+                name='A',
+                topology=Topology(TopologyDomain('test', a=1)),
+                fixtures=dict(a='test.a[0]'),
+            )
+
+            B = TopologyMark(
+                name='B',
+                topology=Topology(TopologyDomain('test', b=1)),
+                fixtures=dict(b='test.b[0]'),
+            )
+
+
+        @final
+        @unique
         class KnownTopologyGroup(KnownTopologyGroupBase):
             All = [
-                TopologyMark(
-                    name='A',
-                    topology=Topology(TopologyDomain('test', a=1)),
-                    fixtures=dict(a='test.a[0]', generic='test.a[0]'),
-                ),
-
-                B = TopologyMark(
-                    name='B',
-                    topology=Topology(TopologyDomain('test', b=1)),
-                    fixtures=dict(b='test.b[0]', generic='test.a[0]'),
-                )
+                KnownTopology.A,
+                KnownTopology.B,
             ]
 
 
