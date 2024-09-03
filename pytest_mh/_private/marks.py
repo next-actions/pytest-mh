@@ -151,9 +151,15 @@ class TopologyMark(object):
     def ExpandMarkers(cls, item: pytest.Item) -> list[pytest.Mark]:
         out = []
         for mark in item.iter_markers("topology"):
-            # We need to use generic classes in order to avoid circular import
+            # Add KnownTopologyGroupBase which values contains list[TopologyMark]
             if isinstance(mark.args[0], KnownTopologyGroupBase) and isinstance(mark.args[0].value, list):
                 for topology in mark.args[0].value:
+                    out.append(pytest.mark.topology(topology))
+                continue
+
+            # Add list[TopologyMark | KnownTopology]
+            if isinstance(mark.args[0], list):
+                for topology in mark.args[0]:
                     out.append(pytest.mark.topology(topology))
                 continue
 
@@ -174,6 +180,10 @@ class TopologyMark(object):
 
         if not mark.args or len(mark.args) > 3:
             raise ValueError(error)
+
+        # Constructor for TopologyMark
+        if isinstance(mark.args[0], cls):
+            return mark.args[0]
 
         # Constructor for KnownTopologyBase
         if isinstance(mark.args[0], KnownTopologyBase):
