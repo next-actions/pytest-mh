@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Mapping, Tuple
+from typing import TYPE_CHECKING, Any, Mapping, Self, Tuple
 
 import pytest
 
@@ -177,12 +177,12 @@ class TopologyMark(object):
         return out
 
     @classmethod
-    def Create(cls, item: pytest.Function, mark: pytest.Mark) -> TopologyMark:
+    def Create(cls, item: pytest.Function, mark: pytest.Mark) -> Self:
         """
         Create instance of :class:`TopologyMark` from ``@pytest.mark.topology``.
 
         :raises ValueError:
-        :rtype: TopologyMark
+        :rtype: Self
         """
         nodeid = item.parent.nodeid if item.parent is not None else ""
         error = f"{nodeid}::{item.originalname}: invalid arguments for @pytest.mark.topology"
@@ -208,7 +208,7 @@ class TopologyMark(object):
         return cls.CreateFromArgs(item, mark.args, mark.kwargs)
 
     @classmethod
-    def CreateFromArgs(cls, item: pytest.Function, args: Tuple, kwargs: Mapping[str, Any]) -> TopologyMark:
+    def CreateFromArgs(cls, item: pytest.Function, args: Tuple, kwargs: Mapping[str, Any]) -> Self:
         """
         Create :class:`TopologyMark` from pytest.mark.topology arguments.
 
@@ -226,7 +226,7 @@ class TopologyMark(object):
         :type kwargs: Mapping[str, Any]
         :raises ValueError: If the marker is invalid.
         :return: Instance of TopologyMark.
-        :rtype: TopologyMark
+        :rtype: Self
         """
         # First two parameters are positional, the rest are keyword arguments.
         if len(args) != 2:
