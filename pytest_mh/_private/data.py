@@ -40,7 +40,7 @@ class MultihostItemData(object):
         """
         # Initialize topology controller
         if self.multihost is not None and self.topology_mark is not None:
-            self.topology_mark.controller._init(
+            self.topology_mark.controller.init(
                 self.topology_mark.name,
                 self.multihost,
                 self.multihost.logger,

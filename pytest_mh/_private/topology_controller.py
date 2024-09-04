@@ -12,14 +12,15 @@ from .topology import Topology, TopologyDomain
 
 class TopologyController(Generic[ConfigType]):
     """
-    Topology controller can be associated with a topology via TopologyMark
-    to provide additional per-topology hooks such as per-topology setup
-    and teardown.
+    Topology controller can be associated with a topology via TopologyMark to
+    provide additional per-topology hooks such as per-topology setup and
+    teardown.
 
-    When inheriting from this class, keep it mind that there is postpone
-    initialization of all present properties therefore you can not access
-    them inside the constructor. The properties are initialized a test is
-    collected.
+    When inheriting from this class, keep it mind that there is postponed
+    initialization of all present properties therefore you can not access them
+    inside the constructor. The properties are initialized when a test is
+    collected. Override :meth:`init` instead of the constructor if you need to
+    access these properties from constructor.
 
     Each method can take MultihostHost object as parameters as defined in
     topology fixtures.
@@ -33,69 +34,57 @@ class TopologyController(Generic[ConfigType]):
 
             def skip(self, client: ClientHost) -> str | None:
                 result = client.conn.run(
-                    '''
-                    # Implement your requirement check here
-                    exit 1
-                    ''', raise_on_error=False)
+                    ''' # Implement your requirement check here exit 1 ''',
+                    raise_on_error=False)
                 if result.rc != 0:
                     return "Topology requirements were not met"
 
                 return None
 
             def topology_setup(self, client: ClientHost):
-                # One-time setup, prepare the host for this topology
-                # Changes done here are shared for all tests
-                pass
+                # One-time setup, prepare the host for this topology # Changes
+                done here are shared for all tests pass
 
             def topology_teardown(self, client: ClientHost):
-                # One-time teardown, this should undo changes from
-                # topology_setup
-                pass
+                # One-time teardown, this should undo changes from #
+                topology_setup pass
 
             def setup(self, client: ClientHost):
-                # Perform per-topology test setup
-                # This is called before execution of every test
-                pass
+                # Perform per-topology test setup # This is called before
+                execution of every test pass
 
             def teardown(self, client: ClientHost):
-                # Perform per-topology test teardown, this should undo changes
-                # from setup
-                pass
+                # Perform per-topology test teardown, this should undo changes #
+                from setup pass
 
     .. code-block:: python
         :caption: Example with low-level topology mark
 
         class ExampleController(TopologyController):
-            # Implement methods you are interested in here
-            pass
+            # Implement methods you are interested in here pass
 
         @pytest.mark.topology(
             "example", Topology(TopologyDomain("example", client=1)),
             controller=ExampleController(),
             fixtures=dict(client="example.client[0]")
-        )
-        def test_example(client: Client):
+        ) def test_example(client: Client):
             pass
 
     .. code-block:: python
         :caption: Example with KnownTopology
 
         class ExampleController(TopologyController):
-            # Implement methods you are interested in here
-            pass
+            # Implement methods you are interested in here pass
 
-        @final
-        @unique
-        class KnownTopology(KnownTopologyBase):
+        @final @unique class KnownTopology(KnownTopologyBase):
             EXAMPLE = TopologyMark(
-                name='example',
-                topology=Topology(TopologyDomain("example", client=1)),
-                controller=ExampleController(),
+                name='example', topology=Topology(TopologyDomain("example",
+                client=1)), controller=ExampleController(),
                 fixtures=dict(client='example.client[0]'),
             )
 
-        @pytest.mark.topology(KnownTopology.EXAMPLE)
-        def test_example(client: Client):
+        @pytest.mark.topology(KnownTopology.EXAMPLE) def test_example(client:
+        Client):
             pass
     """
 
@@ -118,7 +107,7 @@ class TopologyController(Generic[ConfigType]):
         wildcard character.
         """
 
-    def _init(
+    def init(
         self,
         name: str,
         multihost: ConfigType,
@@ -126,6 +115,23 @@ class TopologyController(Generic[ConfigType]):
         topology: Topology,
         mapping: dict[str, str],
     ):
+        """
+        Postponed initialization of the topology controller, called by the
+        plugin.
+
+        All properties are set and accessible after this method is finished.
+
+        :param name: Topology name.
+        :type name: str
+        :param multihost: MultihostConfig instance.
+        :type multihost: ConfigType
+        :param logger: Multihost logger.
+        :type logger: MultihostLogger
+        :param topology: Topology.
+        :type topology: Topology
+        :param mapping: Host to fixtures mapping.
+        :type mapping: dict[str, str]
+        """
         # This is called for each testcase but the controller may be shared with
         # multiple testcases therefore we want to avoid multiple initialization.
         if self.__initialized:
