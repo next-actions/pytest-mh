@@ -28,7 +28,7 @@ class TopologyMark(object):
         @pytest.mark.topology(
             name, topology,
             controller=controller,
-            fixture=dict(fixture1='path1', fixture2='path2', ...)
+            fixtures=dict(fixture1='path1', fixture2='path2', ...)
         )
         def test_fixture_name(fixture1: BaseRole, fixture2: BaseRole, ...):
             assert True
