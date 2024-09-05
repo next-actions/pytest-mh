@@ -4,8 +4,8 @@ from abc import ABC, ABCMeta, abstractmethod
 from collections import deque
 from contextlib import contextmanager
 from functools import wraps
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Type, TypeVar
+from pathlib import Path, PurePath
+from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Sequence, Type, TypeVar
 
 import pytest
 
@@ -630,6 +630,164 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
                 return ContainerClient.from_confdict(self, conn_confdict)
             case _:
                 raise ValueError(f"Unknown connection type: {conn_type}!")
+
+
+class MultihostBackupHost(MultihostHost[DomainType], ABC):
+    """
+    Abstract class implementing automatic backup and restore for a host.
+
+    A backup of the host is created once when pytest starts and the host is
+    restored automatically (unless disabled) when a test run is finished.
+
+    If the backup data is stored as :class:`~pathlib.PurePath` or a sequence of
+    :class:`~pathlib.PurePath`, the file is automatically removed from the host
+    when all tests are finished. Otherwise no action is done -- it is possible
+    to overwrite :meth:`remove_backup` to clean up your data if needed.
+
+    It is required to implement :meth:`start`, :meth:`stop`, :meth:`backup` and
+    :meth:`restore`. The :meth:`start` method is called in :meth:`pytest_setup`
+    unless ``auto_start`` is set to False and the implementation of this method
+    may raise ``NotImplementedError`` which will be ignored.
+
+    By default, the host is reverted when each test run is finished. This may
+    not always be desirable and can be disabled via ``auto_restore`` parameter
+    of the constructor.
+    """
+
+    def __init__(self, *args, auto_start: bool = True, auto_restore: bool = True, **kwargs) -> None:
+        """
+        :param auto_start: Automatically start service before taking the first
+            backup.
+        :type auto_restore: bool, optional
+        :param auto_restore: If True, the host is automatically restored to the
+            backup state when a test is finished in :meth:`teardown`, defaults
+            to True
+        :type auto_restore: bool, optional
+        """
+        super().__init__(*args, **kwargs)
+
+        self.backup_data: PurePath | Sequence[PurePath] | Any | None = None
+        """Backup data of vanilla state of this host."""
+
+        self._backup_auto_start: bool = auto_start
+        """
+        If True, the host is automatically started prior taking the first
+        backup.
+        """
+
+        self._backup_auto_restore: bool = auto_restore
+        """
+        If True, the host is automatically restored to the backup state when a
+        test is finished in :meth:`teardown`.
+        """
+
+    def pytest_setup(self) -> None:
+        """
+        Start the services via :meth:`start` and take a backup by calling
+        :meth:`backup`.
+        """
+        # Make sure required services are running
+        if self._backup_auto_start:
+            try:
+                self.start()
+            except NotImplementedError:
+                pass
+
+        # Create backup of initial state
+        self.backup_data = self.backup()
+
+    def pytest_teardown(self) -> None:
+        """
+        Remove backup files from the host (calls :meth:`remove_backup`).
+        """
+        self.remove_backup(self.backup_data)
+
+    def teardown(self) -> None:
+        """
+        Restore the host from the backup by calling :meth:`restore`.
+        """
+        if self._backup_auto_restore:
+            self.restore(self.backup_data)
+
+        super().teardown()
+
+    def remove_backup(self, backup_data: PurePath | Sequence[PurePath] | Any | None) -> None:
+        """
+        Remove backup data from the host.
+
+        If backup_data is not :class:`~pathlib.PurePath` or a sequence of
+        :class:`~pathlib.PurePath`, this will not have any effect. Otherwise,
+        the paths are removed from the host.
+
+        :param backup_data: Backup data.
+        :type backup_data: PurePath | Sequence[PurePath] | Any | None
+        """
+        if backup_data is None:
+            return
+
+        if isinstance(backup_data, PurePath):
+            backup_data = [backup_data]
+
+        if isinstance(backup_data, Sequence):
+            only_paths = True
+            for item in backup_data:
+                if not isinstance(item, PurePath):
+                    only_paths = False
+                    break
+
+            if only_paths:
+                if isinstance(self.conn.shell, Powershell):
+                    for item in backup_data:
+                        path = str(item)
+                        self.conn.exec(["Remove-Item", "-Force", "-Recurse", path])
+                else:
+                    for item in backup_data:
+                        path = str(item)
+                        self.conn.exec(["rm", "-fr", path])
+
+    @abstractmethod
+    def start(self) -> None:
+        """
+        Start required services.
+
+        :raises NotImplementedError: If start operation is not supported.
+        """
+        pass
+
+    @abstractmethod
+    def stop(self) -> None:
+        """
+        Stop required services.
+
+        :raises NotImplementedError: If stop operation is not supported.
+        """
+        pass
+
+    @abstractmethod
+    def backup(self) -> PurePath | Sequence[PurePath] | Any | None:
+        """
+        Backup backend data.
+
+        Returns directory or file path where the backup is stored (as
+        :class:`~pathlib.PurePath` or sequence of :class:`~pathlib.PurePath`) or
+        any Python data relevant for the backup. This data is passed to
+        :meth:`restore` which will use this information to restore the host to
+        its original state.
+
+        :return: Backup data.
+        :rtype: PurePath | Sequence[PurePath] | Any | None
+        """
+        pass
+
+    @abstractmethod
+    def restore(self, backup_data: Any | None) -> None:
+        """
+        Restore data from the backup.
+
+        :param backup_data: Backup data.
+        :type backup_data: PurePath | Sequence[PurePath] | Any | None
+        """
+        pass
 
 
 HostType = TypeVar("HostType", bound=MultihostHost)
