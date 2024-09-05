@@ -9,6 +9,7 @@ from ._private.data import MultihostItemData
 from ._private.fixtures import MultihostFixture, mh
 from ._private.marks import KnownTopologyBase, KnownTopologyGroupBase, TopologyMark
 from ._private.multihost import (
+    MultihostBackupHost,
     MultihostConfig,
     MultihostDomain,
     MultihostHost,
@@ -34,6 +35,7 @@ __all__ = [
     "MultihostDomain",
     "MultihostFixture",
     "MultihostHost",
+    "MultihostBackupHost",
     "MultihostHostArtifacts",
     "MultihostItemData",
     "MultihostOSFamily",
