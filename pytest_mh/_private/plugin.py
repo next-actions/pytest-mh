@@ -8,7 +8,7 @@ from functools import partial, wraps
 from os import _exit
 from pathlib import Path
 from signal import SIGINT, signal
-from typing import Generator, Literal, Type, get_type_hints
+from typing import Callable, Generator, Literal, Type, get_type_hints
 
 import pytest
 import yaml
@@ -865,7 +865,7 @@ def pytest_configure(config: pytest.Config):
     config.pluginmanager.register(MultihostPlugin(config), "MultihostPlugin")
 
 
-def mh_fixture(scope: Literal["function"] = "function"):
+def mh_fixture(fixture_function: Callable | None = None, *, scope: Literal["function"] = "function"):
     """
     This creates a function-scoped pytest fixture that can access MultihostRole
     objects that are available to the test directly.
@@ -928,5 +928,9 @@ def mh_fixture(scope: Literal["function"] = "function"):
         )
 
         return fixture
+
+    # Direct decoration.
+    if fixture_function:
+        return decorator(fixture_function)
 
     return decorator
