@@ -23,7 +23,7 @@ from ._private.multihost import (
 )
 from ._private.plugin import MultihostPlugin, mh_fixture, pytest_addoption, pytest_configure
 from ._private.topology import Topology, TopologyDomain
-from ._private.topology_controller import TopologyController
+from ._private.topology_controller import BackupTopologyController, TopologyController
 
 __all__ = [
     "mh",
@@ -51,6 +51,7 @@ __all__ = [
     "pytest_configure",
     "Topology",
     "TopologyController",
+    "BackupTopologyController",
     "TopologyDomain",
     "TopologyMark",
 ]
