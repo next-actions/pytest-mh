@@ -899,8 +899,7 @@ def mh_fixture(fixture_function: Callable | None = None, *, scope: Literal["func
                 mh_args.append(arg)
                 continue
 
-        @wraps(fn)
-        def wrapper(mh: MultihostFixture, *args, **kwargs):
+        def call_fixture(mh: MultihostFixture, *args, **kwargs):
             if "mh" in full_sig.parameters:
                 kwargs["mh"] = mh
 
@@ -911,6 +910,24 @@ def mh_fixture(fixture_function: Callable | None = None, *, scope: Literal["func
                 kwargs[arg] = mh.fixtures[arg]
 
             return fn(*args, **kwargs)
+
+        @wraps(fn)
+        def wrapper_normal(mh: MultihostFixture, *args, **kwargs):
+            return call_fixture(mh, *args, **kwargs)
+
+        @wraps(fn)
+        def wrapper_yield(mh: MultihostFixture, *args, **kwargs):
+            gen = call_fixture(mh, *args, **kwargs)
+            yield next(gen)
+            try:
+                yield next(gen)
+            except StopIteration:
+                pass
+
+        # Select wrapper
+        wrapper = wrapper_normal
+        if inspect.isgeneratorfunction(fn):
+            wrapper = wrapper_yield
 
         # Bound multihost parameters
         cb = wraps(fn)(partial(wrapper, **{arg: None for arg in mh_args}))
