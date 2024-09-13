@@ -494,3 +494,70 @@ def mh(request: pytest.FixtureRequest) -> Generator[MultihostFixture, None, None
             mh.split_log_file("test.log")
 
         mh._exit()
+
+
+@pytest.fixture(scope="function")
+def mh_config(mh: MultihostFixture) -> MultihostConfig:
+    """
+    Multihost configuration.
+
+    :param mh: mh fixture
+    :type mh: MultihostFixture
+    :return: Multihost configuration
+    :rtype: MultihostConfig
+    """
+    return mh.multihost
+
+
+@pytest.fixture(scope="function")
+def mh_logger(mh: MultihostFixture) -> MultihostLogger:
+    """
+    Multihost logger.
+
+    Can be used to log messages into the test log.
+
+    :param mh: mh fixture
+    :type mh: MultihostFixture
+    :return: Multihost logger.
+    :rtype: MultihostLogger
+    """
+    return mh.logger
+
+
+@pytest.fixture(scope="function")
+def mh_topology(mh: MultihostFixture) -> Topology:
+    """
+    Current topology.
+
+    :param mh: mh fixture
+    :type mh: MultihostFixture
+    :return: Current topology
+    :rtype: Topology
+    """
+    return mh.topology
+
+
+@pytest.fixture(scope="function")
+def mh_topology_name(mh: MultihostFixture) -> str:
+    """
+    Current topology name.
+
+    :param mh: mh fixture
+    :type mh: MultihostFixture
+    :return: Current topology name
+    :rtype: str
+    """
+    return mh.topology_mark.name
+
+
+@pytest.fixture(scope="function")
+def mh_topology_mark(mh: MultihostFixture) -> TopologyMark:
+    """
+    Current topology mark.
+
+    :param mh: mh fixture
+    :type mh: MultihostFixture
+    :return: Current topology mark
+    :rtype: TopologyMark
+    """
+    return mh.topology_mark
