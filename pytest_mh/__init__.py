@@ -6,7 +6,15 @@ from __future__ import annotations
 
 from ._private.artifacts import MultihostArtifactsType, MultihostHostArtifacts, MultihostTopologyControllerArtifacts
 from ._private.data import MultihostItemData
-from ._private.fixtures import MultihostFixture, mh
+from ._private.fixtures import (
+    MultihostFixture,
+    mh,
+    mh_config,
+    mh_logger,
+    mh_topology,
+    mh_topology_mark,
+    mh_topology_name,
+)
 from ._private.marks import KnownTopologyBase, KnownTopologyGroupBase, TopologyMark
 from ._private.multihost import (
     MultihostConfig,
@@ -27,6 +35,11 @@ from ._private.topology_controller import TopologyController
 
 __all__ = [
     "mh",
+    "mh_config",
+    "mh_logger",
+    "mh_topology",
+    "mh_topology_mark",
+    "mh_topology_name",
     "KnownTopologyBase",
     "KnownTopologyGroupBase",
     "MultihostArtifactsType",
