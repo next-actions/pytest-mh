@@ -24,7 +24,7 @@ Scope: pytest session
 
 These hooks are called only once and can be used for initial setup of the hosts
 that is required for all tests. Setup is called once when pytest session starts,
-then all collected tests are run and when then teardown is called right before
+then all collected tests are run and finally teardown is called right before
 pytest session ends.
 
 .. dropdown:: Setup
@@ -78,7 +78,7 @@ Scope: Multihost topology
 The topology scope allows you to prepare hosts to run a specific topology. The
 setup is run when a topology is entered the first time. After this step, all
 tests for the currently selected topology are run and when these tests are
-finished, then topology teardown is called.
+finished, the topology teardown is called.
 
 .. dropdown:: Setup
     :color: success
@@ -124,7 +124,7 @@ finished, then topology teardown is called.
 Scope: Individual tests
 =======================
 
-These hooks are run once for each test.
+These hooks are run once per test.
 
 .. dropdown:: Setup
     :color: success

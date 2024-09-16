@@ -35,8 +35,10 @@ The file is parsed into:
 * :class:`~pytest_mh.MultihostConfig`: top level object, container for the whole
   configuration
 * :class:`~pytest_mh.MultihostDomain`: the domain object, container for all
-  hosts within a domain, one for each domain
-* :class:`~pytest_mh.MultihostHost`: individual hosts, one for each host
+  hosts within a domain, one for each domain. From the previous example this
+  would be ``example``
+* :class:`~pytest_mh.MultihostHost`: individual hosts, one for each host. From
+  the previous example the name would be ``client``
 
 Additionally, each host has a role assigned. This role creates a
 :class:`~pytest_mh.MultihostRole` object, this object has a short lifespan and

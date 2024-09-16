@@ -9,7 +9,7 @@ to implement high-level API for testing your project.
 
 .. seealso::
 
-    See :doc:`multihost-utilities` to see how is it possible to share code
+    See :doc:`multihost-utilities` to see how it is possible to share code
     between multiple role classes (and host classes).
 
 As a first example, we implement a basic code for a client role. This role

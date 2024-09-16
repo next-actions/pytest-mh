@@ -40,7 +40,7 @@ Everything else is fully automatic.
 If the ``avc_mode`` is set to ``fail``, it will change the outcome of the test
 to ``failed`` even if the test itself was successful. However, the original
 outcome is still visible in the verbose output. You can also set it to ``warn``
-to mark the test as ``AVC DENIAL`` but keep the test outcome intact; or to
+to mark the test as ``AVC DENIAL``, but keep the test outcome intact; or to
 ``ignore`` to only collect the audit logs without affecting the test outcome or
 category.
 

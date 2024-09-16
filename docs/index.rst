@@ -38,7 +38,7 @@ What are the core features of pytest-mh?
 * Write high-level API for your testing framework: :doc:`articles/extending`
 * Extensive custom setup and teardown logic with various setup/teardown hooks: :doc:`articles/life-cycle/setup-and-teardown`
 * Automatic static and dynamic artifacts collection: :doc:`articles/life-cycle/artifacts-collection`
-* Automatic change test result based on additional conditions: :doc:`articles/life-cycle/changing-test-status`
+* Automatically change test result based on additional conditions: :doc:`articles/life-cycle/changing-test-status`
 * Skip tests if the hosts are missing any required features: :doc:`articles/life-cycle/skipping-tests`
 * Automatic backup and restore of hosts state: :doc:`articles/tips-and-tricks/backup-restore`
 * Out of the box: write and read files and other file system operations with automatic changes reversion: :doc:`articles/bundled-utilities/fs`
@@ -52,17 +52,17 @@ What are the core features of pytest-mh?
 Do I want to use pytest-mh?
 ===========================
 
-* **Does your program affect the host in any way?** If yes, it is safer to run
+* **Does your program affect the host in any way?** If so, it is safer to run
   it in virtual machine or in a container to avoid affecting your local host.
   ``pytest-mh`` takes care of that.
-* **Does your program use client-server model?** If yes, it is better to run the
+* **Does your program use client-server model?** If so, it is better to run the
   client and the server on separate machines to make the tests more real.
   ``pytest-mh`` takes care of that.
-* **Does your program communicate with multiple backends?** If yes, you need to
+* **Does your program communicate with multiple backends?** If so, you need to
   be able to assign each test to a specific backend and also be able to reuse a
   single test for multiple backends. ``pytest-mh`` takes care of that.
 * **Do you need complex tests that changes state of the system, file system or
-  other programs or databases?** If yes, you need to make sure that all changes
+  other programs or databases?** If so, you need to make sure that all changes
   are reverted when a test is done so the test does not affect other tests.
   ``pytest-mh`` takes care of that.
 

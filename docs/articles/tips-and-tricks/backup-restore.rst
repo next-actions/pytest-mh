@@ -120,7 +120,7 @@ constructor.
 
 .. warning::
 
-    Using reentrant utilities (instanes of
+    Using reentrant utilities (instances of
     :class:`~pytest_mh.MultihostReentrantUtility`) inside
     :meth:`~pytest_mh.MultihostBackupHost.backup` and
     :meth:`~pytest_mh.MultihostBackupHost.restore` may not work as you might
@@ -133,9 +133,9 @@ constructor.
     scope). It is therefore better to avoid them, unless you are sure that it
     does what you want.
 
-    It is safe to use the :class:`~pytest_mh.utils.services.SystemdServices` in
-    the examples above, because the expected service state is ``started`` after
-    both backup and restore.
+    It is safer to use the :class:`~pytest_mh.utils.services.SystemdServices`
+    in the examples above, because the expected service state is ``started``
+    after both backup and restore.
 
 
 Implementing automatic backup for a topology
@@ -143,8 +143,8 @@ Implementing automatic backup for a topology
 
 The previous section showed how to implement an automatic backup for each host.
 However, it is quite often the case that each host needs to get additional setup
-in order to prepare it for given topology (like configuring particular database
-backend that we want to test with this topology).
+in order to prepare it for a given topology (like configuring the particular
+database backend that we want to test with this topology).
 
 The topology controller provides various setup and teardown hooks that can setup
 the topology, take backup, restore to this backup after each test and when all

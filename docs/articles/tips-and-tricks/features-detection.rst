@@ -13,7 +13,7 @@ following code snippets as a guideline or inspiration.
 Add feature property to the host class
 ======================================
 
-Most of the time, it is desirable to detect the features only on start up, since
+Most of the time, it is desirable to detect the features at start up, since
 the application does not change the built-time features during testing.
 Therefore, the code can be safely added to the host class and use
 :meth:`~pytest_mh.MultihostHost.pytest_setup` to make sure it is run only once.

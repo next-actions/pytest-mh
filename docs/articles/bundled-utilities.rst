@@ -39,8 +39,8 @@ add them to your role or host.
             """
 
 These utilities are automatically initialized, setup and teardown. You can start
-using them right away. Every change on the host that these utilities do during
-a test run is guarantied to be automatically reverted.
+using them right away. Any changes made to the host by these utilities during a
+test run will be automatically reverted.
 
 .. note::
 

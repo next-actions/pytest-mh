@@ -2,9 +2,9 @@ Multihost Hosts
 ###############
 
 :class:`~pytest_mh.MultihostHost` has access to the host part of the
-configuration file. Its main purpose is to setup and teardown the host and
-prepare it to run the tests and provide access to the main connection to the
-host over which is it possible to run commands on the host (see
+configuration file. Its main purpose is to setup and teardown the host,
+preparing it to run tests. It also provides the main connection to the host
+making it possible to run remote commands (see
 :attr:`~pytest_mh.MultihostHost.conn` attribute).
 
 The host objects are created once when pytest starts and live for the whole

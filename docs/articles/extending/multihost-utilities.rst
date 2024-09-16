@@ -137,8 +137,8 @@ cleans up after itself and share this code between multiple roles.
 
     In theory, it is possible, if you know what you are doing and call setup and
     teardown manually at desired place. However, it is not possible to call
-    these methods multiple times and so you can only use it within a single
-    setup scope. It is therefore highly recommended to only use
+    these methods multiple times, so you can only use it within a single setup
+    scope. It is therefore highly recommended to only use
     :class:`~pytest_mh.MultihostReentrantUtility` in host objects.
 
 MultihostReentrantUtility
@@ -149,7 +149,8 @@ setup scopes. Therefore, if you change something during topology setup, it is
 reverted in topology teardown and so on. It is also possible to create different
 setup scopes inside a test by using a context manager or the ``with`` statement.
 
-In order to achieve this, they gain context management magic methods
+In order to achieve this, :class:`~pytest_mh.MultihostReentrantUtility`
+gains context management magic methods
 :meth:`~pytest_mh.MultihostReentrantUtility.__enter__` and
 :meth:`~pytest_mh.MultihostReentrantUtility.__exit__`. The reentrant utilities
 are setup once and then the enter is called every time a new scope is entered.

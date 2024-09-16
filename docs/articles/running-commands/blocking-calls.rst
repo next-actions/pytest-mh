@@ -76,9 +76,9 @@ overwrite the behaviour with ``raise_on_error`` argument.
 .. note::
 
     Each command execution is logged in the pytest-mh logger. This can often
-    pollute the logs with high amount of commands which output result is really
-    important only if it fails. Therefore you can change the log level in order
-    to add a log record only if the command yields non-zero return code.
+    pollute the logs with a lot of commands whose output result is only really
+    important if it fails. Therefore, you can change the log level to add a log
+    record only if the command yields a non-zero return code.
 
     .. code-block:: python
         :caption: Example: Custom log level

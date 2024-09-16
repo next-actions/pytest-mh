@@ -52,6 +52,6 @@ allow access to specific ports, IP addresses or hostnames.
 .. note::
 
     If you create a new firewall rule to block a connection, connections that
-    are already established may not be terminated. Therefore if you start
-    blocking a connection and application under test is already running,
+    are already established may not be terminated. Therefore, if you start
+    blocking a connection and the application under test is already running,
     make sure that the application also drops active connections.
