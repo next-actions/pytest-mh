@@ -28,7 +28,7 @@ However, it can also be used to add a custom top-level configuration options or
 extend the functionality of ``pytest.mark.topology`` marker. The configuration
 file contents can be accessed as a dictionary through
 :attr:`~pytest_mh.MultihostConfig.confdict`, however it is recommended to place
-custom options under the ``config`` field which can by accessed directly through
+custom options under the ``config`` field which can be accessed directly through
 the :attr:`~pytest_mh.MultihostConfig.config` attribute. This way, it is
 possible to avoid name collisions if pytest-mh introduces new options in the
 future.

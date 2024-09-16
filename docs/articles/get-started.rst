@@ -29,11 +29,11 @@ application.
     and read it side by side.**
 
 We will use `sudo <https://www.sudo.ws/>`__ as the application to test for this
-getting started guide as sudo is known by every power user so changes are that
+getting started guide as sudo is known by every power user so chances are that
 you are already familiar with it. Additionally, sudo tests allows us to show
 many pytest-mh features. Note, that these tests were written only as an example
-and sudo itself is not using pytest-mh for its tests at this moment and there
-are no plans to do so.
+and sudo itself is not using pytest-mh for its tests at this moment and as far
+as we know there are no plans to do so.
 
 .. seealso::
 
@@ -55,10 +55,12 @@ Our goals are:
 
 * write basic tests
 
-  * allow user run all commands, user must authenticate
-  * allow user run all commands, without authentication
-  * allow user run all commands if he or she is a member of a group, user must authenticate
-  * allow user run all commands if he or she is a member of a group, without authentication
+  * allow the user to run all commands, user must authenticate
+  * allow the user to run all commands, without authentication
+  * allow the user to run all commands if they are a member of a group, user
+    must authenticate
+  * allow the user to run all commands if they are a member of a group, without
+    authentication
 
 * these tests must be written for all possible sources of data
 
@@ -72,7 +74,7 @@ Our goals are:
 As you can see, these goals require us to write 12 tests in total. But since the
 result is the same and only the data is fetched from different sources, we can
 use :ref:`topology parametrization <topology_parametrization>`. Topology
-parametrization will allow us to write only for tests but run them against
+parametrization will allow us to write only one test but run it against
 different backends and thus we will do less work but get more code coverage.
 
 We will take the following steps to achieve it:
@@ -127,9 +129,9 @@ Define multihost topologies
 ---------------------------
 
 This is the first step when designing a test framework since it tells you what
-hosts and roles your project needs. For sudo, we want to that that the sudo
-rules can be fetched from different sources. We can consider each data source to
-be a single topology.
+hosts and roles your project needs. For sudo, we want sudo rules to be fetched
+from different sources. We can consider each data source to be a single
+topology.
 
 * **sudoers**
 
@@ -147,7 +149,7 @@ be a single topology.
   * we need a host where we will run sudo and SSSD and a host that runs an LDAP server
   * SSSD will be connected to the LDAP domain
   * users, groups and sudo rules will be added to the LDAP database
-  * sudo will read data from SSSD which reads it from LDAP
+  * sudo will read data from SSSD which in turn reads it from LDAP
 
 These are the three topologies that we will define. We will also define a
 topology group as a shortcut for :ref:`topology parametrization
@@ -169,7 +171,7 @@ topology group as a shortcut for :ref:`topology parametrization
 Write configuration file
 ------------------------
 
-The topologies defines which hosts and roles are needed to run sudo test. We can
+The topology defines which hosts and roles are needed to run sudo test. We can
 convert it into a configuration file that can be used to run all sudo tests.
 
 The configuration file will define one domain with two hosts - one ``client``
@@ -219,8 +221,8 @@ Design and implement the framework
 ----------------------------------
 
 This part is rather more complicated and can not be treated universally as every
-project have different needs. It is possible to use multiple building block
-provided by pytest-mh in order to built a high-level API for your tests, see
+project has different needs. It is possible to use multiple building blocks
+provided by pytest-mh in order to build a high-level API for your tests, see
 :doc:`extending` and :doc:`life-cycle` to get a good grasp of all the classes
 and how to use them.
 
@@ -252,7 +254,7 @@ main idea behind each of these classes.
                 | :class:`~pytest_mh.BackupTopologyController`
               - * Configures environment for the sudoers topology
                 * Sets expected content of ``/etc/nsswitch.conf``
-                * Creates backup of this setup and automatically restores to this
+                * Creates backup of this setup and automatically restores its
                   state when a test is finished
 
             * - | ``LDAPTopologyController``
@@ -261,7 +263,7 @@ main idea behind each of these classes.
                 * Sets expected content of ``/etc/nsswitch.conf``
                 * Configures SSSD for identity and authentication
                 * Configures ``/etc/ldap.conf`` that is read by sudo
-                * Creates backup of this setup and automatically restores to this
+                * Creates backup of this setup and automatically restores its
                   state when a test is finished
 
             * - | ``SSSDTopologyController``
@@ -269,7 +271,7 @@ main idea behind each of these classes.
               - * Configures environment for the SSSD topology
                 * Sets expected content of ``/etc/nsswitch.conf``
                 * Configures SSSD for identity, authentication and sudo rules
-                * Creates backup of this setup and automatically restores to this
+                * Creates backup of this setup and automatically restores its
                   state when a test is finished
 
             * - | ``Client``
@@ -306,9 +308,9 @@ main idea behind each of these classes.
 Enable pytest-mh in conftest.py
 -------------------------------
 
-When the test framework is written and read to use, we can tell pytest to start
-using it in our tests. First, we tell pytest to load pytest-mh plugin and then
-we tell pytest-mh which config class it should instantiate.
+When the test framework is written and ready to use, we can tell pytest to
+start using it in our tests. First, we tell pytest to load pytest-mh plugin and
+then we tell pytest-mh which config class it should instantiate.
 
 .. dropdown:: See the code
     :color: primary
@@ -327,14 +329,16 @@ Write the tests
 ===============
 
 The example code shows four tests in total, but 12 tests are executed when
-pytest is run because each test is run once per each topology against different
-data source. See :doc:`writing-tests` to get more information on how to write
+pytest is run because each test is run once per topology against different data
+sources. See :doc:`writing-tests` to get more information on how to write
 the tests.
 
-  * allow user run all commands, user must authenticate
-  * allow user run all commands, without authentication
-  * allow user run all commands if he or she is a member of a group, user must authenticate
-  * allow user run all commands if he or she is a member of a group, without authentication
+  * allow the user to run all commands, user must authenticate
+  * allow the user to run all commands, without authentication
+  * allow the user to run all commands if they are a member of a group, user
+    must authenticate
+  * allow the user to run all commands if they are a member of a group, without
+    authentication
 
 .. dropdown:: See the code
     :color: primary
@@ -356,15 +360,14 @@ the tests.
 
 Run the tests
 =============
-
-The example code provides a set of containers that can be started up and used as
-hosts for the tests. See the example `readme.md
+The example code provides a set of containers that can be started and used as
+hosts for testing. See the example `readme.md
 <https://github.com/next-actions/pytest-mh/tree/master/example/readme.md>`__ to
 get the instruction on how to start the containers and install requirements.
 
 When the containers or virtual machines are ready, it is possible to run the
-tests with ``pytest`` command that you are already familiar with. The only
-additional thing needed to run pytest-mh tests is to provide path to the
+tests with the ``pytest`` command that you are already familiar with. The only
+additional thing needed to run pytest-mh tests is to provide the path to the
 pytest-mh configuration file with ``--mh-config``.
 
 .. code-block:: text

@@ -6,9 +6,9 @@ reading and writing files, creating folders, making temporary folders and files
 and more.
 
 A backup is created for every path that is changed during a test and it is
-restored after the test is finished. Therefore you do not have to worry about
-touching any path, the original contents and state (including ownership, mode
-and context) is fully restored.
+restored after the test is finished. Therefore, you don't have to worry about
+touching any paths, the original content and state (including ownership, mode
+and context) are fully restored.
 
 .. seealso::
 

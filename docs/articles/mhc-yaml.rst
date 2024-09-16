@@ -3,10 +3,10 @@ Configuration File
 
 The configuration file (usually named ``mhc.yaml``) contains the definition of
 which multihost domains and hosts are *at the moment* available to use for
-testing. If all tests can be run with given set of hosts the all tests are run,
-but it is perfectly possible to omit some host in order to run only a sub set of
-available tests -- the tests that require more or different hosts are silently
-skipped.
+testing. If all tests can be run with given set of hosts then all tests are
+run, but it is perfectly possible to omit some host in order to run only a
+subset of available tests -- the tests that require more or different hosts
+are silently skipped.
 
 The configuration file uses the YAML format.
 

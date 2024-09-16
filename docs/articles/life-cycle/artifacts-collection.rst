@@ -42,7 +42,7 @@ User-defined artifacts
 ======================
 
 The pytest-mh configuration file has a field ``artifacts`` in the host section
-where is it possible to define a list of artifacts that should be automatically
+where it is possible to define a list of artifacts that should be automatically
 downloaded from a host when a test is finished and before teardown is executed.
 This list can also contain a wildcard.
 
@@ -83,7 +83,7 @@ New artifacts can also be produced when a test is finished, or the list of
 artifacts can be set more dynamically based on your own conditions (e.g.
 installation failed). To achieve this, it is possible to override
 ``get_artifacts_list()`` method of each class. This method is used by pytest-mh
-to obtain the list of artifacts to collect and it must return the ``set()`` of
+to obtain the list of artifacts to collect and it must return a ``set()`` of
 artifacts.
 
 .. seealso::
@@ -110,7 +110,7 @@ The ``get_artifacts_list()`` method takes two arguments:
 
 * ``host`` which is the host where the artifacts will be collected. This does
   not have much meaning for hosts, roles and utilities but it is used in the
-  topology controller. Each topology consist from one or more hosts and
+  topology controller. Each topology consists of one or more hosts and
   artifacts are collected from each host.
 * ``artifacts_type`` identifies when artifacts are being collected. See its
   definition:

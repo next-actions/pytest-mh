@@ -79,7 +79,7 @@ Pytest-mh implements a new marker ``@pytest.mark.topology`` which is converted
 into an instance of :class:`~pytest_mh.TopologyMark`. This marker is used to
 assign a topology to a test. One test can be associated with multiple topologies
 -- this is called :ref:`topology parametrization <topology_parametrization>`. In
-this case, the test is multiplied and run ones for all assigned topologies,
+this case, the test is multiplied and run once for all assigned topologies,
 therefore it is possible to re-use the test code for different setups/backends.
 
 The ``@pytest.mark.topology`` can take different types of arguments in order to
@@ -122,7 +122,7 @@ The built-in :class:`~pytest_mh.TopologyMark` supports ``controller`` (defaults
 to an instance of :class:`~pytest_mh.TopologyController`) and ``fixtures`` which
 defines mapping between hosts and pytest fixtures available to the test.
 
-The ``fixtures`` argument is a dictionary where key is the fixture name and
+The ``fixtures`` argument is a dictionary, where key is the fixture name and
 value is the path to the hosts in the form: ``$domain-id.$role[$index]``. This
 will point to a role object of a specific host from the configuration file. It
 is also possible to reference a group of hosts by omitting the index:
@@ -189,7 +189,7 @@ KnownTopology and KnownTopologyGroup
 ------------------------------------
 
 This is kind of pre-defined topology, that groups multiple topologies in a
-single :class:`~enum.Enum` class. This makes it little bit easier to use then
+single :class:`~enum.Enum` class. This makes it a little bit easier to use than
 ungrouped :ref:`pre-defined topologies <predefined_topology>`, since you only
 have to import one object to your test module and you get access to all
 topologies -- you do not have to import each topology separately.
@@ -254,8 +254,8 @@ list of topologies for :ref:`topology parametrization
 Extending Topology Marker
 -------------------------
 
-The topology marker can be extended in order to provide more parameters or
-additional functionality. In order to do this, subclass
+The topology marker can be extended to provide more parameters or additional
+functionality. In order to do this, subclass
 :class:`~pytest_mh.TopologyMark` and override
 :meth:`~pytest_mh.TopologyMark.CreateFromArgs` and
 :meth:`~pytest_mh.TopologyMark.export`.
@@ -415,9 +415,9 @@ thus quickly extend the code coverage. Pytest allows this by using the
 ``@pytest.mark.parametrize`` `mark <pytest-parametrize_>`_.
 
 Similar functionality can be achieved with topologies when the same test code is
-run against multiple topologies. This is useful for many situations, since it is
+run against multiple topologies. This is useful for many situations, as it is
 often desirable to test the same functionality with different configurations
-that however also requires different environment setup (different multihost
+which, however, also require a different environment setup (different multihost
 topology). For example:
 
 * A client application is able to connect to multiple different backends. This
@@ -433,9 +433,9 @@ topology). For example:
   one test for hostname resolution but let the client library use all transfer
   protocols, one by one.
 
-In each case, it is desirable to have only single test that is however run with
-different backends or server configurations. To provide a real world example, we
-can check out one of the basic SSSD tests. This test have multiple topologies
+In each case, it is desirable to have a single test which, however, is run with
+different backends or server configurations. To provide a real world example,
+we can check out one of the basic SSSD tests. This test has multiple topologies
 assigned and it is run once per each topology: LDAP, IPA, Samba and AD.
 
 .. tab-set::
@@ -593,7 +593,8 @@ generic type ``GenericProvider`` that is implemented by the individual backends.
 .. note::
 
     Notice that SSSD is using custom topology marker ``SSSDTopologyMark`` that
-    adds a custom ``domains`` property. You can see its definition `here <sssd_framework_mark_>`_.
+    adds a custom ``domains`` property. You can see its definition
+    `here <sssd_framework_mark_>`_.
 
 If we run the test, we can see that it is executed four times:
 

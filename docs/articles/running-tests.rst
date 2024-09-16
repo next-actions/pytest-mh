@@ -81,8 +81,8 @@ in:
 
 Lots of commands that are run have a log level set to ``Error`` therefore they
 are added to the logs only if the command failed. This is usually the desired
-behavior in order to not clutter the logs with hundreds of successful commands.
-However, sometimes it is useful to override this behavior and see everything.
+behaviour so as not to clutter the logs with hundreds of successful commands.
+However, sometimes it is useful to override this behavior and log everything.
 You can do this by setting ``MH_CONNECTION_DEBUG=yes`` environment variable.
 
 .. code-block:: text

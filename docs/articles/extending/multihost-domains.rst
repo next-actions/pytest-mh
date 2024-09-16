@@ -2,8 +2,8 @@ Multihost Domains
 #################
 
 :class:`~pytest_mh.MultihostDomain` has access to the domain part of the
-configuration file. Its main purpose is to map role names into a Python
-classes that will be used to create the host and role objects.
+configuration file. Its main purpose is to map role names into Python classes
+that will be used to create the host and role objects.
 
 .. code-block:: python
     :caption: Basic example of MultihostDomain
@@ -47,14 +47,14 @@ classes that will be used to create the host and role objects.
     scope and avoid circular dependency since :class:`~pytest_mh.MultihostHost`
     is a generic class that takes the domain class as a specific type.
 
-Similar to the :class:`~pytest_mh.MultihostConfig` class, it also possible to
-add custom configuration options or further extend functionality by overriding
-the parent class methods. The configuration dictionary can be accessed by
-:attr:`~pytest_mh.MultihostDomain.confdict`, however it is recommended to place
-custom options under the ``config`` field which can by accessed directly through
-the :attr:`~pytest_mh.MultihostDomain.config` attribute. This way, it is
-possible to avoid name collisions if pytest-mh introduces new options in the
-future.
+Similar to the :class:`~pytest_mh.MultihostConfig` class, it is also possible
+to add custom configuration options or further extend functionality by
+overriding the parent class methods. The configuration dictionary can be
+accessed by :attr:`~pytest_mh.MultihostDomain.confdict`, however it is
+recommended to place custom options under the ``config`` field which can be
+accessed directly through the :attr:`~pytest_mh.MultihostDomain.config`
+attribute. This way, it is possible to avoid name collisions if pytest-mh
+introduces new options in the future.
 
 It is also possible to override or extend all public methods to further affect
 the behavior.

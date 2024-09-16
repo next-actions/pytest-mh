@@ -24,10 +24,10 @@ Using the mh fixture - low-level API
 
 .. warning::
 
-    Using the :func:`~pytest_mh.mh` fixture directly is supported but not
-    recommended. You should avoid that unless you have a valid use case for it.
-    It is, however, documented first, to get better understanding of how things
-    work.
+    Using the :func:`~pytest_mh.mh` fixture directly is supported, but not
+    recommended. You should avoid it unless you have a valid use case for it.
+    However, it is recommended to read this section anyway in order to better
+    understand how things work.
 
 The :func:`~pytest_mh.mh` fixture is automatically available to every test and
 it returns an instance of :class:`~pytest_mh.MultihostFixture`. This fixture
@@ -112,10 +112,10 @@ however, can be achieved by using pytest-mh's :ref:`dynamic fixtures
 Using dynamic fixtures - high-level API
 =======================================
 
-The topology marker has a ``fixtures`` parameter that define a mapping between
+The topology marker has a ``fixtures`` parameter that defines a mapping between
 custom fixture names and specific multihost roles that are required by the
 topology. Therefore, instead of accessing the :func:`~pytest_mh.mh` fixture and
-defining custom fixture as a shortcut to the role objects, we can define the
+defining custom fixtures as a shortcut to the role objects, we can define the
 mapping directly in the topology marker:
 
     .. tab-set::
@@ -152,7 +152,7 @@ mapping directly in the topology marker:
 
 The fixtures are referred to as "dynamic" because they do not exist anywhere as
 a standalone pytest fixture function. They are dynamically created by pytest-mh
-for each test and the same name refers to different object in each test. They
+for each test and the same name refers to a different object in each test. They
 can even point to a different host.
 
     .. code-block:: python
@@ -215,7 +215,7 @@ How to write a test
 Previous sections showed how the things around multihost topologies works, so
 how should you write a new test? Just follow these steps:
 
-#. Choose the topology or list of topologies that test will use
+#. Choose the topology or list of topologies that the test will use
 #. Define the topology outside the test so it can be reused (the topology is
    most likely already defined in the project)
 #. Write a skeleton using the topology
