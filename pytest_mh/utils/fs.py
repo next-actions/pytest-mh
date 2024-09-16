@@ -85,6 +85,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             """,
             log_level=ProcessLogLevel.Error,
         )
+        self.restorecon(path)
 
     def mkdir_p(
         self, path: str, *, mode: str | None = None, user: str | None = None, group: str | None = None
@@ -113,6 +114,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             """,
             log_level=ProcessLogLevel.Error,
         )
+        self.restorecon(path)
 
         if result.stdout and result.stdout != path:
             if not backup_exists:
@@ -276,6 +278,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             input=contents,
             log_level=ProcessLogLevel.Error,
         )
+        self.restorecon(path)
 
     def append(
         self,
@@ -342,6 +345,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             """,
             log_level=ProcessLogLevel.Error,
         )
+        self.restorecon(path)
 
     def truncate(
         self,
@@ -404,6 +408,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             """,
             log_level=ProcessLogLevel.Error,
         )
+        self.restorecon(dstpath)
 
     def upload(
         self,
@@ -447,6 +452,7 @@ class LinuxFileSystem(MultihostReentrantUtility):
             input=encoded,
             log_level=ProcessLogLevel.Error,
         )
+        self.restorecon(remote_path)
 
     def upload_to_tmp(
         self,
@@ -757,3 +763,23 @@ class LinuxFileSystem(MultihostReentrantUtility):
         self.logger.info(f"Running sed {command} on {path}")
         args = args if args else []
         return self.host.conn.exec(["sed", *args, command, path], log_level=ProcessLogLevel.Error)
+
+    def restorecon(self, path: str) -> bool:
+        """
+        Restore selinux context on a file or directory.
+        Does nothing when restorecon is not present in os without selinux.
+
+        :param path: File or directory where changes will happen
+        :type path: str
+        :return: True if restorecon succeeded
+        :rtype: bool
+        """
+        if self.exists("/usr/sbin/restorecon"):
+            self.logger.info(f"Running restorecon -rvF on {path}")
+            result = self.host.conn.exec(
+                ["restorecon", "-rvF", path], log_level=ProcessLogLevel.Error, raise_on_error=False
+            )
+            return result.rc == 0
+        else:
+            self.logger.info("Binary restorecon is missing.")
+        return False
