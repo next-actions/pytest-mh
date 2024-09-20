@@ -138,22 +138,114 @@ cleans up after itself and share this code between multiple roles.
     In theory, it is possible, if you know what you are doing and call setup and
     teardown manually at desired place. However, it is not possible to call
     these methods multiple times, so you can only use it within a single setup
-    scope. It is therefore highly recommended to only use
-    :class:`~pytest_mh.MultihostReentrantUtility` in host objects.
+    scope (e.g. only in :meth:`MultihostHost.pytest_setup
+    <pytest_mh.MultihostHost.pytest_setup>`). It is therefore highly
+    recommended to use only :class:`~pytest_mh.MultihostReentrantUtility` in
+    host objects.
 
 MultihostReentrantUtility
 =========================
 
-:class:`~pytest_mh.MultihostReentrantUtility` are designed to work with multiple
-setup scopes. Therefore, if you change something during topology setup, it is
-reverted in topology teardown and so on. It is also possible to create different
-setup scopes inside a test by using a context manager or the ``with`` statement.
+:class:`~pytest_mh.MultihostReentrantUtility` objects are designed to work with
+multiple setup scopes and therefore can be safely used inside
+:class:`~pytest_mh.MultihostHost`. You can understand a setup scope as a pair of
+setup and teardown hooks, every code that is executed between these calls is a
+setup scope. Pytest-mh currently defines the following scopes:
 
-In order to achieve this, :class:`~pytest_mh.MultihostReentrantUtility`
-gains context management magic methods
-:meth:`~pytest_mh.MultihostReentrantUtility.__enter__` and
-:meth:`~pytest_mh.MultihostReentrantUtility.__exit__`. The reentrant utilities
-are setup once and then the enter is called every time a new scope is entered.
+.. code-block:: text
+    :caption: Setup scopes
+
+      | MultihostHost.pytest_setup
+      |      | TopologyController.topology_setup
+    S |    T |      |
+    E |    O |      |
+    S |    P |    T | MultihostHost.setup
+    S |    O |    E | TopologyController.setup
+    I |    L |    S | TopologyController.teardown
+    O |    O |    T | MultihostHost.teardown
+    N |    G |      |
+      |    Y |      |
+      |      | TopologyController.topology_teardown
+      | MultihostHost.pytest_teardown
+
+All instances of :class:`~pytest_mh.MultihostReentrantUtility` are "entered"
+(:meth:`MultihostReentrantUtility.__enter__
+<pytest_mh.MultihostReentrantUtility.__enter__>`) when entering a new setup
+scope and "exited" (:meth:`MultihostReentrantUtility.__exit__
+<pytest_mh.MultihostReentrantUtility.__exit__>`) when the setup scope is leaved.
+The implementation of the utility is expected to save its state in ``__enter__``
+and restore to this state in ``__exit__`` -- revert all changes that where done
+inside the setup scope when the scope is leaved.
+
+A typical use case is to use the :class:`~pytest_mh.utils.fs.LinuxFileSystem`
+utility to write or modify a configuration file. Since it is a reentrant
+utility, it is possible to write a common configuration of your service in
+:meth:`MultihostHost.pytest_setup <pytest_mh.MultihostHost.pytest_setup>`
+(state=A) and then further modify it in :meth:`TopologyController.pytest_setup
+<pytest_mh.TopologyController.topology_setup>` (state=B). The configuration is
+in state B for all tests for given topology. Once all tests for this topology
+are finished, the configuration is restored to state A and ready for next
+topology to be run.
+
+.. code-block:: text
+    :caption: State changes
+
+    MultihostHost.pytest_setup (None -> state A)
+
+        TopologyController_1.topology_setup (state A -> state B)
+              | test_for_topology_1__a
+            B | test_for_topology_1__b
+              | test_for_topology_1__c
+        TopologyController_1.topology_teardown (state B -> state A)
+
+        TopologyController_2.topology_setup (state A -> state C)
+              | test_for_topology_2__a
+            C | test_for_topology_2__b
+              | test_for_topology_2__c
+        TopologyController_2.topology_teardown (state C -> state A)
+
+    MultihostHost.pytest_teardown (state A -> None)
+
+The setup and teardown methods of :class:`~pytest_mh.MultihostReentrantUtility`
+are still being called, although it is expected that they will not be used in
+most implementations. They are, however, called only once: before
+:meth:`MultihostHost.pytest_setup <pytest_mh.MultihostHost.pytest_setup>` and
+after :meth:`MultihostHost.pytest_teardown
+<pytest_mh.MultihostHost.pytest_teardown>`. The following snippet illustrates
+when the methods are called:
+
+.. code-block:: text
+    :caption: Reentrant utilities callstack
+
+    setup host utilities
+    enter host utilities
+    MultihostHost.pytest_setup
+
+        enter host utilities
+        TopologyController.topology_setup
+
+            enter host utilities
+            MultihostHost.setup
+            TopologyController.setup
+
+                test_a
+                test_b
+                ...
+
+            TopologyController.teardown
+            MultihostHost.teardown
+            exit host utilities
+
+        TopologyController.topology_teardown
+        exit host utilities
+
+    MultihostHost.pytest_teardown
+    exit host utilities
+    teardown host utilities
+
+We can modify the ``LocalUsersUtils`` and convert it into a reentrant version so
+we can safely add users even inside host and topology setup, see the following
+example.
 
 .. code-block:: python
     :caption: Reentrant version of user management
@@ -279,8 +371,16 @@ are setup once and then the enter is called every time a new scope is entered.
 Creating more setup-scopes in tests
 -----------------------------------
 
-It is possible to enter the reentrant utilities multiple times in tests as well
-using the ``with`` statement.
+The main purpose of :class:`~pytest_mh.MultihostUtility` is to share code
+between roles; the main purpose of :class:`~pytest_mh.MultihostReentrantUtility`
+is to share code between hosts. However, they are implemented using Python's
+context management functions and therefore it is also possible to pass them into
+the ``with`` statement. This can be used to create additional scopes within a
+test, if needed.
+
+The following example illustrates how you can change a file multiple times and
+keep reverting it to its previous state every time the context manager is
+destroyed.
 
 .. code-block:: python
     :caption: Reentrant utility in tests
@@ -291,12 +391,23 @@ using the ``with`` statement.
         def test_ad_hoc_util(example: ExampleRole) -> None:
             with example.fs as fs_a:
                 fs_a.write("/root/test", "content_a")
+
                 with fs_a as fs_b:
                     fs_b.write("/root/test", "content_b")
+
                     with fs_b as fs_c:
                         fs_c.write("/root/test", "content_c")
+                        assert fs_c.read("/root/test") == "content_c"
+
+                    # content is restored to "content_b" here since fs_c.__exit__ was called
+
                     assert fs_b.read("/root/test") == "content_b"
+
+                # content is restored to "content_a" here since fs_b.__exit__ was called
+
                 assert fs_a.read("/root/test") == "content_a"
+
+             # content is restored to original content (probably file was deleted) here since fs_a.__exit__ was called
 
 Postponing utility setup
 ========================
