@@ -1015,8 +1015,10 @@ class MultihostReentrantUtility(MultihostUtility[HostType]):
     """
     Reentrant multihost utility.
 
-    It provides the enter and exit methods that can be called multiple times in
-    order to create nested states.
+    It provides the __enter__ and __exit__ abstract methods that can be called
+    multiple times in order to create nested states. The implementation of
+    __enter__ should save current state and __exit__ should restore hosts into
+    this state.
 
     The utility can be used as a context manager, leaving the context will
     restore the system to the state during the context enter.
