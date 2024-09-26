@@ -67,7 +67,6 @@ class JournaldUtils(MultihostUtility):
         lines: int | None = None,
         since: str | None = None,
         reverse: bool = False,
-        no_pager: bool = False,
         grep: str | None = None,
         output: str | None = None,
         identifier: str | None = None,
@@ -89,8 +88,6 @@ class JournaldUtils(MultihostUtility):
         :type since: str | None, optional
         :param reverse: Reverse output so that the newest entries are displayed first, defaults to False
         :type reverse: bool, optional
-        :param no_pager: Do not pipe output into a pager, defaults to False
-        :type no_pager: bool, optional
         :param grep: Filter output to entries where the MESSAGE= field matches specified regex, defaults to None
         :type grep: str | None, optional
         :param output: Controls the formatting of the journal entries, defaults to None
@@ -116,12 +113,12 @@ class JournaldUtils(MultihostUtility):
             "lines": (cli.option.VALUE, lines),
             "since": (cli.option.VALUE, since),
             "reverse": (cli.option.SWITCH, reverse),
-            "no-pager": (cli.option.SWITCH, no_pager),
             "grep": (cli.option.VALUE, grep),
             "output": (cli.option.VALUE, output),
             "identifier": (cli.option.VALUE, identifier),
             "system": (cli.option.SWITCH, system),
             "user": (cli.option.SWITCH, user),
+            "no-pager": (cli.option.SWITCH, True),
         }
 
         return self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
