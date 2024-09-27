@@ -1,7 +1,7 @@
 Setup and Teardown Hooks
 ########################
 
-Pytest-mh provides multiple setup and teardown hooks that you can use to setup
+``pytest-mh`` provides multiple setup and teardown hooks that can be used to setup
 the test environment and later revert all changes that were done during the
 setup and testing.
 

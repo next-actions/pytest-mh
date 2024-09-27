@@ -16,7 +16,7 @@ should be available to all tests.
     The host class can be also used to provide high-level API for your project,
     however remember that the test has direct access to the
     :class:`MultihostRole` objects and only indirect access to the host objects
-    (via the role). Therefore vast majority of your high-level API should be
+    (via the role). Therefore the vast majority of your high-level API should be
     placed in the role object in order to provide most direct access.
 
 .. code-block:: python

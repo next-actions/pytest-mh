@@ -1,8 +1,8 @@
-Filesystem: Manipulating Files and Folders
-##########################################
+Filesystem: Manipulating Files and Directories
+##############################################
 
-The :mod:`pytest_mh.utils.fs` module provides access to remote files and folders:
-reading and writing files, creating folders, making temporary folders and files
+The :mod:`pytest_mh.utils.fs` module provides access to remote files and directories:
+reading and writing files, creating directories, making temporary directories and files
 and more.
 
 A backup is created for every path that is changed during a test and it is
@@ -18,7 +18,7 @@ and context) are fully restored.
 .. note::
 
     Currently, we only provide :class:`~pytest_mh.utils.fs.LinuxFileSystem` to
-    manipulate files and folders on Linux systems. Contributions for Windows
+    manipulate files and directions on Linux systems. Contributions for Windows
     world are welcomed.
 
 .. code-block:: python

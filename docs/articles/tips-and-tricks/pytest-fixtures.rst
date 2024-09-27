@@ -1,7 +1,7 @@
 Using Pytest Fixtures
 #####################
 
-At this moment, it is not possible to pass the pytest-mh roles that are
+At this moment, it is not possible to pass the ``pytest-mh`` roles that are
 available to the test directly to `pytest fixtures <pytest_fixtures_>`_.
 However, there is :func:`~pytest_mh.mh_fixture` decorator which is a wrapper
 around ``@pytest.fixture`` that can be used instead.

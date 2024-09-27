@@ -2,7 +2,7 @@ Host Backup and Restore
 #######################
 
 Various :doc:`setup and teardown <../life-cycle/setup-and-teardown>` hooks
-called by pytest-mh can be used to implement automatic host backup and restore
+called by ``pytest-mh`` can be used to implement automatic host backup and restore
 functionality. This is supported out of the box with
 :class:`~pytest_mh.MultihostBackupHost` and
 :class:`~pytest_mh.BackupTopologyController`.
@@ -40,7 +40,7 @@ several abstract methods that have to be implemented:
         * - :meth:`~pytest_mh.MultihostBackupHost.restore`
           - Restore the host from the backup.
 
-The backup is taken automatically during pytest setup and the host is restored
+The backup is taken automatically during pytest setup, the host is restored
 to this state after each test run. Sometimes, it is not desirable to restore the
 host automatically at this point (for example if this is done by the topology
 controller) and this can be disabled by passing ``auto_restore=False`` to the

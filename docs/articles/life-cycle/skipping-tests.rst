@@ -1,15 +1,14 @@
 Skipping Tests
 ##############
 
-It is always possible to use pytest filtering options to run only the desired
-test. But often, it may be useful to skip a test based on some external
-condition: for example if the product was built with a certain feature or not.
-If the feature is not supported, tests that are using this feature must be
-skipped.
+Pytest filtering options are used to run only the desired tests, but it may
+be useful to skip a test based on some external condition: for example if
+the product was built with a certain feature or not. If the feature is not
+supported, tests that are using this feature must be skipped.
 
 It is not possible to accomplish this with the built-in ``pytest.mark.skipif``
 marker since it is evaluated too soon and only takes expressions, it does not
-provide access to the fixtures. However, pytest-mh provides alternative
+provide access to the fixtures. However, ``pytest-mh`` provides alternative
 solutions.
 
 .. seealso::

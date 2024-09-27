@@ -3,7 +3,7 @@ Multihost Utilities
 
 :class:`~pytest_mh.MultihostUtility` can be used to share code between different
 :class:`~pytest_mh.MultihostRole` classes, in addition
-:class:`~pytest_mh.MultihostReentrantUtility` can be used to share code beetween
+:class:`~pytest_mh.MultihostReentrantUtility` can be used to share code between
 roles but also between :class:`~pytest_mh.MultihostHost` classes.
 
 .. seealso::
@@ -18,7 +18,7 @@ MultihostUtility
 All instances of :class:`~pytest_mh.MultihostUtility` that are available within
 :class:`~pytest_mh.MultihostRole` classes are automatically setup and teardown
 before and after the test. This can be used to provide high-level API that also
-cleans up after itself and share this code between multiple roles.
+cleans up after itself and to share this code between multiple roles.
 
 .. code-block:: python
     :caption: Example utility to manage local users
@@ -150,7 +150,7 @@ MultihostReentrantUtility
 multiple setup scopes and therefore can be safely used inside
 :class:`~pytest_mh.MultihostHost`. You can understand a setup scope as a pair of
 setup and teardown hooks, every code that is executed between these calls is a
-setup scope. Pytest-mh currently defines the following scopes:
+setup scope. ``pytest-mh`` currently defines the following scopes:
 
 .. code-block:: text
     :caption: Setup scopes

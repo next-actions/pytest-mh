@@ -1,11 +1,10 @@
 Life Cycle and Hooks
 ####################
 
-One of the most fundamental features of pytest-mh is to provide users a way to
-setup hosts before a test is run, collect test artifacts and revert all changes
-that were done during the test afterwards. Therefore it provides multiple hooks
-that will execute your code in order to achieve smooth and extensive setup and
-teardown and more.
+One fundamental feature of ``pytest-mh`` is to provide users a way to setup
+hosts before a test is run, collect test artifacts and revert all changes
+that were done during the test. It provides multiple hooks that will execute
+your code in order to achieve smooth and extensive setup and teardown and more.
 
 .. toctree::
     :maxdepth: 2

@@ -2,7 +2,7 @@ Writing Tests
 #############
 
 Each test that should have access to the remote hosts must be marked with one or
-more topology markers. This tells pytest-mh what domains, hosts and roles are
+more topology markers. This tells ``pytest-mh`` what domains, hosts and roles are
 required to run the test. The marker also defines how the
 :class:`~pytest_mh.MultihostRole` objects should be accessible from within the
 test.
@@ -188,9 +188,9 @@ Fixture path
 ------------
 
 The fixture path is in the form of ``domain-id.role-name[index]``. The index
-refers to a specific host in the order defined by current mhc.yaml and it starts
-from zero. The index path can be omitted, in this case it gives you access to
-the list of all hosts that implements this role.
+refers to a specific host in the order defined by current ``mhc.yaml`` and
+it starts from zero. The index path can be omitted, in this case it gives
+you access to the list of all hosts that implements this role.
 
 .. code-block:: python
     :emphasize-lines: 5, 6

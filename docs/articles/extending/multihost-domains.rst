@@ -53,7 +53,7 @@ overriding the parent class methods. The configuration dictionary can be
 accessed by :attr:`~pytest_mh.MultihostDomain.confdict`, however it is
 recommended to place custom options under the ``config`` field which can be
 accessed directly through the :attr:`~pytest_mh.MultihostDomain.config`
-attribute. This way, it is possible to avoid name collisions if pytest-mh
+attribute. This way, it is possible to avoid name collisions if ``pytest-mh``
 introduces new options in the future.
 
 It is also possible to override or extend all public methods to further affect

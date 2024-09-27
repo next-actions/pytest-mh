@@ -2,16 +2,16 @@ Artifacts Collection
 ####################
 
 Collecting logs and other artifacts from a test is a very important task,
-especially if the test fails. Most of the test frameworks allows you to collect
-artifacts that are explicitly configured. Pytest-mh has this feature as well but
-it also takes this a step further and allows you to collect and even produce
-artifacts dynamically after a test is finished.
+especially if the test fails. Most test frameworks allows you to collect
+artifacts that are explicitly configured. ``pytest-mh`` has this feature
+as well but it also takes this a step further and allows you to collect
+and even produce artifacts dynamically after a test is finished.
 
 This is especially useful if you do not want to rely on each test to produce
 artifacts that require additional commands to be run (for example a database
 dump). With pytest-mh, it is possible to implement this on a different level and
-therefore each test can focus solely on testing functionality, pytest-mh will
-take care of producing and collecting the extra artifacts.
+therefore each test can focus solely on testing functionality, ``pytest-mh``
+will take care of producing and collecting the extra artifacts.
 
 .. seealso::
 
@@ -41,7 +41,7 @@ take care of producing and collecting the extra artifacts.
 User-defined artifacts
 ======================
 
-The pytest-mh configuration file has a field ``artifacts`` in the host section
+The ``pytest-mh`` configuration file has a field ``artifacts`` in the host section
 where it is possible to define a list of artifacts that should be automatically
 downloaded from a host when a test is finished and before teardown is executed.
 This list can also contain a wildcard.
@@ -82,7 +82,7 @@ attribute of the class.
 New artifacts can also be produced when a test is finished, or the list of
 artifacts can be set more dynamically based on your own conditions (e.g.
 installation failed). To achieve this, it is possible to override
-``get_artifacts_list()`` method of each class. This method is used by pytest-mh
+``get_artifacts_list()`` method of each class. This method is used by ``pytest-mh``
 to obtain the list of artifacts to collect and it must return a ``set()`` of
 artifacts.
 

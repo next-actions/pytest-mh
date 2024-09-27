@@ -1,9 +1,9 @@
 Firewall: Managing Network Access
 #################################
 
-The :mod:`pytest_mh.utils.firewall` provides generic interface to remote system
-firewall as well as two specific implementations of this interface: Firewalld
-and Windows Firewall.
+The :mod:`pytest_mh.utils.firewall` provides a generic interface to manage the
+remote system firewall as well as two specific implementations of this
+interface: Firewalld and Windows Firewall.
 
 These utilities allows you to create inbound and outbound rules to block or
 allow access to specific ports, IP addresses or hostnames.
@@ -52,6 +52,6 @@ allow access to specific ports, IP addresses or hostnames.
 .. note::
 
     If you create a new firewall rule to block a connection, connections that
-    are already established may not be terminated. Therefore, if you start
+    are already established may not be terminated. If you start
     blocking a connection and the application under test is already running,
     make sure that the application also drops active connections.

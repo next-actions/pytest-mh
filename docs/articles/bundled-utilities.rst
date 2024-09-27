@@ -1,8 +1,8 @@
 Ready to Use Utilities
 ######################
 
-Pytest-mh codebase contains several generic, ready to use utilities that you can
-easily add to your hosts and roles. These utilities add support for various
+``pytest-mh`` codebase contains several generic, ready to use utilities that
+can be added to hosts and roles. These utilities add support for various
 project independent tasks, such as reading and writing files, managing firewall,
 automatic collection of core dumps and much more.
 

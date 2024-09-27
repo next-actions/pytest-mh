@@ -1,7 +1,7 @@
 Tips and Tricks
 ###############
 
-Here is a list of several pytest-mh tips and tricks that you can use as an
+Here is a list of several pytest-mh tips and tricks that you can use as
 inspiration for your project.
 
 .. toctree::
