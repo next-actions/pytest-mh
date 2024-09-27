@@ -5,7 +5,7 @@ pytest_mh - pytest multihost test framework
 
     This plugin is still actively developed and even though it is mostly stable,
     we reserve the right to introduce minor breaking changes if it is required
-    for new functionality. Therefore we advice to pin pytest-mh version for your
+    for new functionality. Therefore we advise to pin pytest-mh version for your
     project.
 
 ``pytest-mh`` is a multihost testing pytest framework that you can use to **test
@@ -30,18 +30,18 @@ pytest runner, but **your application can be written in any language**.
 What are the core features of pytest-mh?
 ========================================
 
-* Define what hosts are required to run a test. If any of required host is not
+* Define what hosts are required to run a test. If any required hosts are not
   available, the test is skipped. :doc:`articles/extending/multihost-topologies`
 * Run commands on remote hosts or containers via SSH, podman or docker.
   :doc:`articles/running-commands`
-* Run single test against multiple backends: :ref:`topology_parametrization`
+* Run a single test against multiple backends: :ref:`topology_parametrization`
 * Write high-level API for your testing framework: :doc:`articles/extending`
 * Extensive custom setup and teardown logic with various setup/teardown hooks: :doc:`articles/life-cycle/setup-and-teardown`
 * Automatic static and dynamic artifacts collection: :doc:`articles/life-cycle/artifacts-collection`
-* Automatically change test result based on additional conditions: :doc:`articles/life-cycle/changing-test-status`
-* Skip tests if the hosts are missing any required features: :doc:`articles/life-cycle/skipping-tests`
+* Automatically change test results based on additional conditions: :doc:`articles/life-cycle/changing-test-status`
+* Skip tests if hosts are missing required features: :doc:`articles/life-cycle/skipping-tests`
 * Automatic backup and restore of hosts state: :doc:`articles/tips-and-tricks/backup-restore`
-* Out of the box: write and read files and other file system operations with automatic changes reversion: :doc:`articles/bundled-utilities/fs`
+* Out of the box: write and read files and other file system operations with automatic changes reverted: :doc:`articles/bundled-utilities/fs`
 * Out of the box: start, stop and manage systemd services: :doc:`articles/bundled-utilities/services`
 * Out of the box: manipulate system firewall: :doc:`articles/bundled-utilities/firewall`
 * Out of the box: auto detection of AVC denials: :doc:`articles/bundled-utilities/auditd`
@@ -52,19 +52,17 @@ What are the core features of pytest-mh?
 Do I want to use pytest-mh?
 ===========================
 
-* **Does your program affect the host in any way?** If so, it is safer to run
-  it in virtual machine or in a container to avoid affecting your local host.
-  ``pytest-mh`` takes care of that.
-* **Does your program use client-server model?** If so, it is better to run the
-  client and the server on separate machines to make the tests more real.
-  ``pytest-mh`` takes care of that.
-* **Does your program communicate with multiple backends?** If so, you need to
-  be able to assign each test to a specific backend and also be able to reuse a
-  single test for multiple backends. ``pytest-mh`` takes care of that.
+* **Does your program affect the host in any way?** Run tests
+  in a virtual machine or in a container to avoid affecting your local host.
+* **Does your program use client-server model?** Run the client and the
+  server on separate machines to make the tests more realistic.
+* **Does your program communicate with multiple backends?** Assign each
+  test to a specific backend and also be able to reuse a single test for
+  multiple backends.
 * **Do you need complex tests that changes state of the system, file system or
-  other programs or databases?** If so, you need to make sure that all changes
-  are reverted when a test is done so the test does not affect other tests.
-  ``pytest-mh`` takes care of that.
+  other programs or databases?** All changes are reverted when a test
+  is done so the test does not affect other tests.
+* **``pytest-mh`` takes care of all of these!**
 
 .. code-block:: python
     :caption: Example test taken from SSSD project

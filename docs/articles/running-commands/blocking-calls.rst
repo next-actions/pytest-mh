@@ -1,7 +1,7 @@
 Blocking Calls
 ##############
 
-It is possible to run a command using a blocking code, meaning the code will
+It is possible to run a command using a blocking call, meaning the code will
 block until the command is finished and its result is returned. The result is
 instance of :class:`~pytest_mh.conn.ProcessResult` and gives you access to
 return code, standard output and standard error output.

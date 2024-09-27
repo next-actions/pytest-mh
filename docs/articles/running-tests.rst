@@ -1,8 +1,8 @@
 Running Tests
 #############
 
-Pytest-mh is a pytest plugin, therefore all tests are run with ``pytest``. There
-are some additional command line arguments that you can use, all pytest-mh
+``pytest-mh`` is a pytest plugin, therefore all tests are run with ``pytest``.
+There are some additional command line arguments that you can use, all ``pytest-mh``
 arguments are prefixed with ``--mh-``. You can use the following command
 to find all pytest-mh related parameters:
 
@@ -49,7 +49,7 @@ parentheses.
 Useful parameters
 =================
 
-This is a short list of selected pytest-mh parameters that can be useful when
+This is a short list of selected ``pytest-mh`` parameters that can be useful when
 running tests locally.
 
 * ``--mh-topology``: Run only tests for selected topology
@@ -65,7 +65,7 @@ running tests locally.
 Debugging tests
 ===============
 
-Pytest-mh stores logs for each test run. These logs can be found among the test
+``pytest-mh`` stores logs for each test run. These logs can be found among the test
 artifacts in artifacts directory (by default ``./artifacts``). You can find them
 in:
 

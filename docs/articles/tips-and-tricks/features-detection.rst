@@ -6,7 +6,7 @@ some features may be disabled or use different (usually hard-coded) settings.
 This is quite common for compiled programs, that may choose to built or omit
 some parts of the code.
 
-Pytest-mh does not provide any built-in support of feature detection as this
+``pytest-mh`` does not provide any built-in support of feature detection as this
 functionality is highly project specific, but it is possible to use the
 following code snippets as a guideline or inspiration.
 
@@ -68,7 +68,7 @@ case when ``host.features`` changes reference to different dictionary/object.
 Skipping tests
 ==============
 
-It is possible to check for a feature presence using :ref:`@pytest.mark.require
+Check for a feature presence using :ref:`@pytest.mark.require
 <mark.require>`, if the feature is not available the test will be skipped.
 
 .. code-block:: python
@@ -85,7 +85,7 @@ It is possible to check for a feature presence using :ref:`@pytest.mark.require
 
 .. seealso::
 
-    You can also inspire in the SSSD project that has a syntactic sugar over the
+    You can also take inspiration from the SSSD project that has a syntactic sugar over the
     ``@pytest.mark.require`` marker and introduces ``@pytest.mark.builtwith``,
     which internally translates into the ``require`` marker. You can check out
     the code `here

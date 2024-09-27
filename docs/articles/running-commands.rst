@@ -1,8 +1,8 @@
 Running Commands on Remote Hosts
 ################################
 
-Running commands on remote hosts is one of the fundamental features of
-pytest-mh. In order to do that, it provides abstraction over remote processes
+Running commands on remote hosts is a fundamental feature of
+``pytest-mh``. In order to do that, it provides abstraction over remote processes
 and a generic interface in the :class:`~pytest_mh.conn.Connection` class. There
 are currently two implementations of this interface:
 

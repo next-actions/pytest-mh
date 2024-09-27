@@ -4,9 +4,8 @@ Getting Started
 Pytest-mh is not a plugin to support unit testing. It is a plugin designed to
 support testing your application as a complete product, this is often referred
 to as a black-box, application or system testing. The application is installed
-on the target host and tested there by running commands on the host (and on
-other hosts that are required). These hosts can be virtual machines or
-containers.
+on the target host and tested by running commands on the host (and on other
+hosts that are required). These hosts can be virtual machines or containers.
 
 .. seealso::
 
@@ -17,7 +16,7 @@ As such, it is often useful to write a high level API that will support testing
 your application and make your test smaller and more readable. This may require
 a non-trivial initial investment, but it will pay off in the long run. However,
 implementing such API is not required and it is perfectly possible to run
-commands on the host directly from each test. That, however, makes tests usually
+commands on the host directly from each test. This approach makes tests usually
 larger and more difficult to understand and maintain -- but every project is
 different and it is up to you to choose how are you going to test your
 application.
@@ -74,7 +73,7 @@ Our goals are:
 As you can see, these goals require us to write 12 tests in total. But since the
 result is the same and only the data is fetched from different sources, we can
 use :ref:`topology parametrization <topology_parametrization>`. Topology
-parametrization will allow us to write only one test but run it against
+parametrization allows us to write only one test but run it against
 different backends and thus we will do less work but get more code coverage.
 
 We will take the following steps to achieve it:
@@ -128,14 +127,14 @@ individual classes.
 Define multihost topologies
 ---------------------------
 
-This is the first step when designing a test framework since it tells you what
+This is the first step when designing a test framework since it defines what
 hosts and roles your project needs. For sudo, we want sudo rules to be fetched
 from different sources. We can consider each data source to be a single
 topology.
 
 * **sudoers**
 
-  * we only need one host
+  * only one host needed
   * users, groups and sudo rules will be created locally
 
 * **ldap**
@@ -171,7 +170,7 @@ topology group as a shortcut for :ref:`topology parametrization
 Write configuration file
 ------------------------
 
-The topology defines which hosts and roles are needed to run sudo test. We can
+The topology defines which hosts and roles are needed to run sudo tests. We can
 convert it into a configuration file that can be used to run all sudo tests.
 
 The configuration file will define one domain with two hosts - one ``client``
@@ -220,9 +219,9 @@ Python classes.
 Design and implement the framework
 ----------------------------------
 
-This part is rather more complicated and can not be treated universally as every
+This step is more complicated and can not be treated universally as every
 project has different needs. It is possible to use multiple building blocks
-provided by pytest-mh in order to build a high-level API for your tests, see
+provided by ``pytest-mh`` in order to build a high-level API for your tests, see
 :doc:`extending` and :doc:`life-cycle` to get a good grasp of all the classes
 and how to use them.
 
@@ -309,8 +308,8 @@ Enable pytest-mh in conftest.py
 -------------------------------
 
 When the test framework is written and ready to use, we can tell pytest to
-start using it in our tests. First, we tell pytest to load pytest-mh plugin and
-then we tell pytest-mh which config class it should instantiate.
+start using it in our tests. First, configure pytest to load pytest-mh plugin and
+then inform pytest-mh which config class it should instantiate.
 
 .. dropdown:: See the code
     :color: primary

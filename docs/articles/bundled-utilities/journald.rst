@@ -1,7 +1,7 @@
 Journald: Searching in the Journal
 ##################################
 
-Systemd-journald is the daemon that collects system logs nowadays. This utility
+``systemd-journald`` is the daemon that collects system logs. This utility
 dumps journal contents to a file and stores it as a test artifact. It also
 exposes an API to run queries against the journal to search for messages that
 were produced during the test run.

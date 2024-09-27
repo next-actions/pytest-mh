@@ -59,7 +59,7 @@ category.
 .. warning::
 
     It is not possible to run auditd inside a container therefore this utility
-    can detect AVC denials if the remote host is a virtual machine or bare
+    can detect AVC denials only if the remote host is a virtual machine or bare
     metal.
 
     If you run your tests on containerized environment as well as on virtual

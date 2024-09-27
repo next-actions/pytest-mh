@@ -1,7 +1,7 @@
 Extending pytest-mh for Your Needs
 ##################################
 
-Pytest-mh uses a yaml-formatted configuration file that contains the list of
+``pytest-mh`` uses a yaml-formatted configuration file that contains the list of
 multihost domains, hosts and their roles that are required for the tests. These
 configuration entities are converted into their Python representations that can
 and should be extended to provide additional configuration and high level API

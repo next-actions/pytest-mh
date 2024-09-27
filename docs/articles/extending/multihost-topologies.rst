@@ -1,8 +1,8 @@
 Multihost Topologies
 ####################
 
-Multihost topology is the core of pytest-mh. It defines the requirements of a
-test -- what multihost domains and roles (and how many) are required to run the
+Multihost topology is the core of ``pytest-mh``. It defines the requirements of
+a test -- what multihost domains and roles (and how many) are required to run the
 test. If the current environment defined in the configuration file does not meet
 the requirements of the topology then the test is silently skipped (in pytest
 terminology the test is not collected) and you will not even see it in the
@@ -67,7 +67,7 @@ file:
 
 .. note::
 
-    See that all three servers from the third example are placed inside a single
+    All three servers from the third example are placed inside a single
     multihost domain. This is because all these servers contains the same data
     and it should not matter to which one the client talks to. If they serve
     different data, they should be placed in different multihost domains.
@@ -75,7 +75,7 @@ file:
 Topology Marker
 ===============
 
-Pytest-mh implements a new marker ``@pytest.mark.topology`` which is converted
+``pytest-mh`` implements a new marker ``@pytest.mark.topology`` which is converted
 into an instance of :class:`~pytest_mh.TopologyMark`. This marker is used to
 assign a topology to a test. One test can be associated with multiple topologies
 -- this is called :ref:`topology parametrization <topology_parametrization>`. In
@@ -323,8 +323,8 @@ Then make this a topology marker type by setting
 Topology Controller
 ===================
 
-Pytest-mh allows you to run tests against multiple topologies in one pytest run.
-It is not always possible or desired to provide distinct set of host for each
+``pytest-mh`` allows running tests against multiple topologies in one pytest run.
+It is not always possible or desired to provide a distinct set of hosts for each
 topology, instead the hosts are usually being reused. However, each topology
 typically requires different environment setup.
 :class:`~pytest_mh.TopologyController` gives you access to topology setup and
@@ -409,7 +409,7 @@ With the topology controller, you can:
 Topology Parametrization
 ========================
 
-A test parametrization is a way to share a test code for different input
+Test parametrization is a way to share test code for different input
 arguments and therefore test different configurations or user inputs easily and
 thus quickly extend the code coverage. Pytest allows this by using the
 ``@pytest.mark.parametrize`` `mark <pytest-parametrize_>`_.
@@ -433,7 +433,7 @@ topology). For example:
   one test for hostname resolution but let the client library use all transfer
   protocols, one by one.
 
-In each case, it is desirable to have a single test which, however, is run with
+In each case, it is desirable to have a single test which is run with
 different backends or server configurations. To provide a real world example,
 we can check out one of the basic SSSD tests. This test has multiple topologies
 assigned and it is run once per each topology: LDAP, IPA, Samba and AD.
