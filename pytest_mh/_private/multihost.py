@@ -21,10 +21,9 @@ from .artifacts import (
 )
 from .errors import TeardownExceptionGroup
 from .logging import MultihostHostLogger, MultihostLogger
-from .misc import OperationStatus
+from .misc import OperationStatus, validate_configuration
 from .topology import Topology
 from .types import MultihostOSFamily
-from .utils import validate_configuration
 
 if TYPE_CHECKING:
     from .fixtures import MultihostFixture
