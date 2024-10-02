@@ -104,7 +104,7 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :return: SSH process result
         :rtype: ProcessResult
         """
-        cli: CLIBuilder = CLIBuilder(self.host.conn)
+        cli: CLIBuilder = self.host.cli
         if current:
             since = since if since else self._cursor
 
