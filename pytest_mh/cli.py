@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import Any, Callable, Type, TypeAlias
 
-from .conn import Connection, Powershell, Shell
+from .conn import Powershell, Shell
 
 
 class CLIBuilder(object):
@@ -32,8 +32,12 @@ class CLIBuilder(object):
         Parameter is a positional argument.
         """
 
-    def __init__(self, conn: Connection) -> None:
-        self.__shell: Shell = conn.shell
+    def __init__(self, shell: Shell) -> None:
+        """
+        :param shell: Target shell.
+        :type shell: Shell
+        """
+        self.__shell: Shell = shell
         self.__prefix: str = "-" if self.__match_shell(Powershell) else "--"
 
     def command(self, command: str, args: CLIBuilderArgs) -> str:

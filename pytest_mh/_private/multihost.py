@@ -534,7 +534,7 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         """Connection to the host."""
 
         # CLI Builder instance
-        self.cli: CLIBuilder = CLIBuilder(self.conn)
+        self.cli: CLIBuilder = CLIBuilder(self.shell)
         """Command line builder."""
 
         self.artifacts: MultihostHostArtifacts = MultihostHostArtifacts()

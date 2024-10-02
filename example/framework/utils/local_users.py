@@ -34,7 +34,7 @@ class LocalUsersUtils(MultihostUtility[MultihostHost]):
         """
         super().__init__(host)
 
-        self.cli: CLIBuilder = CLIBuilder(host.conn)
+        self.cli: CLIBuilder = CLIBuilder(host.shell)
         self.fs: LinuxFileSystem = fs
         self._users: list[str] = []
         self._groups: list[str] = []
