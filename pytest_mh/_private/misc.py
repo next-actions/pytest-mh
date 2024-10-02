@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from functools import partial
 from inspect import getfullargspec
@@ -40,7 +41,7 @@ def validate_configuration(
 
             return is_property_in_dict(subpath, d[key])
 
-        return property in d and d[property]
+        return isinstance(d, Mapping) and property in d and d[property]
 
     for key in required_keys:
         if not is_property_in_dict(key, confdict):
