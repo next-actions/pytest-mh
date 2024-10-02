@@ -10,7 +10,7 @@ from ..conn import ProcessLogLevel, ProcessResult
 __all__ = ["JournaldUtils"]
 
 
-class JournaldUtils(MultihostUtility):
+class JournaldUtils(MultihostUtility[MultihostHost]):
     """
     Perform journald related tasks.
     """
