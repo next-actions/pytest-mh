@@ -5,6 +5,10 @@ from typing import Any, Callable, Type, TypeAlias
 
 from .conn import Powershell, Shell
 
+__all__ = [
+    "CLIBuilder",
+]
+
 
 class CLIBuilder(object):
     class option(Enum):
@@ -41,12 +45,96 @@ class CLIBuilder(object):
         self.__prefix: str = "-" if self.__match_shell(Powershell) else "--"
 
     def command(self, command: str, args: CLIBuilderArgs) -> str:
+        """
+        Build full command line and return it as a string.
+
+        Output can be passed directly to :meth:`Connection.run
+        <pytest_mh.conn.Connection.run>` (``host.conn.run``).
+
+        .. code-block:: python
+            :caption: Example
+
+            cli = CLIBuilder(Bash())
+            args: CLIBuilderArgs = {
+                "password": (cli.option.VALUE, None),     # None values are ignored
+                "home": (cli.option.VALUE, "/home/jdoe"), # --home '/home/jdoe'
+                "enabled": (cli.option.SWITCH, True),     # --enabled
+                "login": (cli.option.POSITIONAL, "jdoe"), # 'jdoe'
+            }
+
+            line = cli.command("add-user", args)
+            # add-user --home '/home/jdoe' --enabled 'jdoe'
+
+        :param command: Command to call
+        :type command: str
+        :param args: Command's arguments
+        :type args: CLIBuilderArgs
+        :return: Full command line as string.
+        :rtype: str
+        """
         return " ".join(self.__build(command, args, quote_value=True))
 
     def argv(self, command: str, args: CLIBuilderArgs) -> list[str]:
+        """
+        Build full command line and return it it as list of arguments (full
+        argv).
+
+        Output can be passed directly to :meth:`Connection.exec
+        <pytest_mh.conn.Connection.exec>` (``host.conn.exec``).
+
+        .. code-block:: python
+            :caption: Example
+
+            cli = CLIBuilder(Bash())
+            args: CLIBuilderArgs = {
+                "password": (cli.option.VALUE, None),     # None values are ignored
+                "home": (cli.option.VALUE, "/home/jdoe"), # --home '/home/jdoe'
+                "enabled": (cli.option.SWITCH, True),     # --enabled
+                "login": (cli.option.POSITIONAL, "jdoe"), # 'jdoe'
+            }
+
+            line = cli.argv("add-user", args)
+            # ["add-user", "--home", "/home/jdoe", "--enabled", "jdoe"]
+
+        :param command: Command to call
+        :type command: str
+        :param args: Command's arguments
+        :type args: CLIBuilderArgs
+        :return: Full command line as argv
+        :rtype: list[str]
+        """
         return self.__build(command, args, quote_value=False)
 
     def args(self, args: CLIBuilderArgs, *, quote_value=False) -> list[str]:
+        """
+        Build command's arguments and return them as a list (argv without
+        command).
+
+        Output can be used for additional processing by the caller.
+
+        .. code-block:: python
+            :caption: Example
+
+            cli = CLIBuilder(Bash())
+            args: CLIBuilderArgs = {
+                "password": (cli.option.VALUE, None),     # None values are ignored
+                "home": (cli.option.VALUE, "/home/jdoe"), # --home '/home/jdoe'
+                "enabled": (cli.option.SWITCH, True),     # --enabled
+                "login": (cli.option.POSITIONAL, "jdoe"), # 'jdoe'
+            }
+
+            line = cli.args(args)
+            # ["--home", "/home/jdoe", "--enabled", "jdoe"]
+
+            host.conn.run(f"user-add --encrypt-home {' '.join(line)}")
+
+        :param args: Command's argument
+        :type args: CLIBuilderArgs
+        :param quote_value: True if values should enclosed with quotes, defaults to False
+        :type quote_value: bool, optional
+        :return: Arguments ready to use in command line (argv without command)
+        :rtype: list[str]
+        """
         return self.__build(None, args, quote_value)
 
     def __match_shell(self, shell: Type[Shell]):
