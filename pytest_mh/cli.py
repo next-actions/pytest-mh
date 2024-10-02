@@ -46,7 +46,7 @@ class CLIBuilder(object):
     def argv(self, command: str, args: CLIBuilderArgs) -> list[str]:
         return self.__build(command, args, quote_value=False)
 
-    def args(self, args: CLIBuilderArgs, quote_value=False) -> list[str]:
+    def args(self, args: CLIBuilderArgs, *, quote_value=False) -> list[str]:
         return self.__build(None, args, quote_value)
 
     def __match_shell(self, shell: Type[Shell]):
