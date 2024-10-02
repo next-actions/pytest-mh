@@ -11,7 +11,7 @@ from ..conn import ProcessLogLevel, ProcessResult
 __all__ = ["LinuxFileSystem"]
 
 
-class LinuxFileSystem(MultihostReentrantUtility):
+class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
     """
     Perform file system operations on remote host.
 

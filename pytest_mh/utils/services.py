@@ -9,7 +9,7 @@ from ..conn import Process, ProcessLogLevel, ProcessResult
 __all__ = ["SystemdServices"]
 
 
-class SystemdServices(MultihostReentrantUtility):
+class SystemdServices(MultihostReentrantUtility[MultihostHost]):
     """
     Manage remote services.
     """

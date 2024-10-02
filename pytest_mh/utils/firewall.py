@@ -22,7 +22,7 @@ PortSpec: TypeAlias = int | tuple[int, ProtocolSpec]
 """Firewall port specification."""
 
 
-class Firewall(MultihostUtility):
+class Firewall(MultihostUtility[MultihostHost]):
     """
     Configure host firewall.
 

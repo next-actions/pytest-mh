@@ -6,7 +6,7 @@ from ..conn import ProcessLogLevel
 __all__ = ["LinuxTrafficControl"]
 
 
-class LinuxTrafficControl(MultihostUtility):
+class LinuxTrafficControl(MultihostUtility[MultihostHost]):
     """
     Perform traffic control operations on remote host.
 
