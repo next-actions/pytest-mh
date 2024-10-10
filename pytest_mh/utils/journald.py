@@ -38,6 +38,7 @@ class JournaldUtils(MultihostUtility):
         Called before execution of each test.
         """
         self._test_start = self.now
+        self._cursor = self._test_start
 
     def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
