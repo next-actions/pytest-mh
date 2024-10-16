@@ -437,9 +437,9 @@ class MultihostFixture(object):
         self.split_log_file("teardown.log")
         self.logger.flush(self.data.outcome)
 
-        errors = [x for x in errors if x is not None]
-        if errors:
-            raise TeardownExceptionGroup("One or more error occurred during test teardown", errors)
+        all_errors = [x for x in errors if x is not None]
+        if all_errors:
+            raise TeardownExceptionGroup("One or more error occurred during test teardown", all_errors)
 
 
 @pytest.fixture(scope="function")
