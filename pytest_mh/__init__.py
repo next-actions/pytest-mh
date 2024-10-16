@@ -15,6 +15,7 @@ from ._private.fixtures import (
     mh_topology_mark,
     mh_topology_name,
 )
+from ._private.logging import MultihostLogger
 from ._private.marks import KnownTopologyBase, KnownTopologyGroupBase, TopologyMark
 from ._private.multihost import (
     MultihostBackupHost,
@@ -43,6 +44,7 @@ __all__ = [
     "mh_topology_name",
     "KnownTopologyBase",
     "KnownTopologyGroupBase",
+    "MultihostLogger",
     "MultihostArtifactsType",
     "MultihostConfig",
     "MultihostDomain",
