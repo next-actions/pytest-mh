@@ -529,7 +529,7 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
 
         # Connection to the host
         self.conn: Connection[Process[ProcessResult, ProcessInputBuffer], ProcessResult[ProcessError]] = (
-            self.get_connection(self.shell)
+            self.get_connection()
         )
         """Connection to the host."""
 
@@ -606,7 +606,7 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         """
         return self.configured_artifacts.get(artifacts_type) | self.artifacts.get(artifacts_type)
 
-    def get_connection(self, shell: Shell) -> Connection:
+    def get_connection(self) -> Connection:
         """
         Get connection object to the host with given shell.
 
@@ -614,8 +614,6 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         multihost configuration. The caller should not make any assumptions
         about the connection mechanism.
 
-        :param shell: Shell that will be used to run commands.
-        :type shell: Shell
         :return: Generic connection to the host.
         :rtype: Connection
         """
