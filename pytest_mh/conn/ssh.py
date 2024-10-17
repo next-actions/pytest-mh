@@ -433,7 +433,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
 
     @property
     def connected(self) -> bool:
-        return self.__conn.is_connected
+        return bool(self.__conn.is_connected)
 
     def connect(self) -> None:
         """
