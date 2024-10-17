@@ -917,9 +917,6 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         self.logger: MultihostLogger = self.host.logger
         """Multihost logger."""
 
-        self.used: bool = False
-        """Indicate if this utility instance was already used or not within current test."""
-
         self.artifacts: set[str] = set()
         """
         List of artifacts that will be automatically collected at specific
