@@ -1,7 +1,8 @@
 > [!WARNING]
 > This plugin is still actively developed and even though it is mostly stable,
 > we reserve the right to introduce minor breaking changes if it is required for
-> new functionality.
+> new functionality. Therefore we advise to pin `pytest-mh` version for your
+> project.
 
 # pytest_mh - pytest multihost test framework
 
