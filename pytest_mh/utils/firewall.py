@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from ipaddress import IPv4Address, IPv6Address
 from random import randrange
 from typing import Any, Literal, TypeAlias
 
@@ -605,9 +606,28 @@ class FirewalldOutboundRules(FirewallOutboundRules):
                 self.firewall.add_rich_rule(f"family=ipv6 destination address={ip} {action}")
 
     def __resolve_hostname(self, hostname: str, type: Literal["A", "AAAA"]) -> list[str]:
-        result = self.firewall.host.conn.exec(["dig", "+short", "-t", type, hostname], log_level=ProcessLogLevel.Error)
+        try:
+            ipv4 = IPv4Address(hostname)
+            if type == "A":
+                return [hostname]
+        except ValueError:
+            ipv4 = None
 
-        return result.stdout_lines
+        try:
+            ipv6 = IPv6Address(hostname)
+            if type == "AAAA":
+                return [hostname]
+        except ValueError:
+            ipv6 = None
+
+        if ipv4 is not None or ipv6 is not None:
+            # In this case we were given an IP address but of the wrong family. We must not consider it a hostname.
+            return []
+        else:
+            result = self.firewall.host.conn.exec(
+                ["dig", "+short", "-t", type, hostname], log_level=ProcessLogLevel.Error
+            )
+            return result.stdout_lines
 
 
 class WindowsFirewall(Firewall):
