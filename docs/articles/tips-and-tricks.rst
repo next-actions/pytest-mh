@@ -8,5 +8,6 @@ inspiration for your project.
     :maxdepth: 2
 
     tips-and-tricks/backup-restore
+    tips-and-tricks/building-command-line
     tips-and-tricks/features-detection
     tips-and-tricks/pytest-fixtures
