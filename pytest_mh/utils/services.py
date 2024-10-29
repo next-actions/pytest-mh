@@ -40,13 +40,13 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         for service, state in self.initial_states.items():
             self.logger.info(f'systemd: restoring "{service}" to {"started" if state else "stopped"}')
             self.host.conn.run(
-                f'systemctl stop "{service}" || systemctl status "{service}"',
+                self._debug_failure(service, f'systemctl stop "{service}"'),
                 raise_on_error=False,
                 log_level=ProcessLogLevel.Error,
             )
             if state:
                 self.host.conn.run(
-                    f'systemctl start "{service}" || systemctl status "{service}"',
+                    self._debug_failure(service, f'systemctl start "{service}"'),
                     raise_on_error=False,
                     log_level=ProcessLogLevel.Error,
                 )
@@ -68,7 +68,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: starting "{service}" asynchronously')
         return self.host.conn.async_run(
-            f'systemctl reset-failed "{service}"; systemctl start "{service}" || systemctl status "{service}"',
+            self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl start "{service}"'),
             log_level=ProcessLogLevel.Error,
         )
 
@@ -89,7 +89,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: starting "{service}"')
         return self.host.conn.run(
-            f'systemctl reset-failed "{service}"; systemctl start "{service}" || systemctl status "{service}"',
+            self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl start "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
         )
@@ -109,7 +109,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: stopping "{service}" asynchronously')
         return self.host.conn.async_run(
-            f'systemctl stop "{service}" || systemctl status "{service}"', log_level=ProcessLogLevel.Error
+            self._debug_failure(service, f'systemctl stop "{service}"'), log_level=ProcessLogLevel.Error
         )
 
     def stop(self, service: str, raise_on_error: bool = True) -> ProcessResult:
@@ -129,7 +129,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: stopping "{service}"')
         return self.host.conn.run(
-            f'systemctl stop "{service}" || systemctl status "{service}"',
+            self._debug_failure(service, f'systemctl stop "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
         )
@@ -149,7 +149,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: restarting "{service}" asynchronously')
         return self.host.conn.async_run(
-            f'systemctl reset-failed "{service}"; systemctl restart "{service}" || systemctl status "{service}"',
+            self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl restart "{service}"'),
             log_level=ProcessLogLevel.Error,
         )
 
@@ -170,7 +170,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.__set_initial_state(service)
         self.logger.info(f'systemd: restarting "{service}"')
         return self.host.conn.run(
-            f'systemctl reset-failed "{service}"; systemctl restart "{service}" || systemctl status "{service}"',
+            self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl restart "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
         )
@@ -189,7 +189,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.logger.info(f'systemd: reloading "{service}" asynchronously')
         return self.host.conn.async_run(
-            f'systemctl reload "{service}" || systemctl status "{service}"', log_level=ProcessLogLevel.Error
+            self._debug_failure(service, f'systemctl reload "{service}"'), log_level=ProcessLogLevel.Error
         )
 
     def reload(self, service: str, raise_on_error: bool = True) -> ProcessResult:
@@ -208,7 +208,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.logger.info(f'systemd: reloading "{service}"')
         return self.host.conn.run(
-            f'systemctl reload "{service}" || systemctl status "{service}"',
+            self._debug_failure(service, f'systemctl reload "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
         )
@@ -288,6 +288,22 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :rtype: ProcessResult
         """
         return self.host.conn.run("systemctl daemon-reload", raise_on_error=raise_on_error)
+
+    def _debug_failure(self, service: str, command: str) -> str:
+        return f"{command} || ({self._query_logs_command(service)})"
+
+    def _query_logs_command(self, service: str) -> str:
+        cmds = [
+            "rc=$?",
+            f"echo '+ systemctl status {service}'",
+            f"systemctl status {service}",
+            "echo ''",
+            f"echo '+ journalctl --no-pager -xeu {service}'",
+            f"journalctl --no-pager -xeu {service}",
+            "exit $rc",
+        ]
+
+        return ";".join(cmds)
 
     def __set_initial_state(self, service: str) -> None:
         if service in self.initial_states:
