@@ -8,7 +8,7 @@ import pytest
 
 from .artifacts import MultihostArtifactsCollectable
 from .data import MultihostItemData
-from .errors import TeardownExceptionGroup
+from .errors import SkipCallbackExceptionGroup, TeardownExceptionGroup
 from .logging import MultihostLogger
 from .marks import TopologyMark
 from .misc import invoke_callback
@@ -185,15 +185,39 @@ class MultihostFixture(object):
     def _skip(self) -> bool:
         self._skipped = False
 
-        reason = self._skip_by_topology(self.topology_controller)
-        if reason is not None:
-            self._skipped = True
-            pytest.skip(reason)
+        try:
+            try:
+                self.log_phase("SKIP BY TOPOLOGY")
+                reason = self._skip_by_topology(self.topology_controller)
+                if reason is not None:
+                    self._skipped = True
+                    pytest.skip(reason)
+            finally:
+                self.log_phase("SKIP BY TOPOLOGY DONE")
 
-        reason = self._skip_by_require_marker(self.topology_mark, self.request.node)
-        if reason is not None:
+            try:
+                self.log_phase("SKIP BY REQUIRE MARKER")
+                reason = self._skip_by_require_marker(self.topology_mark, self.request.node)
+                if reason is not None:
+                    self._skipped = True
+                    pytest.skip(reason)
+            finally:
+                self.log_phase("SKIP BY REQUIRE MARKER DONE")
+        except Exception as e:
+            # Just re-raise if pytest.skip was called, unfortunately pytest.skip
+            # raises exception that is not publicly available, so we have to
+            # rely on our attribute.
+            if self._skipped:
+                raise
+
+            # Error out and skip the test
+            self.data.outcome = "error"
             self._skipped = True
-            pytest.skip(reason)
+            raise SkipCallbackExceptionGroup("An exception occurred inside a skip callback", [e])
+        finally:
+            self.split_log_file("skip.log")
+            if self.data.outcome == "error":
+                self.logger.flush(self.data.outcome)
 
         return self._skipped
 
