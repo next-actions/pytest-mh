@@ -15,3 +15,11 @@ class TeardownExceptionGroup(ExceptionGroup):
     """
 
     ...
+
+
+class SkipCallbackExceptionGroup(ExceptionGroup):
+    """
+    One or more exception occurred during skip callback phase.
+    """
+
+    ...
