@@ -1365,6 +1365,8 @@ def mh_utility_exit_dependencies(obj: MultihostRole | MultihostHost, where: str)
         except Exception as e:
             errors.append(e)
 
+        util._op_state.clear(f"__enter__{where}")
+
     if errors:
         raise TeardownExceptionGroup("Unable to exit some utilities (util.__exit__)", errors)
 
