@@ -16,9 +16,20 @@ from pytest_mh import (
     MultihostRole,
     MultihostUtility,
     TopologyMark,
+    mh_utility,
     mh_utility_ignore_use,
 )
-from pytest_mh._private.multihost import mh_utility_setup, mh_utility_teardown
+from pytest_mh._private.multihost import (
+    mh_utility_enter,
+    mh_utility_enter_dependencies,
+    mh_utility_exit,
+    mh_utility_exit_dependencies,
+    mh_utility_pytest_report_teststatus,
+    mh_utility_setup,
+    mh_utility_setup_dependencies,
+    mh_utility_teardown,
+    mh_utility_teardown_dependencies,
+)
 from pytest_mh.conn import Bash
 from pytest_mh.conn.container import ContainerClient
 from pytest_mh.conn.ssh import SSHClient
@@ -93,6 +104,14 @@ class MultihostRoleMock(MultihostRole[MultihostHost[MultihostDomain[MultihostCon
 
 class MultihostUtilityMock(MultihostUtility[MultihostHost]):
     pass
+
+
+class MultihostReentrantUtilityMock(MultihostReentrantUtility[MultihostHost]):
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 
 def test_multihost__MultihostConfig_init(mocker: MockerFixture):
@@ -400,12 +419,8 @@ def test_multihost__MultihostHost_dependencies(mock_domain: MultihostDomain):
         "role": "test",
     }
 
-    class DependencyBase(MultihostReentrantUtility):
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
+    class DependencyBase(MultihostReentrantUtilityMock):
+        pass
 
     class Dependency1(DependencyBase):
         pass
@@ -455,12 +470,8 @@ def test_multihost__MultihostRole_init(mock_host: MultihostHost, mock_mh: Multih
 
 
 def test_multihost__MultihostRole_dependencies(mock_host: MultihostHost, mock_mh: MultihostFixture):
-    class DependencyBase(MultihostReentrantUtility):
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
+    class DependencyBase(MultihostReentrantUtilityMock):
+        pass
 
     class Dependency1(DependencyBase):
         pass
@@ -564,12 +575,8 @@ def test_multihost__MultihostUtility_meta__used(mock_host: MultihostHost):
 
 
 def test_multihost__MultihostUtility_dependencies(mock_host: MultihostHost):
-    class DependencyBase(MultihostReentrantUtility):
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
+    class DependencyBase(MultihostReentrantUtilityMock):
+        pass
 
     class Dependency1(DependencyBase):
         pass
@@ -685,3 +692,255 @@ def test_multihost__mh_utility_teardown(mocker: MockerFixture, mock_host: Multih
     assert util._op_state.check_success("setup")
     mh_utility_teardown(util)
     mock_teardown.assert_called_once()
+
+
+def test_multihost__mh_utility_enter__not_reentrant(mock_host: MultihostHost):
+    util = MultihostUtilityMock(mock_host)
+    # this should be a noop and no error is thrown
+    mh_utility_enter(util, "test_location")
+
+
+def test_multihost__mh_utility_enter__not_setup(mock_host: MultihostHost):
+    util = MultihostReentrantUtilityMock(mock_host)
+
+    with pytest.raises(RuntimeError, match="Trying to call utility enter without successful setup"):
+        mh_utility_enter(util, "test_location")
+
+
+def test_multihost__mh_utility_enter__ok(mock_host: MultihostHost):
+    util = MultihostReentrantUtilityMock(mock_host)
+
+    mh_utility_setup(util)
+    mh_utility_enter(util, "test_location")
+    assert len(util._mh_exit_stack) == 1
+    assert util._mh_exit_stack[0] == ("test_location", True)
+
+
+def test_multihost__mh_utility_enter__error(mocker: MockerFixture, mock_host: MultihostHost):
+    enter = mocker.patch.object(MultihostReentrantUtilityMock, "__enter__")
+    enter.side_effect = Exception("myerror")
+    util = MultihostReentrantUtilityMock(mock_host)
+
+    mh_utility_setup(util)
+
+    with pytest.raises(Exception, match="myerror"):
+        mh_utility_enter(util, "test_location")
+
+    assert len(util._mh_exit_stack) == 1
+    assert util._mh_exit_stack[0] == ("test_location", False)
+
+
+def test_multihost__mh_utility_exit__not_reentrant(mock_host: MultihostHost):
+    util = MultihostUtilityMock(mock_host)
+    # this should be a noop and no error is thrown
+    mh_utility_exit(util, "test_location")
+
+
+def test_multihost__mh_utility_exit__not_setup(mock_host: MultihostHost):
+    util = MultihostReentrantUtilityMock(mock_host)
+    # this should be a noop and no error is thrown
+    mh_utility_exit(util, "test_location")
+
+
+def test_multihost__mh_utility_exit__not_enter(mock_host: MultihostHost):
+    util = MultihostReentrantUtilityMock(mock_host)
+    mh_utility_setup(util)
+    with pytest.raises(IndexError, match="Calling exit but enter was not called"):
+        mh_utility_exit(util, "test_location")
+
+
+def test_multihost__mh_utility_exit__wrong_location(mock_host: MultihostHost):
+    util = MultihostReentrantUtilityMock(mock_host)
+    mh_utility_setup(util)
+    mh_utility_enter(util, "enter")
+
+    assert len(util._mh_exit_stack) == 1
+    assert util._mh_exit_stack[0] == ("enter", True)
+
+    with pytest.raises(IndexError, match="Calling exit from unexpected place"):
+        mh_utility_exit(util, "test_location")
+
+    assert len(util._mh_exit_stack) == 1
+    assert util._mh_exit_stack[0] == ("enter", True)
+
+
+def test_multihost__mh_utility_exit__enter_error(mocker: MockerFixture, mock_host: MultihostHost):
+    exit = mocker.patch.object(MultihostReentrantUtilityMock, "__exit__")
+    enter = mocker.patch.object(MultihostReentrantUtilityMock, "__enter__")
+    enter.side_effect = Exception("myerror")
+    util = MultihostReentrantUtilityMock(mock_host)
+
+    mh_utility_setup(util)
+    try:
+        mh_utility_enter(util, "test_location")
+    except Exception:
+        pass
+
+    assert len(util._mh_exit_stack) == 1
+    assert util._mh_exit_stack[0] == ("test_location", False)
+
+    mh_utility_exit(util, "test_location")
+    exit.assert_not_called()
+    assert len(util._mh_exit_stack) == 0
+
+
+def test_multihost__mh_utility_exit__ok(mocker: MockerFixture, mock_host: MultihostHost):
+    exit = mocker.patch.object(MultihostReentrantUtilityMock, "__exit__")
+    util = MultihostReentrantUtilityMock(mock_host)
+
+    mh_utility_setup(util)
+    mh_utility_enter(util, "test_location")
+
+    assert len(util._mh_exit_stack) == 1
+    assert util._mh_exit_stack[0] == ("test_location", True)
+
+    mh_utility_exit(util, "test_location")
+    exit.assert_called_once()
+    assert len(util._mh_exit_stack) == 0
+
+
+def test_multihost__mh_utility(mocker: MockerFixture, mock_host: MultihostHost):
+    setup = mocker.patch("pytest_mh._private.multihost.mh_utility_setup")
+    enter = mocker.patch("pytest_mh._private.multihost.mh_utility_enter")
+    exit = mocker.patch("pytest_mh._private.multihost.mh_utility_exit")
+    teardown = mocker.patch("pytest_mh._private.multihost.mh_utility_teardown")
+
+    with mh_utility(MultihostReentrantUtilityMock(mock_host)):
+        pass
+
+    setup.assert_called_once()
+    enter.assert_called_once()
+    exit.assert_called_once()
+    teardown.assert_called_once()
+
+
+def test_multihost__mh_utility_setup_dependencies(
+    mocker: MockerFixture, mock_mh: MultihostFixture, mock_host: MultihostHost
+):
+    setup = mocker.patch("pytest_mh._private.multihost.mh_utility_setup")
+    enter = mocker.patch("pytest_mh._private.multihost.mh_utility_enter")
+
+    class Role(MultihostRoleMock):
+        def __init__(self, mh, role, host):
+            super().__init__(mh, role, host)
+
+            self.dep1 = MultihostReentrantUtilityMock(host)
+            self.dep2 = MultihostUtilityMock(host)
+
+    role = Role(mock_mh, "role", mock_host)
+    mh_utility_setup_dependencies(role, [MultihostUtility, MultihostReentrantUtility])
+
+    assert len(role._mh_utility_dependencies) == 2
+
+    calls = [mocker.call(x) for x in role._mh_utility_dependencies]
+    setup.assert_has_calls(calls, any_order=False)
+
+    calls = [mocker.call(x, "mh_utility_dependencies") for x in role._mh_utility_dependencies]
+    enter.assert_has_calls(calls, any_order=False)
+
+
+def test_multihost__mh_utility_teardown_dependencies(
+    mocker: MockerFixture, mock_mh: MultihostFixture, mock_host: MultihostHost
+):
+    exit = mocker.patch("pytest_mh._private.multihost.mh_utility_exit")
+    teardown = mocker.patch("pytest_mh._private.multihost.mh_utility_teardown")
+
+    class Role(MultihostRoleMock):
+        def __init__(self, mh, role, host):
+            super().__init__(mh, role, host)
+
+            self.dep1 = MultihostReentrantUtilityMock(host)
+            self.dep2 = MultihostUtilityMock(host)
+
+    role = Role(mock_mh, "role", mock_host)
+
+    mh_utility_setup_dependencies(role, [MultihostUtility, MultihostReentrantUtility])
+    mh_utility_teardown_dependencies(role, [MultihostUtility, MultihostReentrantUtility])
+
+    assert len(role._mh_utility_dependencies) == 2
+
+    calls = [mocker.call(x, "mh_utility_dependencies") for x in reversed(role._mh_utility_dependencies)]
+    exit.assert_has_calls(calls, any_order=False)
+
+    calls = [mocker.call(x) for x in reversed(role._mh_utility_dependencies)]
+    teardown.assert_has_calls(calls, any_order=False)
+
+
+def test_multihost__mh_utility_enter_dependencies(
+    mocker: MockerFixture, mock_mh: MultihostFixture, mock_host: MultihostHost
+):
+    setup = mocker.patch("pytest_mh._private.multihost.mh_utility_setup")
+    enter = mocker.patch("pytest_mh._private.multihost.mh_utility_enter")
+
+    class Role(MultihostRoleMock):
+        def __init__(self, mh, role, host):
+            super().__init__(mh, role, host)
+
+            self.dep1 = MultihostReentrantUtilityMock(host)
+            self.dep2 = MultihostUtilityMock(host)
+
+    role = Role(mock_mh, "role", mock_host)
+    mh_utility_setup_dependencies(role, [MultihostUtility, MultihostReentrantUtility])
+    mh_utility_enter_dependencies(role, "test_location")
+
+    assert len(role._mh_utility_dependencies) == 2
+
+    calls = [mocker.call(x) for x in role._mh_utility_dependencies]
+    setup.assert_has_calls(calls, any_order=False)
+
+    calls = [mocker.call(x, "mh_utility_dependencies") for x in role._mh_utility_dependencies]
+    calls += [mocker.call(x, "test_location") for x in role._mh_utility_dependencies]
+    enter.assert_has_calls(calls, any_order=False)
+
+
+def test_multihost__mh_utility_exit_dependencies(
+    mocker: MockerFixture, mock_mh: MultihostFixture, mock_host: MultihostHost
+):
+    exit = mocker.patch("pytest_mh._private.multihost.mh_utility_exit")
+
+    class Role(MultihostRoleMock):
+        def __init__(self, mh, role, host):
+            super().__init__(mh, role, host)
+
+            self.dep1 = MultihostReentrantUtilityMock(host)
+            self.dep2 = MultihostUtilityMock(host)
+
+    role = Role(mock_mh, "role", mock_host)
+
+    mh_utility_setup_dependencies(role, [MultihostUtility, MultihostReentrantUtility])
+    mh_utility_enter_dependencies(role, "test_location")
+    mh_utility_exit_dependencies(role, "test_location")
+
+    assert len(role._mh_utility_dependencies) == 2
+
+    calls = [mocker.call(x, "test_location") for x in reversed(role._mh_utility_dependencies)]
+    exit.assert_has_calls(calls, any_order=False)
+
+
+@pytest.mark.parametrize(
+    "val1,val2,expected",
+    [(None, None, None), (("a", "b", "c"), None, ("a", "b", "c")), (None, ("a", "b", "c"), ("a", "b", "c"))],
+)
+def test_multihost__mh_utility_pytest_report_teststatus(
+    mocker: MockerFixture, mock_mh: MultihostFixture, mock_host: MultihostHost, val1, val2, expected
+):
+    mock_pytest_report = mocker.MagicMock(spec=pytest.CollectReport)
+    mock_pytest_config = mocker.MagicMock(spec=pytest.Config)
+
+    class Role(MultihostRoleMock):
+        def __init__(self, mh, role, host):
+            super().__init__(mh, role, host)
+
+            self.dep1 = mocker.MagicMock(spec=MultihostUtilityMock)
+            self.dep2 = mocker.MagicMock(spec=MultihostUtilityMock)
+
+            self.dep1._mh_utility_dependencies = set()
+            self.dep2._mh_utility_dependencies = set()
+
+            self.dep1.pytest_report_teststatus.return_value = val1
+            self.dep2.pytest_report_teststatus.return_value = val2
+
+    role = Role(mock_mh, "role", mock_host)
+    ret = mh_utility_pytest_report_teststatus(role, mock_pytest_report, mock_pytest_config)
+
+    assert ret == expected
