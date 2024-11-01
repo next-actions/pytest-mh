@@ -1236,6 +1236,7 @@ def mh_utility_exit(util: MultihostUtility, where: str) -> None:
 
     enter_where, enter_result = util._mh_exit_stack.pop()
     if enter_where != where:
+        util._mh_exit_stack.append((enter_where, enter_result))
         raise IndexError(f"Calling exit from unexpected place {where}, expected {enter_where}")
 
     if not enter_result:
