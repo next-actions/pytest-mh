@@ -469,8 +469,6 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         :type domain: DomainType
         :param confdict: Host configuration as a dictionary.
         :type confdict: dict[str, Any]
-        :param shell: Shell used in SSH connection, defaults to '/usr/bin/bash -c'.
-        :type shell: str
         """
         self._op_state: OperationStatus = OperationStatus()
         """Keep state of setup and teardown methods."""
