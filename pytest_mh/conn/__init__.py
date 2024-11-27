@@ -1037,7 +1037,7 @@ class Bash(Shell):
     """
 
     def __init__(self) -> None:
-        super().__init__("bash", "/usr/bin/bash -c")
+        super().__init__("bash", "/usr/bin/env bash -c")
 
     def build_command_line(self, script: str, *, cwd: str | None, env: dict[str, Any]) -> str:
         full_script = self._add_cwd_and_env(script, cwd=cwd, env=env)
@@ -1065,7 +1065,7 @@ class Bash(Shell):
 
     def _escape_single_quotes(self, command: str) -> str:
         """
-        We call the command as `bash -c '$command'`.
+        We call the command as `/usr/bin/env bash -c '$command'`.
 
         We need to escape ' inside the script to make it work correctly.
         """

@@ -24,7 +24,7 @@ def test_conn__shell_bash__script(input: str, expected: str):
     shell = Bash()
 
     assert shell.name == "bash"
-    assert shell.shell_command == "/usr/bin/bash -c"
+    assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line(input, cwd=None, env={})
     assert cmd == f"{shell.shell_command} '{expected}'"
@@ -34,7 +34,7 @@ def test_conn__shell_bash__cwd():
     shell = Bash()
 
     assert shell.name == "bash"
-    assert shell.shell_command == "/usr/bin/bash -c"
+    assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line("echo hello world", cwd="/home/test", env={})
     expected = textwrap.dedent(
@@ -51,7 +51,7 @@ def test_conn__shell_bash__env():
     shell = Bash()
 
     assert shell.name == "bash"
-    assert shell.shell_command == "/usr/bin/bash -c"
+    assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line("echo hello world", cwd=None, env={"HELLO": "WORLD", "JOHN": "DOE"})
     expected = textwrap.dedent(
@@ -69,7 +69,7 @@ def test_conn__shell_bash__cwd_env():
     shell = Bash()
 
     assert shell.name == "bash"
-    assert shell.shell_command == "/usr/bin/bash -c"
+    assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line("echo hello world", cwd="/home/test", env={"HELLO": "WORLD", "JOHN": "DOE"})
     expected = textwrap.dedent(
