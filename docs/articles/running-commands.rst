@@ -35,3 +35,4 @@ SSH connection to the host for different user).
     running-commands/configuration
     running-commands/blocking-calls
     running-commands/non-blocking-calls
+    running-commands/timeouts

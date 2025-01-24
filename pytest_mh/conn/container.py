@@ -10,7 +10,7 @@ import colorama as c
 from pytest_mh.conn import Process, ProcessLogLevel
 
 from .._private.logging import MultihostLogger
-from . import Connection, ConnectionError, ProcessError, ProcessInputBuffer, ProcessResult, Shell
+from . import Connection, ConnectionError, ProcessError, ProcessInputBuffer, ProcessResult, ProcessTimeoutError, Shell
 
 if TYPE_CHECKING:
     from .. import MultihostHost
@@ -20,6 +20,7 @@ __all__ = [
     "ContainerConnectionError",
     "ContainerProcess",
     "ContainerProcessError",
+    "ContainerProcessTimeoutError",
     "ContainerInputBuffer",
     "ContainerProcessResult",
 ]
@@ -124,6 +125,14 @@ class ContainerProcessError(ProcessError):
     pass
 
 
+class ContainerProcessTimeoutError(ProcessTimeoutError):
+    """
+    Container Process Timeout Error.
+    """
+
+    pass
+
+
 class ContainerProcessResult(ProcessResult[ContainerProcessError]):
     """
     Container Process result.
@@ -132,7 +141,7 @@ class ContainerProcessResult(ProcessResult[ContainerProcessError]):
     pass
 
 
-class ContainerProcess(Process[ContainerProcessResult, ContainerInputBuffer]):
+class ContainerProcess(Process[ContainerProcessResult, ContainerInputBuffer, ContainerProcessTimeoutError]):
     """
     Container Process manager.
     """
@@ -147,6 +156,7 @@ class ContainerProcess(Process[ContainerProcessResult, ContainerInputBuffer]):
         shell: Shell,
         logger: MultihostLogger,
         log_level: ProcessLogLevel,
+        timeout: int,
         blocking_call: bool,
         client: ContainerClient,
     ) -> None:
@@ -165,6 +175,9 @@ class ContainerProcess(Process[ContainerProcessResult, ContainerInputBuffer]):
         :type logger: MultihostLogger
         :param log_level: Log level.
         :type log_level: ProcessLogLevel
+        :param timeout: Timeout in seconds, value ``0`` means that timeout is
+            disabled.
+        :type timeout: int
         :param blocking_call: Is this a blocking execution?
         :type blocking_call: bool
         :param client: Container client.
@@ -178,6 +191,7 @@ class ContainerProcess(Process[ContainerProcessResult, ContainerInputBuffer]):
             shell=shell,
             logger=logger,
             log_level=log_level,
+            timeout=timeout,
             blocking_call=blocking_call,
             additional_log_data={
                 "Engine": client.engine,
@@ -290,10 +304,21 @@ class ContainerProcess(Process[ContainerProcessResult, ContainerInputBuffer]):
             code = self.__popen.wait()
 
             error = ContainerProcessError(
-                self.id, self.command, code, self.cwd, self.env, self.input, self.__stdout.lines, self.__stderr.lines
+                code, self.id, self.command, self.cwd, self.env, self.input, self.__stdout.lines, self.__stderr.lines
             )
 
             result = ContainerProcessResult(code, self.__stdout.lines, self.__stderr.lines, error)
+        except TimeoutError as e:
+            raise ContainerProcessTimeoutError(
+                e.args[0],
+                self.id,
+                self.command,
+                self.cwd,
+                self.env,
+                self.input,
+                self.__stdout.lines,
+                self.__stderr.lines,
+            )
         finally:
             self._close()
 
@@ -355,6 +380,7 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         sudo_password: str | None = None,
         shell: Shell,
         logger: MultihostLogger,
+        timeout: int = 300,
     ) -> None:
         """
         :param container_name: Container name.
@@ -365,12 +391,15 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         :type sudo: bool
         :param sudo_password: SUDO password, defaults to ``None``.
         :type sudo_password: str | None
-        :param logger: Multihost logger.
-        :type logger: MultihostLogger
         :param shell: User shell used to run commands, defaults to ContainerBashProcess
         :type shell: str, optional
+        :param logger: Multihost logger.
+        :type logger: MultihostLogger
+        :param timeout: Timeout in seconds (defaults to 300), value
+            ``0`` means that timeout is disabled.
+        :type timeout: int
         """
-        super().__init__(shell=shell, logger=logger)
+        super().__init__(shell=shell, logger=logger, timeout=timeout)
 
         if engine not in ("podman", "docker"):
             raise ValueError(f"Unsupported container engine {engine}, expected podman or docker!")
@@ -433,6 +462,7 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
             shell=self.shell,
             logger=self.logger,
             log_level=log_level,
+            timeout=self.timeout,
             blocking_call=blocking_call,
             client=self,
         )
@@ -444,6 +474,7 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         user: str = confdict.get("user", "root")
         sudo: bool = confdict.get("sudo", False)
         sudo_password: str | None = confdict.get("sudo_password", None)
+        timeout: int = confdict.get("timeout", 300)
 
         if container is None:
             raise ValueError("Container name is not set!")
@@ -456,4 +487,5 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
             sudo_password=sudo_password,
             logger=host.logger,
             shell=host.shell,
+            timeout=timeout,
         )

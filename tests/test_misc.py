@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 from pathlib import Path
+from time import sleep, time
 
 import pytest
 
@@ -11,8 +12,62 @@ from pytest_mh._private.misc import (
     merge_dict,
     sanitize_path,
     should_collect_artifacts,
+    timeout,
     validate_configuration,
 )
+
+
+def test_misc__timeout__default_message():
+    def _test(value):
+        sleep(5)
+        return value
+
+    start = time()
+    with pytest.raises(TimeoutError, match="Operation timed out"):
+        timeout(2)(_test)("hello")
+    end = time()
+
+    assert end - start < 3
+
+
+def test_misc__timeout__custom_message():
+    def _test(value):
+        sleep(5)
+        return value
+
+    start = time()
+    with pytest.raises(TimeoutError, match="My message"):
+        timeout(2, "My message")(_test)("hello")
+    end = time()
+
+    assert end - start < 3
+
+
+def test_misc__timeout__zero():
+    def _test(value):
+        sleep(5)
+        return value
+
+    fn = timeout(0)(_test)
+    assert fn is _test
+
+
+def test_misc__timeout__invalid_seconds():
+    def _test(value):
+        sleep(5)
+        return value
+
+    with pytest.raises(ValueError):
+        timeout(-1)(_test)("hello")
+
+
+def test_misc__timeout__finished():
+    def _test(value):
+        sleep(1)
+        return value
+
+    result = timeout(2)(_test)("hello")
+    assert result == "hello"
 
 
 @pytest.mark.parametrize(

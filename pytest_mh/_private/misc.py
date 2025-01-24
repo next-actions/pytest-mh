@@ -1,16 +1,61 @@
 from __future__ import annotations
 
+import signal
 from collections.abc import Mapping
 from copy import deepcopy
-from functools import partial
+from functools import partial, wraps
 from inspect import getfullargspec
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
 from .types import MultihostOutcome
 
 if TYPE_CHECKING:
     from .artifacts import MultihostArtifactsMode
+
+
+Param = ParamSpec("Param")
+RetType = TypeVar("RetType")
+
+
+def timeout(
+    seconds: int, message: str = "Operation timed out"
+) -> Callable[[Callable[Param, RetType]], Callable[Param, RetType]]:
+    """
+    Raise TimeoutError if function takes longer then ``seconds`` to finish.
+
+    :param seconds: Number of seconds to wait.
+    :type seconds: int
+    :param message: Exception message, defaults to "Operation timed out"
+    :type message: str, optional
+    :raises ValueError: If ``seconds`` is less or equal to zero.
+    :raises TimeoutError: If timeout occurrs.
+    :return: Decorator.
+    :rtype: Callable[[Callable[Param, RetType]], Callable[Param, RetType]]
+    """
+    if seconds < 0:
+        raise ValueError(f"Invalid timeout value: {seconds}")
+
+    def _timeout_handler(signum, frame):
+        raise TimeoutError(seconds, message)
+
+    def decorator(func: Callable[Param, RetType]) -> Callable[Param, RetType]:
+        if seconds == 0:
+            return func
+
+        @wraps(func)
+        def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> RetType:
+            old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+            old_timer = signal.setitimer(signal.ITIMER_REAL, seconds)
+            try:
+                return func(*args, **kwargs)
+            finally:
+                signal.setitimer(signal.ITIMER_REAL, *old_timer)
+                signal.signal(signal.SIGALRM, old_handler)
+
+        return wrapper
+
+    return decorator
 
 
 def validate_configuration(
