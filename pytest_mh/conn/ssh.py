@@ -12,7 +12,7 @@ from pylibsshext.session import Session as LibsshSession
 from pytest_mh.conn import Process, ProcessLogLevel
 
 from .._private.logging import MultihostLogger
-from . import Connection, ConnectionError, ProcessError, ProcessInputBuffer, ProcessResult, Shell
+from . import Connection, ConnectionError, ProcessError, ProcessInputBuffer, ProcessResult, ProcessTimeoutError, Shell
 
 if TYPE_CHECKING:
     from .. import MultihostHost
@@ -22,6 +22,7 @@ __all__ = [
     "SSHAuthenticationError",
     "SSHProcess",
     "SSHProcessError",
+    "SSHProcessTimeoutError",
     "SSHInputBuffer",
     "SSHProcessResult",
 ]
@@ -105,6 +106,28 @@ class SSHOutputBuffer(Generator):
         """
         list(self)
 
+    def read_once_into_buffer(self) -> None:
+        """
+        Read all data that are currently available and store it in the lines
+        buffer.
+        """
+        self.chunk += self._read()
+
+        while self.chunk:
+            newline = self.chunk.find("\n")
+
+            # Store a full line if it was already read
+            if newline >= 0:
+                line = self.chunk[:newline]
+                self.lines.append(line)
+                self.chunk = self.chunk[newline + 1 :]
+                continue
+
+            # Return remaining data if there is nothing else to read
+            line = self.chunk
+            self.lines.append(line)
+            self.chunk = ""
+
     def send(self, value: Any):
         while True:
             if self.chunk:
@@ -143,6 +166,14 @@ class SSHProcessError(ProcessError):
     pass
 
 
+class SSHProcessTimeoutError(ProcessTimeoutError):
+    """
+    SSH Process Timeout Error.
+    """
+
+    pass
+
+
 class SSHProcessResult(ProcessResult[SSHProcessError]):
     """
     SSH Process result.
@@ -151,7 +182,7 @@ class SSHProcessResult(ProcessResult[SSHProcessError]):
     pass
 
 
-class SSHProcess(Process[SSHProcessResult, SSHInputBuffer]):
+class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutError]):
     """
     SSH Process manager.
     """
@@ -166,6 +197,7 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer]):
         shell: Shell,
         logger: MultihostLogger,
         log_level: ProcessLogLevel,
+        timeout: int,
         blocking_call: bool,
         client: SSHClient,
         conn: LibsshSession,
@@ -185,6 +217,9 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer]):
         :type logger: MultihostLogger
         :param log_level: Log level.
         :type log_level: ProcessLogLevel
+        :param timeout: Timeout in seconds, value ``0`` means that timeout is
+            disabled.
+        :type timeout: int
         :param blocking_call: Is this a blocking execution?
         :type blocking_call: bool
         :param client: SSH client.
@@ -200,6 +235,7 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer]):
             shell=shell,
             logger=logger,
             log_level=log_level,
+            timeout=timeout,
             blocking_call=blocking_call,
             additional_log_data={
                 "Host": client.host,
@@ -288,10 +324,23 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer]):
             self.__stderr.finish()
 
             error = SSHProcessError(
-                self.id, self.command, code, self.cwd, self.env, self.input, self.__stdout.lines, self.__stderr.lines
+                code, self.id, self.command, self.cwd, self.env, self.input, self.__stdout.lines, self.__stderr.lines
             )
 
             result = SSHProcessResult(code, self.__stdout.lines, self.__stderr.lines, error)
+        except TimeoutError as e:
+            self.__stdout.read_once_into_buffer()
+            self.__stderr.read_once_into_buffer()
+            raise SSHProcessTimeoutError(
+                e.args[0],
+                self.id,
+                self.command,
+                self.cwd,
+                self.env,
+                self.input,
+                self.__stdout.lines,
+                self.__stderr.lines,
+            )
         finally:
             self._close()
 
@@ -363,6 +412,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         port: int = 22,
         shell: Shell,
         logger: MultihostLogger,
+        timeout: int = 300,
     ) -> None:
         """
         :param host: Host name to connect to.
@@ -377,12 +427,15 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         :type private_key_password: str | None
         :param port: SSH port, defaults to 22
         :type port: int, optional
-        :param logger: Multihost logger.
-        :type logger: MultihostLogger
         :param shell: User shell used to run commands, defaults to SSHBashProcess
         :type shell: str, optional
+        :param logger: Multihost logger.
+        :type logger: MultihostLogger
+        :param timeout: Timeout in seconds (defaults to 300), value
+            ``0`` means that timeout is disabled.
+        :type timeout: int
         """
-        super().__init__(shell=shell, logger=logger)
+        super().__init__(shell=shell, logger=logger, timeout=timeout)
 
         if password is None and private_key_path is None:
             raise ValueError("At least one authentication mechanism has to be set.")
@@ -396,7 +449,12 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         self.private_key_password: bytes | None = None
         self.private_key, self.private_key_password = self._read_private_key(private_key_path, private_key_password)
 
-        self.__conn: LibsshSession = LibsshSession()
+        # Timeout is maximum number of seconds that operation can block, after
+        # then it returns error and we need to retry. It is necessary to set,
+        # since Python will not deliver signal if the code is blocked in C
+        # library. The signal is deliver only after we get back to the Python
+        # code.
+        self.__conn: LibsshSession = LibsshSession(timeout=1)
 
     def _read_private_key(
         self,
@@ -489,6 +547,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
             shell=self.shell,
             logger=self.logger,
             log_level=log_level,
+            timeout=self.timeout,
             blocking_call=blocking_call,
             client=self,
             conn=self.__conn,
@@ -502,6 +561,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         ssh_password: str | None = confdict.get("password", None)
         ssh_private_key: str | None = confdict.get("private_key", None)
         ssh_private_key_password: str | None = confdict.get("private_key_password", None)
+        timeout: int = confdict.get("timeout", 300)
 
         if ssh_password is None and ssh_private_key is None:
             ssh_password = "Secret123"
@@ -515,4 +575,5 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
             port=ssh_port,
             logger=host.logger,
             shell=host.shell,
+            timeout=timeout,
         )

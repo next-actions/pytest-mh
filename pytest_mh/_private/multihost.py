@@ -10,7 +10,17 @@ from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Sequence, Type,
 import pytest
 
 from ..cli import CLIBuilder
-from ..conn import Bash, Connection, Powershell, Process, ProcessError, ProcessInputBuffer, ProcessResult, Shell
+from ..conn import (
+    Bash,
+    Connection,
+    Powershell,
+    Process,
+    ProcessError,
+    ProcessInputBuffer,
+    ProcessResult,
+    ProcessTimeoutError,
+    Shell,
+)
 from ..conn.container import ContainerClient
 from ..conn.ssh import SSHClient
 from .artifacts import (
@@ -526,9 +536,9 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
                 raise ValueError(f"Unknown operating system os_family: {self.os_family}")
 
         # Connection to the host
-        self.conn: Connection[Process[ProcessResult, ProcessInputBuffer], ProcessResult[ProcessError]] = (
-            self.get_connection()
-        )
+        self.conn: Connection[
+            Process[ProcessResult, ProcessInputBuffer, ProcessTimeoutError], ProcessResult[ProcessError]
+        ] = self.get_connection()
         """Connection to the host."""
 
         # CLI Builder instance
