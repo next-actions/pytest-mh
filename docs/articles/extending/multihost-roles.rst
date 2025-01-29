@@ -128,7 +128,7 @@ during teardown.
             Journald utilities.
             """
 
-            self.cli: CLIBuilder = CLIBuilder(self.host.conn)
+            self.cli: CLIBuilder = CLIBuilder(self.conn)
             """
             CLI builder helper.
             """
@@ -161,7 +161,7 @@ during teardown.
             # Delete users that we added
             if self._users:
                 cmd = "\n".join([f"userdel '{x}' --force --remove" for x in self._users]) + "\n"
-                self.host.conn.run("set -e\n\n" + cmd)
+                self.conn.run("set -e\n\n" + cmd)
 
             super().teardown()
 
@@ -208,7 +208,7 @@ during teardown.
 
             passwd = f" && passwd --stdin '{name}'" if password else ""
             self.logger.info(f'Creating local user "{name}" on {self.host.hostname}')
-            self.host.conn.run(self.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error)
+            self.conn.run(self.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error)
 
             self._users.append(name)
 

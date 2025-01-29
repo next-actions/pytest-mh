@@ -59,7 +59,7 @@ class Auditd(MultihostUtility[MultihostHost]):
         """
         super().setup()
 
-        result = self.host.conn.run(
+        result = self.conn.run(
             """
             set -e
 
@@ -85,7 +85,7 @@ class Auditd(MultihostUtility[MultihostHost]):
         Restore previous audit logs from backup and remove the backup.
         """
         if self._backup is not None:
-            self.host.conn.run(
+            self.conn.run(
                 f"""
                 set -e
 
@@ -122,7 +122,7 @@ class Auditd(MultihostUtility[MultihostHost]):
 
         self.logger.info("Checking for AVC denials")
 
-        result = self.host.conn.run(
+        result = self.conn.run(
             "ausearch --input-logs -m AVC,USER_AVC", raise_on_error=False, log_level=ProcessLogLevel.Silent
         )
         if result.rc:

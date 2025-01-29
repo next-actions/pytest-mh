@@ -57,7 +57,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
 
             cmd = "\n".join(reversed(self.__rollback))
             if cmd:
-                self.host.conn.run(cmd, log_level=ProcessLogLevel.Error)
+                self.conn.run(cmd, log_level=ProcessLogLevel.Error)
 
         self.__rollback, self.__backup = self.__states.pop()
 
@@ -76,7 +76,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         """
         self.backup(path)
         self.logger.info(f'Creating directory "{path}"')
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
                 rm -fr '{path}'
@@ -104,7 +104,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         backup_exists = path in self.__backup
         self.backup(path)
         self.logger.info(f'Creating directory "{path}" (with parents)')
-        result = self.host.conn.run(
+        result = self.conn.run(
             f"""
                 set -ex
                 rm -fr '{path}'
@@ -151,7 +151,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         """
 
         self.logger.info("Creating temporary file")
-        result = self.host.conn.run(
+        result = self.conn.run(
             """
                 set -ex
                 tmp=`mktemp /tmp/mh.fs.rollback.XXXXXXXXX`
@@ -173,11 +173,11 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
                 contents = textwrap.dedent(contents).strip()
 
             self.logger.info(f'Writing file "{tmpfile}"', extra={"data": {"Contents": contents}})
-            self.host.conn.run(f"cat > '{tmpfile}'", input=contents, log_level=ProcessLogLevel.Error)
+            self.conn.run(f"cat > '{tmpfile}'", input=contents, log_level=ProcessLogLevel.Error)
 
         attrs = self.__gen_chattrs(tmpfile, mode=mode, user=user, group=group)
         if attrs:
-            self.host.conn.run(attrs, log_level=ProcessLogLevel.Error)
+            self.conn.run(attrs, log_level=ProcessLogLevel.Error)
 
         return tmpfile
 
@@ -191,7 +191,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f'Removing file "{path}"')
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
                 rm -fr '{path}'
@@ -209,7 +209,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         :rtype: str
         """
         self.logger.info(f'Reading file "{path}"')
-        result = self.host.conn.exec(["cat", path], log_level=ProcessLogLevel.Error)
+        result = self.conn.exec(["cat", path], log_level=ProcessLogLevel.Error)
 
         return result.stdout
 
@@ -223,7 +223,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         :rtype: bool
         """
         self.logger.info(f'Checking if "{path}" exists')
-        result = self.host.conn.exec(["ls", path], log_level=ProcessLogLevel.Error, raise_on_error=False)
+        result = self.conn.exec(["ls", path], log_level=ProcessLogLevel.Error, raise_on_error=False)
 
         if result.rc == 0:
             return True
@@ -262,7 +262,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f'Writing file "{path}"', extra={"data": {"Contents": contents}})
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
 
@@ -300,7 +300,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f'Appending to file "{path}"', extra={"data": {"Contents": contents}})
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
                 cat >> '{path}'
@@ -334,7 +334,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f'Touching file "{path}"')
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
                 touch '{path}'
@@ -360,7 +360,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f'Truncating file "{path}"', extra={"data": {"Size": size}})
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
                 truncate -s '{size}' '{path}'
@@ -396,7 +396,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(dstpath)
         self.logger.info(f'Copying file "{srcpath}" to "{dstpath}"')
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
                 cp --archive '{srcpath}' '{dstpath}'
@@ -433,7 +433,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         with open(local_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
 
-        self.host.conn.run(
+        self.conn.run(
             f"""
                 set -ex
 
@@ -476,7 +476,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         with open(local_path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("utf-8")
 
-        self.host.conn.run(f"base64 --decode > '{tmp_path}'", input=encoded, log_level=ProcessLogLevel.Error)
+        self.conn.run(f"base64 --decode > '{tmp_path}'", input=encoded, log_level=ProcessLogLevel.Error)
 
         return tmp_path
 
@@ -490,7 +490,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         :type local_path: str
         """
         self.logger.info(f'Downloading file "{self.host.hostname}:{remote_path}" to "{local_path}"')
-        result = self.host.conn.exec(["base64", remote_path], log_level=ProcessLogLevel.Error)
+        result = self.conn.exec(["base64", remote_path], log_level=ProcessLogLevel.Error)
         with open(local_path, "wb") as f:
             f.write(base64.b64decode(result.stdout))
 
@@ -508,7 +508,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.logger.info(
             f'Downloading files from {self.host.hostname} to "{local_path}"', extra={"data": {"Paths": paths}}
         )
-        result = self.host.conn.run(
+        result = self.conn.run(
             f"""
             tmp=`mktemp /tmp/mh.fs.download_files.XXXXXXXXX`
             tar -czvf "$tmp" {' '.join([f'$(compgen -G "{path}")' for path in paths])} &> /dev/null
@@ -543,7 +543,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
             return True
 
         self.logger.info(f'Creating a backup of "{path}"')
-        result = self.host.conn.run(
+        result = self.conn.run(
             f"""
         set -ex
 
@@ -594,7 +594,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         action, state = item
 
         self.logger.info(f'Restoring "{path}" from backup ({state})')
-        self.host.conn.run(action, log_level=ProcessLogLevel.Error)
+        self.conn.run(action, log_level=ProcessLogLevel.Error)
 
         self.__rollback.remove(action)
         del self.__backup[path]
@@ -650,7 +650,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         if chars:
             args.append("-m")
 
-        return self.host.conn.exec(["wc", *args, file], log_level=ProcessLogLevel.Error)
+        return self.conn.exec(["wc", *args, file], log_level=ProcessLogLevel.Error)
 
     def diff(
         self,
@@ -689,7 +689,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         if ignore_case:
             args.append("--ignore-case")
 
-        return self.host.conn.exec(["diff", *args, path1, path2], raise_on_error=False)
+        return self.conn.exec(["diff", *args, path1, path2], raise_on_error=False)
 
     def chmod(self, mode: str, path: str, args: list[str] | None = None) -> ProcessResult:
         """
@@ -709,7 +709,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f'Changing mode to "{mode}" for "{path}"')
         args = args if args else []
-        return self.host.conn.exec(["chmod", *args, mode, path], log_level=ProcessLogLevel.Error)
+        return self.conn.exec(["chmod", *args, mode, path], log_level=ProcessLogLevel.Error)
 
     def chown(
         self, path: str, user: str | None = None, group: str | None = None, args: list[str] | None = None
@@ -737,7 +737,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         args = args if args else []
         mode = f"{user}" if user else ""
         mode += f":{group}" if group else ""
-        return self.host.conn.exec(["chown", mode, *path.split(), *args], log_level=ProcessLogLevel.Error)
+        return self.conn.exec(["chown", mode, *path.split(), *args], log_level=ProcessLogLevel.Error)
 
     def sed(self, command: str, path: str, args: list[str] | None = None) -> ProcessResult:
         """
@@ -756,4 +756,4 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.backup(path)
         self.logger.info(f"Running sed {command} on {path}")
         args = args if args else []
-        return self.host.conn.exec(["sed", *args, command, path], log_level=ProcessLogLevel.Error)
+        return self.conn.exec(["sed", *args, command, path], log_level=ProcessLogLevel.Error)

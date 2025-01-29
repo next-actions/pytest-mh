@@ -20,19 +20,19 @@ return code, standard output and standard error output.
             """
             Run a single line script code.
             """
-            return self.host.conn.run("echo 'Hello World'")
+            return self.conn.run("echo 'Hello World'")
 
         def say_hello_argv(self) -> ProcessResult:
             """
             Execute command by passing list of arguments.
             """
-            return self.host.conn.exec(["echo", "Hello World"])
+            return self.conn.exec(["echo", "Hello World"])
 
         def say_script(self) -> ProcessResult:
             """
             Execute a multiline script code.
             """
-            return self.host.conn.run(
+            return self.conn.run(
                 """
                 set -ex
 
@@ -44,7 +44,7 @@ return code, standard output and standard error output.
             """
             You can also pass input data.
             """
-            return self.host.conn.run("cat", input="Hello World")
+            return self.conn.run("cat", input="Hello World")
 
     @pytest.mark.topology(...)
     def test_hello(example: ExampleRole) -> None:
@@ -68,7 +68,7 @@ overwrite the behaviour with ``raise_on_error`` argument.
 .. code-block:: python
     :caption: Example: Do not raise exception on non-zero return code
 
-    result = self.host.conn.run("echo 'Hello World'", raise_on_error=False)
+    result = self.conn.run("echo 'Hello World'", raise_on_error=False)
     if result.rc not in (0, 1):
         # Raise ProcessError if rc was not 0 or 1
         result.throw()
@@ -83,7 +83,7 @@ overwrite the behaviour with ``raise_on_error`` argument.
     .. code-block:: python
         :caption: Example: Custom log level
 
-        self.host.conn.run(
+        self.conn.run(
             "echo 'Hello World'",
             log_level=ProcessLogLevel.Error
         )

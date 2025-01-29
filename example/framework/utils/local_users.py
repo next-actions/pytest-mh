@@ -54,7 +54,7 @@ class LocalUsersUtils(MultihostUtility[MultihostHost]):
             cmd += "\n"
 
         if cmd:
-            self.host.conn.run("set -e\n\n" + cmd)
+            self.conn.run("set -e\n\n" + cmd)
 
         super().teardown()
 
@@ -138,7 +138,7 @@ class LocalUser(User):
 
         passwd = f" && passwd --stdin '{self.name}'" if password else ""
         self.util.logger.info(f'Creating local user "{self.name}"')
-        self.util.host.conn.run(
+        self.util.conn.run(
             self.util.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error
         )
 
@@ -180,7 +180,7 @@ class LocalGroup(Group):
         }
 
         self.util.logger.info(f'Creating local group "{self.name}"')
-        self.util.host.conn.run(self.util.cli.command("groupadd", args), log_level=ProcessLogLevel.Silent)
+        self.util.conn.run(self.util.cli.command("groupadd", args), log_level=ProcessLogLevel.Silent)
         self.util._groups.append(self.name)
 
         return self
@@ -200,7 +200,7 @@ class LocalGroup(Group):
             return self
 
         cmd = "\n".join([f"groupmems --group '{self.name}' --add '{x.name}'" for x in members])
-        self.util.host.conn.run("set -ex\n" + cmd, log_level=ProcessLogLevel.Error)
+        self.util.conn.run("set -ex\n" + cmd, log_level=ProcessLogLevel.Error)
 
         return self
 
@@ -219,6 +219,6 @@ class LocalGroup(Group):
             return self
 
         cmd = "\n".join([f"groupmems --group '{self.name}' --delete '{x.name}'" for x in members])
-        self.util.host.conn.run("set -ex\n" + cmd, log_level=ProcessLogLevel.Error)
+        self.util.conn.run("set -ex\n" + cmd, log_level=ProcessLogLevel.Error)
 
         return self

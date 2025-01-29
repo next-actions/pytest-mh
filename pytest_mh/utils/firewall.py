@@ -255,7 +255,7 @@ class Firewalld(Firewall):
         """
         super().setup()
         self.add_policy(f"test-policy-{randrange(99999)}", ingress="HOST", egress="ANY")
-        self.host.conn.exec(["firewall-cmd", "--reload"], log_level=ProcessLogLevel.Error)
+        self.conn.exec(["firewall-cmd", "--reload"], log_level=ProcessLogLevel.Error)
 
     def teardown(self) -> None:
         """
@@ -265,7 +265,7 @@ class Firewalld(Firewall):
         """
         for policy in list(self._policies):
             self.remove_policy(policy)
-        self.host.conn.exec(["firewall-cmd", "--reload"])
+        self.conn.exec(["firewall-cmd", "--reload"])
         super().teardown()
 
     @property
@@ -349,22 +349,22 @@ class Firewalld(Firewall):
         self.logger.info(f'Firewalld: adding policy "{name}"')
 
         cmd = ["firewall-cmd", "--permanent", "--new-policy", name]
-        self.host.conn.exec(cmd, log_level=ProcessLogLevel.Error)
+        self.conn.exec(cmd, log_level=ProcessLogLevel.Error)
         self._policies.append(name)
         cmd[2] = "--policy"
 
         if priority is None:
             priority = self._next_priority
-        self.host.conn.exec([*cmd, "--set-priority", str(priority)], log_level=ProcessLogLevel.Error)
+        self.conn.exec([*cmd, "--set-priority", str(priority)], log_level=ProcessLogLevel.Error)
 
         if ingress is not None:
-            self.host.conn.exec([*cmd, "--add-ingress-zone", ingress], log_level=ProcessLogLevel.Error)
+            self.conn.exec([*cmd, "--add-ingress-zone", ingress], log_level=ProcessLogLevel.Error)
 
         if egress is not None:
-            self.host.conn.exec([*cmd, "--add-egress-zone", egress], log_level=ProcessLogLevel.Error)
+            self.conn.exec([*cmd, "--add-egress-zone", egress], log_level=ProcessLogLevel.Error)
 
         if target is not None:
-            self.host.conn.exec([*cmd, "--set-target", target], log_level=ProcessLogLevel.Error)
+            self.conn.exec([*cmd, "--set-target", target], log_level=ProcessLogLevel.Error)
 
         return priority
 
@@ -376,7 +376,7 @@ class Firewalld(Firewall):
         :type name: str
         """
         self.logger.info(f'Firewalld: removing policy "{name}"')
-        self.host.conn.exec(["firewall-cmd", "--permanent", "--delete-policy", name], log_level=ProcessLogLevel.Error)
+        self.conn.exec(["firewall-cmd", "--permanent", "--delete-policy", name], log_level=ProcessLogLevel.Error)
         self._policies.remove(name)
 
     def add_rich_rule(self, rule: str, policy: str | None = None, priority: int | None = None) -> int:
@@ -411,9 +411,7 @@ class Firewalld(Firewall):
 
         rule = f"rule priority={priority} {rule}"
         self.logger.info(f'Firewalld: adding rich rule "{rule}"')
-        self.host.conn.exec(
-            ["firewall-cmd", "--policy", policy, "--add-rich-rule", rule], log_level=ProcessLogLevel.Error
-        )
+        self.conn.exec(["firewall-cmd", "--policy", policy, "--add-rich-rule", rule], log_level=ProcessLogLevel.Error)
 
         return priority
 
@@ -443,7 +441,7 @@ class Firewalld(Firewall):
 
         rule = f"rule priority={priority} {rule}"
         self.logger.info(f'Firewalld: removing rich rule  "{rule}"')
-        self.host.conn.exec(
+        self.conn.exec(
             ["firewall-cmd", "--policy", policy, "--remove-rich-rule", rule], log_level=ProcessLogLevel.Error
         )
 
@@ -613,9 +611,7 @@ class FirewalldOutboundRules(FirewallOutboundRules):
             if isinstance(ip, ip_type):
                 addrs = [hostname]
         except ValueError:
-            result = self.firewall.host.conn.exec(
-                ["dig", "+short", "-t", type, hostname], log_level=ProcessLogLevel.Error
-            )
+            result = self.firewall.conn.exec(["dig", "+short", "-t", type, hostname], log_level=ProcessLogLevel.Error)
             addrs = result.stdout_lines
 
         return addrs
@@ -655,7 +651,7 @@ class WindowsFirewall(Firewall):
         """
         super().setup()
         self.logger.info(f"Windows Firewall: creating backup at '{self._backup}'")
-        self.host.conn.run(
+        self.conn.run(
             f"Remove-Item {self._backup}; netsh advfirewall export {self._backup}", log_level=ProcessLogLevel.Error
         )
 
@@ -666,7 +662,7 @@ class WindowsFirewall(Firewall):
         :meta private:
         """
         self.logger.info(f"Windows Firewall: restoring from '{self._backup}'")
-        self.host.conn.run(
+        self.conn.run(
             f"netsh advfirewall reset; netsh advfirewall import {self._backup}", log_level=ProcessLogLevel.Error
         )
         super().teardown()
@@ -730,7 +726,7 @@ class WindowsFirewall(Firewall):
             self.remove_rule(opposite)
 
         self.logger.info(f'Windows Firewall: adding rule: {" ".join([str(x) for x in cmd])}')
-        self.host.conn.exec(cmd, log_level=ProcessLogLevel.Error)
+        self.conn.exec(cmd, log_level=ProcessLogLevel.Error)
         self._rules.append(fullname)
 
         return fullname
@@ -744,7 +740,7 @@ class WindowsFirewall(Firewall):
         """
         cmd = ["Remove-NetFirewallRule", "-DisplayName", name]
         self.logger.info(f'Windows Firewall: removing rule: {" ".join([str(x) for x in cmd])}')
-        self.host.conn.exec(cmd, log_level=ProcessLogLevel.Error)
+        self.conn.exec(cmd, log_level=ProcessLogLevel.Error)
         self._rules.remove(name)
 
 
@@ -850,7 +846,7 @@ class WindowsFirewallOutboundRules(FirewallOutboundRules):
             self.firewall.add_rule(f"{hostname}", "outbound", action, ["-RemoteAddress", ",".join([*ipv4s, *ipv6s])])
 
     def __resolve_hostname(self, hostname: str, type: Literal["A", "AAAA"]) -> list[str]:
-        result = self.firewall.host.conn.run(
+        result = self.firewall.conn.run(
             f"(Resolve-DnsName -Type {type} -Name {hostname}).IpAddress", log_level=ProcessLogLevel.Error
         )
         return result.stdout_lines

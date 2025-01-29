@@ -819,6 +819,9 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
         self.role: str = role
         self.host: HostType = host
 
+        self.conn: Connection[Process[ProcessResult, ProcessInputBuffer], ProcessResult[ProcessError]] = host.conn
+        """Connection to the host."""
+
         self.logger: MultihostLogger = self.host.logger
         """Multihost logger."""
 
@@ -911,6 +914,9 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
         """
         self.host: HostType = host
         """Multihost host."""
+
+        self.conn: Connection[Process[ProcessResult, ProcessInputBuffer], ProcessResult[ProcessError]] = host.conn
+        """Connection to the host."""
 
         self.logger: MultihostLogger = self.host.logger
         """Multihost logger."""

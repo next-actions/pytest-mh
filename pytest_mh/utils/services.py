@@ -39,13 +39,13 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         self.reload_daemon()
         for service, state in self.initial_states.items():
             self.logger.info(f'systemd: restoring "{service}" to {"started" if state else "stopped"}')
-            self.host.conn.run(
+            self.conn.run(
                 self._debug_failure(service, f'systemctl stop "{service}"'),
                 raise_on_error=False,
                 log_level=ProcessLogLevel.Error,
             )
             if state:
-                self.host.conn.run(
+                self.conn.run(
                     self._debug_failure(service, f'systemctl start "{service}"'),
                     raise_on_error=False,
                     log_level=ProcessLogLevel.Error,
@@ -67,7 +67,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.__set_initial_state(service)
         self.logger.info(f'systemd: starting "{service}" asynchronously')
-        return self.host.conn.async_run(
+        return self.conn.async_run(
             self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl start "{service}"'),
             log_level=ProcessLogLevel.Error,
         )
@@ -88,7 +88,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.__set_initial_state(service)
         self.logger.info(f'systemd: starting "{service}"')
-        return self.host.conn.run(
+        return self.conn.run(
             self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl start "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
@@ -108,7 +108,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.__set_initial_state(service)
         self.logger.info(f'systemd: stopping "{service}" asynchronously')
-        return self.host.conn.async_run(
+        return self.conn.async_run(
             self._debug_failure(service, f'systemctl stop "{service}"'), log_level=ProcessLogLevel.Error
         )
 
@@ -128,7 +128,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.__set_initial_state(service)
         self.logger.info(f'systemd: stopping "{service}"')
-        return self.host.conn.run(
+        return self.conn.run(
             self._debug_failure(service, f'systemctl stop "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
@@ -148,7 +148,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.__set_initial_state(service)
         self.logger.info(f'systemd: restarting "{service}" asynchronously')
-        return self.host.conn.async_run(
+        return self.conn.async_run(
             self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl restart "{service}"'),
             log_level=ProcessLogLevel.Error,
         )
@@ -169,7 +169,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         """
         self.__set_initial_state(service)
         self.logger.info(f'systemd: restarting "{service}"')
-        return self.host.conn.run(
+        return self.conn.run(
             self._debug_failure(service, f'systemctl reset-failed "{service}"; systemctl restart "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
@@ -188,7 +188,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :rtype: Process
         """
         self.logger.info(f'systemd: reloading "{service}" asynchronously')
-        return self.host.conn.async_run(
+        return self.conn.async_run(
             self._debug_failure(service, f'systemctl reload "{service}"'), log_level=ProcessLogLevel.Error
         )
 
@@ -207,7 +207,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :rtype: ProcessResult
         """
         self.logger.info(f'systemd: reloading "{service}"')
-        return self.host.conn.run(
+        return self.conn.run(
             self._debug_failure(service, f'systemctl reload "{service}"'),
             raise_on_error=raise_on_error,
             log_level=ProcessLogLevel.Error,
@@ -222,7 +222,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :return: Running SSH process.
         :rtype: Process
         """
-        return self.host.conn.async_run(f'systemctl status "{service}"')
+        return self.conn.async_run(f'systemctl status "{service}"')
 
     def status(self, service: str, raise_on_error: bool = True) -> ProcessResult:
         """
@@ -235,7 +235,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :return: SSH process result.
         :rtype: ProcessResult
         """
-        return self.host.conn.run(f'systemctl status "{service}"', raise_on_error=raise_on_error)
+        return self.conn.run(f'systemctl status "{service}"', raise_on_error=raise_on_error)
 
     def async_get_property(self, service: str, prop: str) -> Process:
         """
@@ -248,7 +248,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :return: Running SSH process.
         :rtype: Process
         """
-        return self.host.conn.async_run(f'systemctl show "{service}" --value --property "{prop}"')
+        return self.conn.async_run(f'systemctl show "{service}" --value --property "{prop}"')
 
     def get_property(self, service: str, prop: str, raise_on_error: bool = True) -> str:
         """
@@ -263,7 +263,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :return: property value as string.
         :rtype: str
         """
-        result = self.host.conn.run(
+        result = self.conn.run(
             f'systemctl show "{service}" --value --property "{prop}"', raise_on_error=raise_on_error
         )
         return result.stdout.strip()
@@ -276,7 +276,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :rtype: Process
         """
         self.logger.info("systemd: reloading systemd daemon")
-        return self.host.conn.async_run("systemctl daemon-reload", log_level=ProcessLogLevel.Error)
+        return self.conn.async_run("systemctl daemon-reload", log_level=ProcessLogLevel.Error)
 
     def reload_daemon(self, raise_on_error: bool = True) -> ProcessResult:
         """
@@ -287,7 +287,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         :return: SSH process result.
         :rtype: ProcessResult
         """
-        return self.host.conn.run("systemctl daemon-reload", raise_on_error=raise_on_error)
+        return self.conn.run("systemctl daemon-reload", raise_on_error=raise_on_error)
 
     def _debug_failure(self, service: str, command: str) -> str:
         return f"{command} || ({self._query_logs_command(service)})"
@@ -309,9 +309,7 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
         if service in self.initial_states:
             return
 
-        result = self.host.conn.run(
-            f'systemctl status "{service}"', log_level=ProcessLogLevel.Silent, raise_on_error=False
-        )
+        result = self.conn.run(f'systemctl status "{service}"', log_level=ProcessLogLevel.Silent, raise_on_error=False)
 
         if result.rc == 0 or (result.rc == 3 and "Active: activating" in result.stdout):
             self.initial_states[service] = True

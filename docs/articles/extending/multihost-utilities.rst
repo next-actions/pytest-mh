@@ -71,7 +71,7 @@ cleans up after itself and to share this code between multiple roles.
 
             if self._users:
                 cmd = "\n".join([f"userdel '{x}' --force --remove" for x in self._users]) + "\n"
-                self.host.conn.run("set -e\n\n" + cmd)
+                self.conn.run("set -e\n\n" + cmd)
 
             super().teardown()
 
@@ -118,7 +118,7 @@ cleans up after itself and to share this code between multiple roles.
 
             passwd = f" && passwd --stdin '{name}'" if password else ""
             self.logger.info(f'Creating local user "{name}" on {self.host.hostname}')
-            self.host.conn.run(self.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error)
+            self.conn.run(self.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error)
 
             self._users.append(name)
 
@@ -315,7 +315,7 @@ example.
             """
             if self._users:
                 cmd = "\n".join([f"userdel '{x}' --force --remove" for x in self._users]) + "\n"
-                self.host.conn.run("set -e\n\n" + cmd)
+                self.conn.run("set -e\n\n" + cmd)
 
             self._users = self._states.pop()
 
@@ -362,7 +362,7 @@ example.
 
             passwd = f" && passwd --stdin '{name}'" if password else ""
             self.logger.info(f'Creating local user "{name}" on {self.host.hostname}')
-            self.host.conn.run(self.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error)
+            self.conn.run(self.cli.command("useradd", args) + passwd, input=password, log_level=ProcessLogLevel.Error)
 
             self._users.append(name)
 

@@ -30,7 +30,7 @@ which represents a running process. You can write to
 
     @pytest.mark.topology(...)
     def test_hello(example: ExampleRole) -> None:
-        process = example.host.conn.async_run("cat")
+        process = example.conn.async_run("cat")
 
         process.stdin.write("Hello\n")
         assert next(process.stdout) == "Hello"

@@ -94,9 +94,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         :rtype: list[str]
         """
         # List the folder, exit with 0 if it does not exist (no core files were produced)
-        result = self.host.conn.run(
-            f"[ -d '{self.path}' ] && ls -N -1 '{self.path}' || :", log_level=ProcessLogLevel.Error
-        )
+        result = self.conn.run(f"[ -d '{self.path}' ] && ls -N -1 '{self.path}' || :", log_level=ProcessLogLevel.Error)
 
         return result.stdout_lines
 
@@ -151,7 +149,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
                 continue
 
             # Dump the information
-            self.host.conn.run(
+            self.conn.run(
                 rf"""
                 journalctl --output=verbose          \
                     'COREDUMP_PID={pid}'             \

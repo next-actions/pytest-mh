@@ -31,7 +31,7 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :return: Current date and time that can be used to filter the journal.
         :rtype: str
         """
-        return self.host.conn.exec(["date", "+%Y-%m-%d %H:%M:%S.%N"], log_level=ProcessLogLevel.Error).stdout.strip()
+        return self.conn.exec(["date", "+%Y-%m-%d %H:%M:%S.%N"], log_level=ProcessLogLevel.Error).stdout.strip()
 
     def setup(self) -> None:
         """
@@ -51,7 +51,7 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        self.host.conn.run(f"journalctl --since '{self._test_start}' > /var/log/journald.log")
+        self.conn.run(f"journalctl --since '{self._test_start}' > /var/log/journald.log")
         return {"/var/log/journald.log"}
 
     def clear(self) -> None:
@@ -122,7 +122,7 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
             "no-pager": (cli.option.SWITCH, True),
         }
 
-        return self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
+        return self.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
 
     def is_match(self, pattern: str, unit: str | None = None) -> bool:
         """

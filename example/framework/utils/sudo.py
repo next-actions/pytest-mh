@@ -27,9 +27,7 @@ class SUDOUtils(MultihostUtility[MultihostHost]):
         :return: True if the command was successful, False if the command failed or the user can not run sudo.
         :rtype: bool
         """
-        result = self.host.conn.run(
-            f'su - "{username}" -c "sudo --stdin {command}"', input=password, raise_on_error=False
-        )
+        result = self.conn.run(f'su - "{username}" -c "sudo --stdin {command}"', input=password, raise_on_error=False)
 
         return result.rc == 0
 
@@ -46,7 +44,7 @@ class SUDOUtils(MultihostUtility[MultihostHost]):
         :return: True if the user can run sudo and allowed commands match expected commands (if set), False otherwise.
         :rtype: bool
         """
-        result = self.host.conn.run(f'su - "{username}" -c "sudo --stdin -l"', input=password, raise_on_error=False)
+        result = self.conn.run(f'su - "{username}" -c "sudo --stdin -l"', input=password, raise_on_error=False)
         if result.rc != 0:
             return False
 
