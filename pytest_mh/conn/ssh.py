@@ -432,7 +432,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         :param logger: Multihost logger.
         :type logger: MultihostLogger
         :param timeout: Timeout in seconds (defaults to 300), value
-            ``0`` means that timeout is disabled.
+            ``0`` means that timeout is disabled. 3 second minimum value.
         :type timeout: int
         """
         super().__init__(shell=shell, logger=logger, timeout=timeout)
@@ -454,7 +454,10 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         # since Python will not deliver signal if the code is blocked in C
         # library. The signal is deliver only after we get back to the Python
         # code.
-        self.__conn: LibsshSession = LibsshSession(timeout=1)
+        # This must be set to a low value to allow timeout X value as
+        # shown below to work properly
+        # client.host.conn.run(..., timeout=X)
+        self.__conn: LibsshSession = LibsshSession(timeout=3)
 
     def _read_private_key(
         self,
