@@ -454,7 +454,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         # since Python will not deliver signal if the code is blocked in C
         # library. The signal is deliver only after we get back to the Python
         # code.
-        self.__conn: LibsshSession = LibsshSession(timeout=1)
+        self.__conn: LibsshSession = LibsshSession()
 
     def _read_private_key(
         self,
@@ -518,6 +518,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
                 port=self.port,
                 host_key_checking=False,
             )
+            self.__conn.set_ssh_options("timeout", 1)
         except LibsshSessionException as e:
             raise SSHAuthenticationError(self.host, self.port, self.user, e.message)
 
