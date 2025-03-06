@@ -51,6 +51,7 @@ class MultihostPlugin(object):
         self.current_mh: MultihostFixture | None = None
         self.current_topology: str | None = None
         self.required_hosts: list[MultihostHost] = []
+        self.single_run_topology: str | None = None
         self.pytest_session: pytest.Session | None = None
 
         # CLI options
@@ -63,6 +64,7 @@ class MultihostPlugin(object):
         self.mh_collect_artifacts: MultihostArtifactsMode = pytest_config.getoption("mh_collect_artifacts")
         self.mh_artifacts_dir: Path = Path(pytest_config.getoption("mh_artifacts_dir"))
         self.mh_compress_artifacts: bool = pytest_config.getoption("mh_compress_artifacts")
+        self.mh_ignore_single_run: bool = pytest_config.getoption("mh_ignore_single_run")
 
         # Read --mh-collect-logs, default to --mh-collect-artifacts
         self.mh_collect_logs: MultihostArtifactsMode = pytest_config.getoption("mh_collect_logs")
@@ -383,6 +385,31 @@ class MultihostPlugin(object):
         for arg in mark.args:
             if arg in spec.args:
                 item.funcargs[arg] = None
+
+        # Single run topology will default to LDAP or Samba.
+        if self.mh_ignore_single_run:
+            return
+
+        if len([i for i in item.iter_markers("single_run")]) > 1:
+            raise ValueError("Too many arguments for @pytest.mark.single_run.")
+
+        i = next(item.iter_markers("single_run"), "")
+        if not i:
+            return
+
+        for i in item.iter_markers("single_run"):
+            if len(i.args) > 0:
+                self.single_run_topology = i.args[0]
+            else:
+                for y in item.iter_markers("topology"):
+                    if len(y.args) > 0 and y.args[0].name == "AnyProvider":
+                        self.single_run_topology = "ldap"
+                    if len(y.args) > 0 and y.args[0].name == "AnyADProvider":
+                        self.single_run_topology = "samba"
+
+        if self.single_run_topology is not self.current_topology:
+            self.logger.info(f"Single run marker set, skipping {self.current_topology}")
+            pytest.skip()
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtest_call(self, item: pytest.Item) -> None:
@@ -793,6 +820,10 @@ def pytest_addoption(parser):
     parser.addoption("--mh-lazy-ssh", action="store_true", help="Postpone connecting to host SSH until it is required")
 
     parser.addoption(
+        "--mh-ignore-single-run", action="store_true", help="All topologies will run, ignore the single_run marker"
+    )
+
+    parser.addoption(
         "--mh-topology",
         action="append",
         default=[],
@@ -860,6 +891,11 @@ def pytest_configure(config: pytest.Config):
         "markers",
         "require(condition, reason): evaluate condition, parameters may be topology fixture, "
         "the test is skipped if condition is not met",
+    )
+
+    config.addinivalue_line(
+        "markers",
+        "single_run(topology: str | None): mark test to execute once, skipping additional topologies",
     )
 
     config.pluginmanager.register(MultihostPlugin(config), "MultihostPlugin")

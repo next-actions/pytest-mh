@@ -166,3 +166,47 @@ tests and are not available at this point.
                     tests/test_passkey.py::test_skip__lambda (ldap) SKIPPED (Server is not built with password policy support)
                     tests/test_passkey.py::test_skip__function (ldap) SKIPPED (Server is not built with password policy support)
                     tests/test_passkey.py::test_skip__function_and_reason (ldap) SKIPPED (Server is not built with password policy support)
+
+Skipping tests using single run
+===============================
+
+Sometimes, you want to maintain the flexibility to run tests against all topologies but may not need to run all topologies all the time. It is possible to run the test once, skipping any additional topologies using ``pytest.mark.single_run``.
+
+
+.. grid:: 1
+
+    .. grid-item-card::  Examples of @pytest.mark.single_run()
+
+        .. tab-set::
+
+            .. tab-item:: @pytest.mark.single_run()
+
+                .. code-block:: python
+
+                        @pytest.mark.single_run()
+                        @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
+                        def test_single_run__no_value(client: Client, provider: GenericProvider):
+                            # The AnyProvider contains four topologies, this will default to LDAP and skip all other topologies
+
+               .. code-block:: text
+
+                        tests/test_single_run.py::test_single_run__no_value (ad) SKIPPED [  8%] Single run marker found: Skipped
+                        tests/test_single_run.py::test_single_run__no_value (ipa) SKIPPED [ 41%] Single run marker found:Skipped
+                        tests/test_single_run.py::test_single_run__no_value (ldap) [ 66%] Single run marker found: PASSED
+                        tests/test_single_run.py::test_single_run__no_value (samba) SKIPPED [ 91%] Single run marker found: Skipped
+
+            .. tab-item:: #pytest.mark.single_run("ad")
+
+                .. code-block:: python
+
+                        @pytest.mark.single_run("ad")
+                        @pytest.mark.topology(KnownTopologyGroup.AnyProvider)
+                        def test_single_run__with_value(client: Client, provider: GenericProvider):
+                            # Specifying the topology will run against AD and skip any other topologies.
+
+               .. code-block:: text
+
+                        tests/test_single_run.py::test_single_run__with_value (ad) SKIPPED [  8%] Single run marker found: PASSED
+                        tests/test_single_run.py::test_single_run__with_value (ipa) SKIPPED [ 41%] Single run marker found:Skipped
+                        tests/test_single_run.py::test_single_run__with_value (ldap) [ 66%] Single run marker found:Skipped
+                        tests/test_single_run.py::test_single_run__with_value (samba) SKIPPED [ 91%]Single run marker found: Skipped
