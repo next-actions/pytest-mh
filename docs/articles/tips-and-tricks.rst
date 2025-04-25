@@ -11,3 +11,4 @@ inspiration for your project.
     tips-and-tricks/building-command-line
     tips-and-tricks/features-detection
     tips-and-tricks/pytest-fixtures
+    tips-and-tricks/preferred-topology
