@@ -18,7 +18,7 @@ from .data import MultihostItemData
 from .errors import TeardownExceptionGroup
 from .fixtures import MultihostFixture
 from .logging import MultihostLogger
-from .marks import TopologyMark
+from .marks import KnownTopologyBase, TopologyMark
 from .multihost import (
     MultihostArtifactsMode,
     MultihostConfig,
@@ -63,6 +63,7 @@ class MultihostPlugin(object):
         self.mh_collect_artifacts: MultihostArtifactsMode = pytest_config.getoption("mh_collect_artifacts")
         self.mh_artifacts_dir: Path = Path(pytest_config.getoption("mh_artifacts_dir"))
         self.mh_compress_artifacts: bool = pytest_config.getoption("mh_compress_artifacts")
+        self.mh_ignore_preferred_topology: bool = pytest_config.getoption("mh_ignore_preferred_topology")
 
         # Read --mh-collect-logs, default to --mh-collect-artifacts
         self.mh_collect_logs: MultihostArtifactsMode = pytest_config.getoption("mh_collect_logs")
@@ -200,6 +201,7 @@ class MultihostPlugin(object):
         self.logger.info(f"  collect artifacts: {self.mh_collect_artifacts}")
         self.logger.info(f"  artifacts directory: {self.mh_artifacts_dir}")
         self.logger.info(f"  collect logs: {self.mh_collect_logs}")
+        self.logger.info(f"  ignore-preferred-topology: {self.mh_ignore_preferred_topology}")
         self.logger.info("")
 
         signal(SIGINT, self.sigint_handler)
@@ -521,6 +523,32 @@ class MultihostPlugin(object):
     def _is_multihost_required(self, item: pytest.Item) -> bool:
         return item.get_closest_marker(name="topology") is not None
 
+    def _can_run_preferred_topology(self, mark: pytest.Mark, current_topology: str, item: pytest.Item) -> bool:
+        if len(mark.args) != 1:
+            raise ValueError(
+                f"{item.nodeid}: Unexpected number of arguments to pytest.mark.preferred_topology: "
+                f"got {len(mark.args)}, expected 1"
+            )
+
+        arg = mark.args[0]
+
+        if isinstance(arg, KnownTopologyBase):
+            name = arg.value.name
+        elif isinstance(arg, TopologyMark):
+            name = arg.name
+        elif isinstance(arg, str):
+            name = arg
+        else:
+            raise ValueError(
+                f"{item.nodeid}: Unexpected type of pytest.mark.preferred_topology: "
+                f"got {type(arg)}, expected KnownTopologyBase | TopologyMark | str"
+            )
+
+        if name == current_topology:
+            return True
+
+        return False
+
     def _can_run_test(self, item: pytest.Item, data: MultihostItemData | None) -> bool:
         if data is None:
             return not self._is_multihost_required(item)
@@ -546,6 +574,12 @@ class MultihostPlugin(object):
 
             if data.topology_mark.name not in self.mh_topology:
                 return False
+
+        # Run only for preferred topology unless specific topology is requested or the marker is ignored
+        if not self.mh_topology and not self.mh_ignore_preferred_topology:
+            preferred_topology = item.get_closest_marker(name="preferred_topology")
+            if preferred_topology is not None and data.topology_mark is not None:
+                return self._can_run_preferred_topology(preferred_topology, data.topology_mark.name, item)
 
         return True
 
@@ -793,6 +827,12 @@ def pytest_addoption(parser):
     parser.addoption("--mh-lazy-ssh", action="store_true", help="Postpone connecting to host SSH until it is required")
 
     parser.addoption(
+        "--mh-ignore-preferred-topology",
+        action="store_true",
+        help="All topologies will run, ignore the preferred_topology marker",
+    )
+
+    parser.addoption(
         "--mh-topology",
         action="append",
         default=[],
@@ -860,6 +900,13 @@ def pytest_configure(config: pytest.Config):
         "markers",
         "require(condition, reason): evaluate condition, parameters may be topology fixture, "
         "the test is skipped if condition is not met",
+    )
+
+    config.addinivalue_line(
+        "markers",
+        "preferred_topology(topology: KnownTopologyBase | TopologyMark | str): "
+        "mark test with a preferred topology."
+        "Test will execute once, skipping additional topologies",
     )
 
     config.pluginmanager.register(MultihostPlugin(config), "MultihostPlugin")
