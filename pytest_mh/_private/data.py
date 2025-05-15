@@ -54,7 +54,7 @@ class MultihostItemData(object):
 
     @staticmethod
     def GetData(item: pytest.Item) -> MultihostItemData | None:
-        return item.stash[DataStashKey]
+        return item.stash.get(DataStashKey, None)
 
 
 DataStashKey = pytest.StashKey[MultihostItemData | None]()
