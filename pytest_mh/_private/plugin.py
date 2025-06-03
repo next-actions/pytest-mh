@@ -987,9 +987,18 @@ def mh_fixture(fixture_function: Callable | None = None, *, scope: Literal["func
         partial_parameters.extend(
             [param for key, param in full_sig.parameters.items() if key != "mh" and key not in mh_args]
         )
-        fixture.__pytest_wrapped__.obj.func.__signature__ = inspect.Signature(
-            partial_parameters, return_annotation=full_sig.return_annotation
-        )
+
+        if hasattr(fixture, "__pytest_wrapped__"):
+            obj = fixture.__pytest_wrapped__.obj
+        elif hasattr(fixture, "__wrapped__"):
+            obj = fixture.__wrapped__
+        else:
+            raise AttributeError(
+                "Fixture object has no __pytest_wrapped__ nor __wrapped__ attribute, "
+                "report this to pytest-mh upstream."
+            )
+
+        obj.func.__signature__ = inspect.Signature(partial_parameters, return_annotation=full_sig.return_annotation)
 
         return fixture
 
