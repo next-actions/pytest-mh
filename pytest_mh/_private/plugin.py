@@ -988,17 +988,22 @@ def mh_fixture(fixture_function: Callable | None = None, *, scope: Literal["func
             [param for key, param in full_sig.parameters.items() if key != "mh" and key not in mh_args]
         )
 
+        # pytest < 8.4.0 provides its own wrapper around the function and checks
+        # signature of the real function, not the partial one, so we need to mock
+        # signatures of the decorated function (fn)
         if hasattr(fixture, "__pytest_wrapped__"):
-            obj = fixture.__pytest_wrapped__.obj
+            func = fixture.__pytest_wrapped__.obj.func
+        # pytest >= 8.4.0 does not unwrap it anymore and reads signature of the
+        # provided function, i.e. the partial one (cb)
         elif hasattr(fixture, "__wrapped__"):
-            obj = fixture.__wrapped__
+            func = fixture._get_wrapped_function()
         else:
             raise AttributeError(
                 "Fixture object has no __pytest_wrapped__ nor __wrapped__ attribute, "
                 "report this to pytest-mh upstream."
             )
 
-        obj.func.__signature__ = inspect.Signature(partial_parameters, return_annotation=full_sig.return_annotation)
+        func.__signature__ = inspect.Signature(partial_parameters, return_annotation=full_sig.return_annotation)
 
         return fixture
 
