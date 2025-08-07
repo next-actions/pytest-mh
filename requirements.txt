@@ -1,4 +1,4 @@
-ansible-pylibssh>=1.2.0
+ansible-pylibssh@git+https://github.com/justin-stephenson/pylibssh@retry_ssh_again
 colorama
 pytest
 PyYAML
