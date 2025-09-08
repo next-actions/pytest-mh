@@ -317,3 +317,17 @@ class SystemdServices(MultihostReentrantUtility[MultihostHost]):
             self.initial_states[service] = True
         else:
             self.initial_states[service] = False
+
+    def is_active(self, service: str) -> bool:
+        """
+        Check if a systemd unit is active.
+
+        :param service: Unit name.
+        :type service: str
+        :return: True if unit is active, False otherwise.
+        :rtype: bool
+        """
+        result = self.host.conn.run(
+            f'systemctl is-active "{service}"', raise_on_error=False, log_level=ProcessLogLevel.Silent
+        )
+        return result.rc == 0
