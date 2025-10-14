@@ -517,6 +517,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
                 private_key_password=self.private_key_password,
                 port=self.port,
                 host_key_checking=False,
+                open_session_retries=10,
             )
             self.__conn.set_ssh_options("timeout", 1)
         except LibsshSessionException as e:
