@@ -89,10 +89,13 @@ class Auditd(MultihostUtility[MultihostHost]):
                 f"""
                 set -e
 
-                for f in "{self._backup}"/audit/audit.log*; do
-                    name=`basename "$f"`
-                    cat "$f" > "/var/log/audit/$name"
-                done
+                path="{self._backup}"/audit
+                if [ -d "$path" ] && [ -n "$(ls -A $path)" ]; then
+                    for f in "{self._backup}"/audit/audit.log*; do
+                        name=`basename "$f"`
+                        cat "$f" > "/var/log/audit/$name"
+                    done
+                fi
 
                 rm -fr "{self._backup}"
                 """,
