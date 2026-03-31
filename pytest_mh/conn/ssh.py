@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import signal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Self
@@ -520,6 +521,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
                 open_session_retries=10,
             )
             self.__conn.set_ssh_options("timeout", 1)
+            self.__conn.set_log_level(logging.INFO)
         except LibsshSessionException as e:
             raise SSHAuthenticationError(self.host, self.port, self.user, e.message)
 
