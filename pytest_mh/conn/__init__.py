@@ -109,18 +109,14 @@ class ProcessErrorBase(Exception):
 
             return "\n" + textwrap.indent(value, " " * 20)
 
-        super().__init__(
-            textwrap.dedent(
-                f"""
+        super().__init__(textwrap.dedent(f"""
                 Command #{id} {message}:
                   Command:{dumps(command)}
                   CWD:{dumps(cwd)}
                   Env:{dumps(pretty_env.strip())}
                   Output:{dumps(str_stdout)}
                   Error output:{dumps(str_stderr)}
-                """
-            )
-        )
+                """))
 
         self.message: str = message
         """Error message."""

@@ -160,7 +160,7 @@ class CLIBuilder(object):
             if item is None:
                 continue
 
-            (type, value) = item
+            type, value = item
             if value is None:
                 continue
 

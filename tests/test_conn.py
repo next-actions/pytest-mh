@@ -37,13 +37,11 @@ def test_conn__shell_bash__cwd():
     assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line("echo hello world", cwd="/home/test", env={})
-    expected = textwrap.dedent(
-        """
+    expected = textwrap.dedent("""
         cd /home/test
 
         echo hello world
-        """
-    ).strip()
+        """).strip()
     assert cmd == f"{shell.shell_command} '{expected}'"
 
 
@@ -54,14 +52,12 @@ def test_conn__shell_bash__env():
     assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line("echo hello world", cwd=None, env={"HELLO": "WORLD", "JOHN": "DOE"})
-    expected = textwrap.dedent(
-        """
+    expected = textwrap.dedent("""
         export HELLO=WORLD
         export JOHN=DOE
 
         echo hello world
-        """
-    ).strip()
+        """).strip()
     assert cmd == f"{shell.shell_command} '{expected}'"
 
 
@@ -72,15 +68,13 @@ def test_conn__shell_bash__cwd_env():
     assert shell.shell_command == "/usr/bin/env bash -c"
 
     cmd = shell.build_command_line("echo hello world", cwd="/home/test", env={"HELLO": "WORLD", "JOHN": "DOE"})
-    expected = textwrap.dedent(
-        """
+    expected = textwrap.dedent("""
         export HELLO=WORLD
         export JOHN=DOE
         cd /home/test
 
         echo hello world
-        """
-    ).strip()
+        """).strip()
     assert cmd == f"{shell.shell_command} '{expected}'"
 
 
@@ -114,13 +108,11 @@ def test_conn__shell_powershell__cwd():
     assert shell.shell_command == "powershell -NonInteractive -Command"
 
     cmd = shell.build_command_line("Write-Output hello world", cwd="/home/test", env={})
-    expected = textwrap.dedent(
-        """
+    expected = textwrap.dedent("""
         cd /home/test
 
         Write-Output hello world
-        """
-    ).strip()
+        """).strip()
     assert cmd == f"{shell.shell_command} '{expected}'"
 
 
@@ -131,14 +123,12 @@ def test_conn__shell_powershell__env():
     assert shell.shell_command == "powershell -NonInteractive -Command"
 
     cmd = shell.build_command_line("Write-Output hello world", cwd=None, env={"HELLO": "WORLD", "JOHN": "DOE"})
-    expected = textwrap.dedent(
-        """
+    expected = textwrap.dedent("""
         $Env:HELLO = WORLD
         $Env:JOHN = DOE
 
         Write-Output hello world
-        """
-    ).strip()
+        """).strip()
     assert cmd == f"{shell.shell_command} '{expected}'"
 
 
@@ -149,13 +139,11 @@ def test_conn__shell_powershell__cwd_env():
     assert shell.shell_command == "powershell -NonInteractive -Command"
 
     cmd = shell.build_command_line("echo hello world", cwd="/home/test", env={"HELLO": "WORLD", "JOHN": "DOE"})
-    expected = textwrap.dedent(
-        """
+    expected = textwrap.dedent("""
         $Env:HELLO = WORLD
         $Env:JOHN = DOE
         cd /home/test
 
         echo hello world
-        """
-    ).strip()
+        """).strip()
     assert cmd == f"{shell.shell_command} '{expected}'"

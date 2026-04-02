@@ -72,11 +72,9 @@ class BaseTopologyController(BackupTopologyController[SUDOMultihostConfig]):
         )
 
         # Remove SSSD data to start fresh
-        client.conn.run(
-            """
+        client.conn.run("""
             rm -fr /var/lib/sss/db/* /var/lib/sss/mc/* /var/log/sssd/*
-            """
-        )
+            """)
 
 
 class SudoersTopologyController(BaseTopologyController):

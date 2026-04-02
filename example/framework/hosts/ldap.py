@@ -86,7 +86,7 @@ class LDAPHost(BaseHost):
             if len(result) != 1:
                 raise ValueError(f"Unexpected number of results for rootDSE query: {len(result)}")
 
-            (_, values) = result[0]
+            _, values = result[0]
             if attr not in values:
                 raise ValueError(f"Unable to find {attr}")
 
