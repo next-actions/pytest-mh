@@ -80,7 +80,7 @@ def validate_configuration(
 
     def is_property_in_dict(property: str, d: dict[str, Any]) -> bool:
         if "." in property:
-            (key, subpath) = property.split(".", maxsplit=1)
+            key, subpath = property.split(".", maxsplit=1)
             if not d.get(key, None):
                 return False
 
