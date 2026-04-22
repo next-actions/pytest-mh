@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import signal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Self
@@ -8,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Generator, Self
 import colorama as c
 from pylibsshext.channel import Channel as LibsshChannel
 from pylibsshext.errors import LibsshSessionException
+from pylibsshext.logging import ANSIBLE_PYLIBSSH_NOLOG
 from pylibsshext.session import Session as LibsshSession
 
 from pytest_mh.conn import Process, ProcessLogLevel
@@ -521,7 +521,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
                 open_session_retries=10,
             )
             self.__conn.set_ssh_options("timeout", 1)
-            self.__conn.set_log_level(logging.INFO)
+            self.__conn.set_log_level(ANSIBLE_PYLIBSSH_NOLOG)
         except LibsshSessionException as e:
             raise SSHAuthenticationError(self.host, self.port, self.user, e.message)
 
