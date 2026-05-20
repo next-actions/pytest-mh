@@ -151,6 +151,11 @@ class CLIBuilder(object):
 
     def __build(self, command: str | None, args: CLIBuilderArgs, quote_value: bool) -> list[str]:
         def _get_option(name: str) -> str:
+            # Return option name as is, if it already starts with dash
+            # This adds support for "-arg" type tools and short args "-a"
+            if name.startswith("-"):
+                return name
+
             return self.__prefix + name
 
         def _get_value(value: Any) -> str:
