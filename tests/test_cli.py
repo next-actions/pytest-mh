@@ -236,3 +236,29 @@ def test_cli__powershell__CLIBuilder__args(args, quote_value, expected):
     args = cli.args(args, quote_value=quote_value)
 
     assert args == [x for x in expected if x is not None]
+
+
+def test_cli__bash__CLIBuilder__option_with_dash():
+    """Test that option names starting with '-' are used as-is without prefix."""
+    cli = CLIBuilder(Bash())
+    args = {
+        "-a": (CLIBuilder.option.VALUE, "short"),
+        "--long": (CLIBuilder.option.VALUE, "value"),
+        "long": (CLIBuilder.option.VALUE, "no-dash"),
+    }
+
+    line = cli.command("/bin/test", args)
+    assert line == "/bin/test -a 'short' --long 'value' --long 'no-dash'"
+
+
+def test_cli__powershell__CLIBuilder__option_with_dash():
+    """Test that option names starting with '-' are used as-is without prefix."""
+    cli = CLIBuilder(Powershell())
+    args = {
+        "-a": (CLIBuilder.option.VALUE, "short"),
+        "--long": (CLIBuilder.option.VALUE, "value"),
+        "long": (CLIBuilder.option.VALUE, "no-dash"),
+    }
+
+    line = cli.command("/bin/test", args)
+    assert line == "/bin/test -a 'short' --long 'value' -long 'no-dash'"
