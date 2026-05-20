@@ -24,6 +24,15 @@ class CLIBuilder(object):
         VALUE = auto()
         """
         Use parameter value but enclose it in quotes in script mode.
+
+        The given value can be a list for multi-valued arguments.
+
+        .. code-block:: python
+
+            {
+                "single": (cli.option.VALUE, "single"),             # --single 'single'
+                "multi": (cli.option.VALUE, ["multi1", "multi2"])   # --multi 'multi1' --multi 'multi2'
+            }
         """
 
         SWITCH = auto()
