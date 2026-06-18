@@ -811,6 +811,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         input: str | bytes | None = None,
         log_level: ProcessLogLevel,
         blocking_call: bool,
+        unified_newlines: bool = False,
     ) -> ProcessType:
         """
         Create a new process.
@@ -827,6 +828,8 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         :type log_level: ProcessLogLevel
         :param blocking_call: Is this a blocking execution?
         :type blocking_call: bool
+        :param unified_newlines: Strip carriage returns from output lines, defaults to ``False``.
+        :type unified_newlines: bool, optional
         :return: Newly created process that is not yet running.
         :rtype: ProcessType
         """
@@ -840,6 +843,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         env: dict[str, Any] | None = None,
         input: str | bytes | None = None,
         log_level: ProcessLogLevel = ProcessLogLevel.Full,
+        unified_newlines: bool = False,
     ) -> ProcessType:
         """
         Non-blocking command call.
@@ -858,6 +862,8 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         :type input: str | bytes | None, optional
         :param log_level: Log level, defaults to ProcessLogLevel.Full
         :type log_level: ProcessLogLevel, optional
+        :param unified_newlines: Strip carriage returns from output lines, defaults to ``False``.
+        :type unified_newlines: bool, optional
         :return: Instance of :class:`Process`, the process is already running.
         :rtype: ProcessType
         """
@@ -873,6 +879,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
             input=input,
             log_level=log_level,
             blocking_call=False,
+            unified_newlines=unified_newlines,
         )
 
         process.run()
@@ -888,6 +895,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         log_level: ProcessLogLevel = ProcessLogLevel.Full,
         raise_on_error: bool = True,
         timeout: int | None = None,
+        unified_newlines: bool = False,
     ) -> ProcessResultType:
         """
         Blocking command call.
@@ -912,6 +920,8 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         :param timeout: Timeout in seconds (defaults to ``None`` = use default
             connection timeout)
         :type timeout: int | None
+        :param unified_newlines: Strip carriage returns from output lines, defaults to ``False``.
+        :type unified_newlines: bool, optional
         :raises ProcessError: If ``raise_on_error`` is True and the command
             exited with non-zero return code.
         :return: Command result.
@@ -929,6 +939,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
             input=input,
             log_level=log_level,
             blocking_call=True,
+            unified_newlines=unified_newlines,
         )
 
         process.run()

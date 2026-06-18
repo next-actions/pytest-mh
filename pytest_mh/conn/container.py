@@ -453,6 +453,7 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         input: str | bytes | None = None,
         log_level: ProcessLogLevel,
         blocking_call: bool,
+        unified_newlines: bool = False,
     ) -> ContainerProcess:
         return ContainerProcess(
             command=command,

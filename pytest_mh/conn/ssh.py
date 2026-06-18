@@ -180,7 +180,20 @@ class SSHProcessResult(ProcessResult[SSHProcessError]):
     SSH Process result.
     """
 
-    pass
+    def __init__(
+        self,
+        rc: int,
+        stdout: list[str],
+        stderr: list[str],
+        error: SSHProcessError,
+        *,
+        unified_newlines: bool = False,
+    ) -> None:
+        if unified_newlines:
+            stdout = [line.rstrip("\r") for line in stdout]
+            stderr = [line.rstrip("\r") for line in stderr]
+
+        super().__init__(rc, stdout, stderr, error)
 
 
 class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutError]):
@@ -202,6 +215,7 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutErro
         blocking_call: bool,
         client: SSHClient,
         conn: LibsshSession,
+        unified_newlines: bool = False,
     ) -> None:
         """
         :param command: Command to execute.
@@ -227,6 +241,8 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutErro
         :type client: SSHClient
         :param conn: Connected SSH session.
         :type conn: LibsshSession
+        :param unified_newlines: Strip carriage returns from output lines, defaults to ``False``.
+        :type unified_newlines: bool, optional
         """
         super().__init__(
             command=command,
@@ -245,6 +261,7 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutErro
         )
 
         self.__conn: LibsshSession = conn
+        self.__unified_newlines: bool = unified_newlines
         self.__channel: LibsshChannel | None = None
 
         self.__stdout: SSHOutputBuffer | None = None
@@ -328,10 +345,18 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutErro
                 code, self.id, self.command, self.cwd, self.env, self.input, self.__stdout.lines, self.__stderr.lines
             )
 
-            result = SSHProcessResult(code, self.__stdout.lines, self.__stderr.lines, error)
+            result = SSHProcessResult(
+                code, self.__stdout.lines, self.__stderr.lines, error, unified_newlines=self.__unified_newlines
+            )
         except TimeoutError as e:
             self.__stdout.read_once_into_buffer()
             self.__stderr.read_once_into_buffer()
+            stdout = (
+                [line.rstrip("\r") for line in self.__stdout.lines] if self.__unified_newlines else self.__stdout.lines
+            )
+            stderr = (
+                [line.rstrip("\r") for line in self.__stderr.lines] if self.__unified_newlines else self.__stderr.lines
+            )
             raise SSHProcessTimeoutError(
                 e.args[0],
                 self.id,
@@ -339,8 +364,8 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutErro
                 self.cwd,
                 self.env,
                 self.input,
-                self.__stdout.lines,
-                self.__stderr.lines,
+                stdout,
+                stderr,
             )
         finally:
             self._close()
@@ -542,6 +567,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         input: str | bytes | None = None,
         log_level: ProcessLogLevel,
         blocking_call: bool,
+        unified_newlines: bool = False,
     ) -> SSHProcess:
         return SSHProcess(
             command=command,
@@ -555,6 +581,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
             blocking_call=blocking_call,
             client=self,
             conn=self.__conn,
+            unified_newlines=unified_newlines,
         )
 
     @classmethod
