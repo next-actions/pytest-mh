@@ -3,12 +3,269 @@ from __future__ import annotations
 import base64
 import textwrap
 from collections import deque
-from typing import Self
+from typing import Any, Self
+
+import jc
 
 from .. import MultihostHost, MultihostReentrantUtility
 from ..conn import ProcessLogLevel, ProcessResult
 
-__all__ = ["LinuxFileSystem"]
+__all__ = ["LinuxFileSystem", "StatEntry"]
+
+
+class StatEntry(object):
+    """
+    Result of ``stat`` command
+    """
+
+    def __init__(
+        self,
+        file: str | None = None,
+        link_to: str | None = None,
+        size: int | None = None,
+        blocks: int | None = None,
+        io_blocks: int | None = None,
+        file_type: str | None = None,
+        device: str | None = None,
+        inode: int | None = None,
+        links: int | None = None,
+        access: str | None = None,
+        flags: str | None = None,
+        uid: int | None = None,
+        user: str | None = None,
+        gid: int | None = None,
+        group: str | None = None,
+        access_time: str | None = None,
+        access_time_epoch: int | None = None,
+        access_time_epoch_utc: int | None = None,
+        modify_time: str | None = None,
+        modify_time_epoch: int | None = None,
+        modify_time_epoch_utc: int | None = None,
+        change_time: str | None = None,
+        change_time_epoch: int | None = None,
+        change_time_epoch_utc: int | None = None,
+        birth_time: str | None = None,
+        birth_time_epoch: int | None = None,
+        birth_time_epoch_utc: int | None = None,
+        unix_device: int | None = None,
+        rdev: int | None = None,
+        block_size: int | None = None,
+        unix_flags: str | None = None,
+    ) -> None:
+        self.file: str | None = file
+        """
+        File path.
+        """
+
+        self.link_to: str | None = link_to
+        """
+        Target of symbolic link (if applicable).
+        """
+
+        self.size: int | None = size
+        """
+        File size in bytes.
+        """
+
+        self.blocks: int | None = blocks
+        """
+        Number of filesystem blocks allocated.
+        """
+
+        self.io_blocks: int | None = io_blocks
+        """
+        Optimal I/O block size.
+        """
+
+        self.file_type: str | None = file_type
+        """
+        File type (e.g., 'regular file', 'directory').
+        """
+
+        self.device: str | None = device
+        """
+        Device identifier.
+        """
+
+        self.inode: int | None = inode
+        """
+        Inode number.
+        """
+
+        self.links: int | None = links
+        """
+        Number of hard links.
+        """
+
+        self.access: str | None = access
+        """
+        File permissions in octal format (e.g., '755').
+        """
+
+        self.flags: str | None = flags
+        """
+        File flags.
+        """
+
+        self.uid: int | None = uid
+        """
+        User ID of owner.
+        """
+
+        self.user: str | None = user
+        """
+        Username of owner.
+        """
+
+        self.gid: int | None = gid
+        """
+        Group ID of owner.
+        """
+
+        self.group: str | None = group
+        """
+        Group name of owner.
+        """
+
+        self.access_time: str | None = access_time
+        """
+        Last access time (human readable).
+        """
+
+        self.access_time_epoch: int | None = access_time_epoch
+        """
+        Last access time (Unix timestamp).
+        """
+
+        self.access_time_epoch_utc: int | None = access_time_epoch_utc
+        """
+        Last access time (UTC Unix timestamp).
+        """
+
+        self.modify_time: str | None = modify_time
+        """
+        Last modification time (human readable).
+        """
+
+        self.modify_time_epoch: int | None = modify_time_epoch
+        """
+        Last modification time (Unix timestamp).
+        """
+
+        self.modify_time_epoch_utc: int | None = modify_time_epoch_utc
+        """
+        Last modification time (UTC Unix timestamp).
+        """
+
+        self.change_time: str | None = change_time
+        """
+        Last status change time (human readable).
+        """
+
+        self.change_time_epoch: int | None = change_time_epoch
+        """
+        Last status change time (Unix timestamp).
+        """
+
+        self.change_time_epoch_utc: int | None = change_time_epoch_utc
+        """
+        Last status change time (UTC Unix timestamp).
+        """
+
+        self.birth_time: str | None = birth_time
+        """
+        File creation time (human readable), if supported.
+        """
+
+        self.birth_time_epoch: int | None = birth_time_epoch
+        """
+        File creation time (Unix timestamp), if supported.
+        """
+
+        self.birth_time_epoch_utc: int | None = birth_time_epoch_utc
+        """
+        File creation time (UTC Unix timestamp), if supported.
+        """
+
+        self.unix_device: int | None = unix_device
+        """
+        Unix device identifier.
+        """
+
+        self.rdev: int | None = rdev
+        """
+        Raw device identifier.
+        """
+
+        self.block_size: int | None = block_size
+        """
+        Block size.
+        """
+
+        self.unix_flags: str | None = unix_flags
+        """
+        Unix file flags.
+        """
+
+    def __str__(self) -> str:
+        return (
+            f"({self.file}:{self.file_type}:{self.access}:{self.links}:"
+            f"{self.user}:{self.group}:{self.size}:{self.modify_time})"
+        )
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    @classmethod
+    def FromDict(cls, d: dict[str, Any]) -> StatEntry:
+        return cls(
+            file=d.get("file", None),
+            link_to=d.get("link_to", None),
+            size=d.get("size", None),
+            blocks=d.get("blocks", None),
+            io_blocks=d.get("io_blocks", None),
+            file_type=d.get("type", None),
+            device=d.get("device", None),
+            inode=d.get("inode", None),
+            links=d.get("links", None),
+            access=d.get("access", None),
+            flags=d.get("flags", None),
+            uid=d.get("uid", None),
+            user=d.get("user", None),
+            gid=d.get("gid", None),
+            group=d.get("group", None),
+            access_time=d.get("access_time", None),
+            access_time_epoch=d.get("access_time_epoch", None),
+            access_time_epoch_utc=d.get("access_time_epoch_utc", None),
+            modify_time=d.get("modify_time", None),
+            modify_time_epoch=d.get("modify_time_epoch", None),
+            modify_time_epoch_utc=d.get("modify_time_epoch_utc", None),
+            change_time=d.get("change_time", None),
+            change_time_epoch=d.get("change_time_epoch", None),
+            change_time_epoch_utc=d.get("change_time_epoch_utc", None),
+            birth_time=d.get("birth_time", None),
+            birth_time_epoch=d.get("birth_time_epoch", None),
+            birth_time_epoch_utc=d.get("birth_time_epoch_utc", None),
+            unix_device=d.get("unix_device", None),
+            rdev=d.get("rdev", None),
+            block_size=d.get("block_size", None),
+            unix_flags=d.get("unix_flags", None),
+        )
+
+    @classmethod
+    def FromOutput(cls, stdout: str) -> StatEntry:
+        """
+        Parse stat command output using jc library
+        """
+        result = jc.parse("stat", stdout)
+
+        if not isinstance(result, list):
+            raise TypeError(f"Unexpected type: {type(result)}, expecting list")
+
+        if len(result) != 1:
+            raise ValueError("More than one entry was returned")
+
+        return cls.FromDict(result[0])
 
 
 class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
@@ -757,3 +1014,17 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         self.logger.info(f"Running sed {command} on {path}")
         args = args if args else []
         return self.host.conn.exec(["sed", *args, command, path], log_level=ProcessLogLevel.Error)
+
+    def stat(self, path: str) -> StatEntry:
+        """
+        Get file status information.
+
+        :param path: File path.
+        :type path: str
+        :return: File status information.
+        :rtype: StatEntry
+        """
+        self.logger.info(f'Getting file status for "{path}"')
+        result = self.host.conn.exec(["stat", path], log_level=ProcessLogLevel.Error)
+
+        return StatEntry.FromOutput(result.stdout)
