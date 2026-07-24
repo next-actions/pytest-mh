@@ -302,21 +302,22 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         """
         Revert all changes done during current context.
         """
-        if self.__rollback:
-            self.host.logger.info(
-                "Reverting file system changes",
-                extra={
-                    "data": {
-                        "Paths": [f"{path} ({state})" for path, (_, state) in sorted(self.__backup.items())],
-                    }
-                },
-            )
+        try:
+            if self.__rollback:
+                self.host.logger.info(
+                    "Reverting file system changes",
+                    extra={
+                        "data": {
+                            "Paths": [f"{path} ({state})" for path, (_, state) in sorted(self.__backup.items())],
+                        }
+                    },
+                )
 
-            cmd = "\n".join(reversed(self.__rollback))
-            if cmd:
-                self.host.conn.run(cmd, log_level=ProcessLogLevel.Error)
-
-        self.__rollback, self.__backup = self.__states.pop()
+                cmd = "\n".join(reversed(self.__rollback))
+                if cmd:
+                    self.host.conn.run(cmd, log_level=ProcessLogLevel.Error)
+        finally:
+            self.__rollback, self.__backup = self.__states.pop()
 
     def mkdir(self, path: str, *, mode: str | None = None, user: str | None = None, group: str | None = None) -> None:
         """
@@ -812,7 +813,15 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         elif [ -d '{path}' ]; then
             tmp=`mktemp -d /tmp/mh.fs.rollback.XXXXXXXXX`
             cp --force --archive '{path}/.' "$tmp"
-            echo "rm --force --recursive '{path}' && mv --force '$tmp' '{path}'"
+            if mountpoint -q '{path}'; then
+                restore_cmd="find '{path}' -mindepth 1 -maxdepth 1"
+                restore_cmd="$restore_cmd -exec rm --force --recursive {{}} +"
+                restore_cmd="$restore_cmd && cp --force --archive '$tmp/.' '{path}/'"
+                restore_cmd="$restore_cmd && rm --force --recursive '$tmp'"
+                echo "$restore_cmd"
+            else
+                echo "rm --force --recursive '{path}' && mv --force '$tmp' '{path}'"
+            fi
             echo "restore directory"
         elif [ ! -d '{path}' ] && [ ! -f '{path}' ]; then
             echo "rm --force --recursive '{path}'"
