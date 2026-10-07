@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import atexit
+import logging
+import os
 import signal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Self
@@ -7,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generator, Self
 import colorama as c
 from pylibsshext.channel import Channel as LibsshChannel
 from pylibsshext.errors import LibsshChannelException, LibsshSessionException
-from pylibsshext.logging import ANSIBLE_PYLIBSSH_NOLOG
+from pylibsshext.logging import ANSIBLE_PYLIBSSH_NOLOG, ANSIBLE_PYLIBSSH_TRACE
 from pylibsshext.session import Session as LibsshSession
 
 from pytest_mh.conn import Process, ProcessLogLevel
@@ -430,6 +433,8 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
     Interactive SSH client.
     """
 
+    _pylibssh_debug_configured: bool = False
+
     def __init__(
         self,
         host: str,
@@ -554,9 +559,53 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
                 open_session_retries=10,
             )
             self.__conn.set_ssh_options("timeout", 1)
-            self.__conn.set_log_level(ANSIBLE_PYLIBSSH_NOLOG)
+            self._set_pylibssh_log_level()
         except LibsshSessionException as e:
             raise SSHAuthenticationError(self.host, self.port, self.user, e.message)
+
+    def _set_pylibssh_log_level(self) -> None:
+        """
+        Set pylibssh log level.
+
+        Full trace logging can be enabled by setting the ``MH_PYLIBSSH_DEBUG``
+        environment variable to a log file path (e.g. ``/dev/stderr``), for
+        debugging purposes. The timestamp format matches the multihost logs so
+        the two can be correlated.
+        """
+        log_path = os.environ.get("MH_PYLIBSSH_DEBUG", "")
+        if not log_path:
+            self.__conn.set_log_level(ANSIBLE_PYLIBSSH_NOLOG)
+            return
+
+        # The "ansible-pylibssh" logger and libssh's log callback are
+        # process-global, so configure them only once. Use a dedicated handler to
+        # keep the low-level trace output separate from the multihost logging
+        # facility.
+        if not SSHClient._pylibssh_debug_configured:
+            pylibssh_logger = logging.getLogger("ansible-pylibssh")
+
+            # Print in gray so the trace is visually distinct from the multihost
+            # logs when both are written to the same terminal.
+            fmt = self.logger.colorize("%(levelname)-8s %(asctime)s pylibssh: %(message)s", c.Fore.LIGHTYELLOW_EX)
+            handler = logging.FileHandler(log_path)
+            handler.setLevel(ANSIBLE_PYLIBSSH_TRACE)
+            handler.setFormatter(logging.Formatter(fmt))
+
+            pylibssh_logger.setLevel(ANSIBLE_PYLIBSSH_TRACE)
+            pylibssh_logger.addHandler(handler)
+            pylibssh_logger.propagate = False
+
+            # libssh fires its global log callback again while sessions are freed
+            # during interpreter shutdown, when the log file may already be closed.
+            # Disable libssh logging at the source so the callback is not invoked
+            # at all; otherwise it writes to a closed stream during shutdown and
+            # prints "Error in sys.excepthook". set_log_level() sets the global
+            # libssh level and ignores the session, so it is safe at exit.
+            atexit.register(self.__conn.set_log_level, ANSIBLE_PYLIBSSH_NOLOG)
+
+            SSHClient._pylibssh_debug_configured = True
+
+        self.__conn.set_log_level(ANSIBLE_PYLIBSSH_TRACE)
 
     def disconnect(self) -> None:
         self.logger.info(

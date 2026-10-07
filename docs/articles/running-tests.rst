@@ -89,3 +89,15 @@ You can do this by setting ``MH_CONNECTION_DEBUG=yes`` environment variable.
     :caption: Log every remote command
 
     $ MH_CONNECTION_DEBUG=yes pytest --mh-config=mhc.yam --verbose
+
+If you suspect that the issue lies in the underlying SSH connection itself
+(for example unexpected disconnects), you can enable full debug logging of
+the ``pylibssh`` library by setting the ``MH_PYLIBSSH_DEBUG`` environment
+variable to a log file path (e.g. ``/dev/stderr`` to print to the terminal).
+These records go to the given file, separate from the multihost logs, but use
+the same timestamp format so the two can be correlated.
+
+.. code-block:: text
+    :caption: Enable pylibssh debug logging
+
+    $ MH_PYLIBSSH_DEBUG=/dev/stderr pytest --mh-config=mhc.yam --verbose
