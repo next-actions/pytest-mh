@@ -7,6 +7,7 @@ import signal
 import textwrap
 from abc import ABC, abstractmethod
 from enum import Enum, auto
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Generator, Generic, NoReturn, Self, TypeVar
 
 import colorama as c
@@ -756,15 +757,17 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         :attr:`ProcessLogLevel.Full` level.
     """
 
-    def __init__(self, *, shell: Shell, logger: MultihostLogger, timeout: int = 300) -> None:
+    def __init__(self, *, shell: Shell, logger: MultihostLogger, timeout: int | None = None) -> None:
         """
         :param shell: Shell used to run commands and scripts.
         :type shell: str, optional
         :param logger: Multihost logger.
         :type logger: MultihostLogger
-        :param timeout: Timeout in seconds (defaults to 300), value
-            ``0`` means that timeout is disabled.
-        :type timeout: int
+        :param timeout: Timeout in seconds (defaults to ``None``, which
+            resolves to 300), value ``0`` means that timeout is disabled.
+            Can be overridden with the ``MH_PROCESS_TIMEOUT`` environment
+            variable, for debugging purposes.
+        :type timeout: int | None
 
         """
         self.shell: Shell = shell
@@ -773,8 +776,29 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         self.logger: MultihostLogger = logger
         """Multihost logger."""
 
-        self.timeout: int = timeout
-        """Default timeout for command execution."""
+        self._timeout: int | None = timeout
+
+    @cached_property
+    def timeout(self) -> int:
+        """
+        Default timeout for command execution.
+
+        ``MH_PROCESS_TIMEOUT`` environment variable, if set, takes precedence
+        over the configured value. It is intended for debugging purposes only.
+
+        Note that it only sets the default timeout not calls with explicit
+        timeout set.
+        """
+        override = os.environ.get("MH_PROCESS_TIMEOUT")
+        if override is not None:
+            try:
+                return int(override)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid MH_PROCESS_TIMEOUT value: {override!r}, expected number of seconds as an integer"
+                ) from None
+
+        return self._timeout if self._timeout is not None else 300
 
     @property
     @abstractmethod
