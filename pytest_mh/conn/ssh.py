@@ -446,7 +446,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         port: int = 22,
         shell: Shell,
         logger: MultihostLogger,
-        timeout: int = 300,
+        timeout: int | None = None,
     ) -> None:
         """
         :param host: Host name to connect to.
@@ -465,9 +465,9 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         :type shell: str, optional
         :param logger: Multihost logger.
         :type logger: MultihostLogger
-        :param timeout: Timeout in seconds (defaults to 300), value
-            ``0`` means that timeout is disabled.
-        :type timeout: int
+        :param timeout: Timeout in seconds (defaults to ``None``, which
+            resolves to 300), value ``0`` means that timeout is disabled.
+        :type timeout: int | None
         """
         super().__init__(shell=shell, logger=logger, timeout=timeout)
 
@@ -682,7 +682,7 @@ class SSHClient(Connection[SSHProcess, SSHProcessResult]):
         ssh_password: str | None = confdict.get("password", None)
         ssh_private_key: str | None = confdict.get("private_key", None)
         ssh_private_key_password: str | None = confdict.get("private_key_password", None)
-        timeout: int = confdict.get("timeout", 300)
+        timeout: int | None = confdict.get("timeout", None)
 
         if ssh_password is None and ssh_private_key is None:
             ssh_password = "Secret123"

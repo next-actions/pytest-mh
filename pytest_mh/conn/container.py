@@ -380,7 +380,7 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         sudo_password: str | None = None,
         shell: Shell,
         logger: MultihostLogger,
-        timeout: int = 300,
+        timeout: int | None = None,
     ) -> None:
         """
         :param container_name: Container name.
@@ -395,9 +395,9 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         :type shell: str, optional
         :param logger: Multihost logger.
         :type logger: MultihostLogger
-        :param timeout: Timeout in seconds (defaults to 300), value
-            ``0`` means that timeout is disabled.
-        :type timeout: int
+        :param timeout: Timeout in seconds (defaults to ``None``, which
+            resolves to 300), value ``0`` means that timeout is disabled.
+        :type timeout: int | None
         """
         super().__init__(shell=shell, logger=logger, timeout=timeout)
 
@@ -475,7 +475,7 @@ class ContainerClient(Connection[ContainerProcess, ContainerProcessResult]):
         user: str = confdict.get("user", "root")
         sudo: bool = confdict.get("sudo", False)
         sudo_password: str | None = confdict.get("sudo_password", None)
-        timeout: int = confdict.get("timeout", 300)
+        timeout: int | None = confdict.get("timeout", None)
 
         if container is None:
             raise ValueError("Container name is not set!")

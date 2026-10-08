@@ -101,3 +101,15 @@ the same timestamp format so the two can be correlated.
     :caption: Enable pylibssh debug logging
 
     $ MH_PYLIBSSH_DEBUG=/dev/stderr pytest --mh-config=mhc.yam --verbose
+
+When debugging a test that hits the default command timeout (see
+:doc:`running-commands/timeouts`), waiting for the full timeout to elapse
+before the failure is reported can slow down your debugging loop. You can set
+the ``MH_PROCESS_TIMEOUT`` environment variable to override the default
+timeout for all commands (it does not affect commands or calls that set an
+explicit timeout).
+
+.. code-block:: text
+    :caption: Shorten the default timeout to 5 seconds
+
+    $ MH_PROCESS_TIMEOUT=5 pytest --mh-config=mhc.yam --verbose
