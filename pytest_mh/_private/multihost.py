@@ -1320,7 +1320,7 @@ def mh_utility_teardown_dependencies(
     :type types: list[type[MultihostUtility]]
     """
     errors = []
-    for util in reversed(obj._mh_utility_dependencies):
+    for util in obj._mh_utility_dependencies[::-1]:
         if not isinstance(util, tuple(types)):
             continue
 
@@ -1365,7 +1365,7 @@ def mh_utility_exit_dependencies(obj: MultihostRole | MultihostHost, where: str)
     :type where: str
     """
     errors = []
-    for util in reversed(obj._mh_utility_dependencies):
+    for util in obj._mh_utility_dependencies[::-1]:
         if not util._op_state.check(f"__enter__{where}", "called"):
             continue
 
