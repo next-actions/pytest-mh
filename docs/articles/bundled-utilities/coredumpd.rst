@@ -1,15 +1,15 @@
 Coredumpd: Autodetection of Core Files
 ######################################
 
-Collects generated core files from ``/var/lib/systemd/coredump`` and stores them
-as test artifacts. If any core file was produced during the test run, it can
-change the test status to ``failed`` and mark it as
-``original-status/COREDUMP``.
+Detects core dumps produced during a test run using ``coredumpctl`` and stores a
+backtrace together with a compressed core file as test artifacts. If any core
+dump was produced during the test run, it can change the test status to
+``failed`` and mark it as ``original-status/COREDUMP``.
 
 .. note::
 
-    ``systemd-coredump`` must be enabled on the system and set to store core
-    files in ``/var/lib/systemd/coredump`` directory (default behavior).
+    ``systemd-coredump`` must be enabled on the system. Any ``Storage`` mode is
+    supported since the core dumps are queried through ``coredumpctl``.
 
 .. seealso::
 
