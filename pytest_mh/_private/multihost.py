@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from abc import ABC, ABCMeta, abstractmethod
 from collections import deque
 from contextlib import contextmanager
@@ -17,6 +18,7 @@ from ..conn import (
     Process,
     ProcessError,
     ProcessInputBuffer,
+    ProcessLogLevel,
     ProcessResult,
     ProcessTimeoutError,
     Shell,
@@ -483,6 +485,18 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         self._op_state: OperationStatus = OperationStatus()
         """Keep state of setup and teardown methods."""
 
+        self._test_start_timestamp: int | None = None
+        """UTC UNIX timestamp (seconds) of the current test's start."""
+
+        self._test_start_date: str | None = None
+        """Host-local formatted date (``%Y-%m-%d %H:%M:%S.%N``) of the current test's start."""
+
+        self._test_start_utcoffset: int | None = None
+        """Host UTC offset in seconds at the current test's start."""
+
+        self._test_start_tzname: str | None = None
+        """Host timezone name at the current test's start."""
+
         validate_configuration(
             self.required_fields, confdict, error_fmt='"{key}" property is missing in host configuration'
         )
@@ -571,6 +585,129 @@ class MultihostHost(Generic[DomainType], metaclass=_MultihostHostMeta):
         The field name may contain a ``.`` to check nested fields.
         """
         return ["role", "hostname"]
+
+    @property
+    def test_start_timestamp(self) -> int:
+        """
+        UTC UNIX timestamp (seconds since epoch) marking the start of the
+        current test's setup.
+
+        It is captured on the host by the multihost fixture before any per-test
+        setup runs, therefore it is available even if the test fails before a
+        utility's own ``setup`` is executed.
+
+        If, for some reason, it was not possible to obtain the test start
+        timestamp (e.g. due to an error in a setup phase), this property
+        returns ``1``.
+        """
+        if self._test_start_timestamp is None:
+            return 1
+
+        return self._test_start_timestamp
+
+    @property
+    def test_start_date(self) -> str | None:
+        """
+        Host-local formatted date (``%Y-%m-%d %H:%M:%S.%N``) marking the start
+        of the current test's setup.
+
+        This is the original human-readable rendering in the host's own timezone
+        with sub-second precision. For a custom format see
+        :meth:`test_start_format` and for the raw machine value see
+        :attr:`test_start_timestamp`.
+
+        It is ``None`` if it could not be obtained (host unreachable at the
+        start of the test or unsupported operating system).
+        """
+        return self._test_start_date
+
+    def test_start_format(self, fmt: str) -> str | None:
+        """
+        Format :attr:`test_start_timestamp` in the host's local time using the
+        timezone and DST information captured together with it.
+
+        The timezone offset was captured at the very instant of the timestamp,
+        so it reflects DST correctly for that instant. Rendering is done from
+        the epoch and is therefore whole-second precise; use
+        :attr:`test_start_date` if sub-second precision is required.
+
+        :param fmt: ``strftime`` format string.
+        :type fmt: str
+        :return: Formatted date, or ``None`` if the timestamp is not available.
+        :rtype: str | None
+        """
+        if self._test_start_timestamp is None or self._test_start_utcoffset is None:
+            return None
+
+        offset = datetime.timedelta(seconds=self._test_start_utcoffset)
+        # datetime.timezone(offset, None) raises, pass the name only when present.
+        tz = (
+            datetime.timezone(offset, self._test_start_tzname)
+            if self._test_start_tzname
+            else datetime.timezone(offset)
+        )
+
+        return datetime.datetime.fromtimestamp(self._test_start_timestamp, tz).strftime(fmt)
+
+    def _test_start_record(self) -> None:
+        """
+        Capture the current test's start time from the host clock.
+
+        Populates :attr:`test_start_timestamp`, :attr:`test_start_date` and the
+        timezone/DST information used by :meth:`test_start_format`. Called by
+        the multihost fixture at the very beginning of per-test setup.
+
+        Failures are ignored on purpose so that an unreachable host does not
+        abort the test before its own setup had a chance to run.
+        """
+        self._test_start_timestamp = None
+        self._test_start_date = None
+        self._test_start_utcoffset = None
+        self._test_start_tzname = None
+
+        match self.os_family:
+            case MultihostOSFamily.Linux:
+                command = "date +'%s|%Y-%m-%d %H:%M:%S.%N|%z|%Z'"
+            case MultihostOSFamily.Windows:
+                command = (
+                    '"{0}|{1}|{2}|{3}" -f '
+                    "[DateTimeOffset]::UtcNow.ToUnixTimeSeconds(), "
+                    "(Get-Date).ToString('yyyy-MM-dd HH:mm:ss.fffffff'), "
+                    "(Get-Date).ToString('zzz'), "
+                    "[System.TimeZoneInfo]::Local.Id"
+                )
+            case _:
+                return
+
+        result = self.conn.run(command, log_level=ProcessLogLevel.Error, raise_on_error=False)
+        if result.rc != 0:
+            return
+
+        try:
+            timestamp, date, offset, tzname = result.stdout.strip().split("|")
+            self._test_start_timestamp = int(timestamp)
+            self._test_start_date = date
+            self._test_start_utcoffset = self._parse_utcoffset(offset)
+            self._test_start_tzname = tzname or None
+        except (ValueError, IndexError):
+            self._test_start_timestamp = None
+            self._test_start_date = None
+            self._test_start_utcoffset = None
+            self._test_start_tzname = None
+
+    @staticmethod
+    def _parse_utcoffset(offset: str) -> int:
+        """
+        Parse a ``±HHMM`` (Linux) or ``±HH:MM`` (Windows) UTC offset into seconds.
+
+        :param offset: UTC offset string.
+        :type offset: str
+        :return: Offset in seconds east of UTC.
+        :rtype: int
+        """
+        offset = offset.replace(":", "")
+        sign = -1 if offset[0] == "-" else 1
+        return sign * (int(offset[1:3]) * 3600 + int(offset[3:5]) * 60)
 
     def pytest_setup(self) -> None:
         """

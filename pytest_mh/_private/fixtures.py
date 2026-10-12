@@ -261,6 +261,7 @@ class MultihostFixture(object):
         Enter reentrant utilities in each host.
         """
         for item in self.hosts:
+            item._test_start_record()
             mh_utility_enter_dependencies(item, "test")
 
     def _setup_hosts(self) -> None:
