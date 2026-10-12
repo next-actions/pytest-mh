@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import re
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 import pytest
 
@@ -11,7 +12,40 @@ from .. import MultihostArtifactsType, MultihostHost, MultihostUtility
 from ..conn import ProcessLogLevel
 from .fs import LinuxFileSystem
 
-__all__ = ["Coredumpd"]
+__all__ = ["Coredumpd", "CoredumpFilter"]
+
+# Severity ordering used to combine the per-core-dump filter result with the mode.
+_SEVERITY_RANK: dict[str, int] = {"ignore": 0, "warn": 1, "fail": 2}
+
+
+class CoredumpFilter(TypedDict, total=False):
+    """
+    Patterns used to classify core dumps by their executable path.
+
+    Each action takes a list of patterns matched against the executable path of a
+    core dump. A pattern can be:
+
+    * ``re:<regex>``: a regular expression (:func:`re.search`) matched against the
+      full executable path, e.g. ``re:/usr/libexec/sssd/.*``
+    * a full path (contains a ``/``): a shell-style glob (:func:`fnmatch.fnmatchcase`)
+      matched against the executable path, e.g. ``/usr/libexec/sssd/sssd_be`` or
+      ``/usr/libexec/sssd/*``
+    * a bare binary name (no ``/``): a shell-style glob matched against the base
+      name of the executable path, e.g. ``sssd_be`` or ``sssd*``
+
+    A plain string without wildcards matches exactly.
+
+    A core dump matches an action if any of its patterns match. A core dump that
+    matches ``fail`` always fails the test and a core dump that matches ``ignore``
+    is always ignored, regardless of the configured mode. A core dump that matches
+    neither is handled according to the mode.
+    """
+
+    fail: list[str]
+    """Core dumps whose executable matches any of these patterns always fail the test."""
+
+    ignore: list[str]
+    """Core dumps whose executable matches any of these patterns are always ignored."""
 
 
 class Coredumpd(MultihostUtility[MultihostHost]):
@@ -33,12 +67,14 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         fs: LinuxFileSystem,
         *,
         mode: Literal["fail", "warn", "ignore"] = "ignore",
-        filter: str | None = None,
+        filter: CoredumpFilter | None = None,
     ) -> None:
         """
-        ``mode`` values:
+        Each core dump results in one of the following actions based on its
+        executable path (see :class:`CoredumpFilter`):
 
-        * ``ignore``: all failures are ignored
+        * ``ignore``: the core dump is collected as an artifact but it does not
+          affect the test outcome or category
         * ``warn``: test result category is set to "COREDUMPS" and the test is
           marked as such in a test summary, however test outcome and pytest exit
           code is kept intact
@@ -46,26 +82,33 @@ class Coredumpd(MultihostUtility[MultihostHost]):
           marked as such in a test summary, if a test outcome is ``passed`` it
           is set to ``failed`` and pytest will return non-zero exit code
 
+        A core dump that matches the ``fail`` filter always fails the test and a
+        core dump that matches the ``ignore`` filter is always ignored. A core
+        dump that matches neither (an unexpected core dump in a random binary) is
+        handled according to ``mode``: it fails the test if ``mode="fail"``, only
+        warns if ``mode="warn"`` or is ignored if ``mode="ignore"``.
+
         :param host: Multihost host.
         :type host: MultihostHost
         :param fs: Linux file system utility, used to create a temporary
             directory for the collected artifacts.
         :type fs: LinuxFileSystem
-        :param mode: Action taken when a core file is found.
+        :param mode: Action taken for a core dump that does not match any filter,
+            defaults to ``ignore``.
         :type mode: Literal["fail", "warn", "ignore"]
-        :param filter: Regular expression used to filter the core dumps by the
-            executable path, defaults to None
-        :type filter: str | None, optional
+        :param filter: Patterns used to classify core dumps by the executable
+            path (see :class:`CoredumpFilter`), defaults to None
+        :type filter: CoredumpFilter | None, optional
         """
         super().__init__(host)
 
         self.fs: LinuxFileSystem = fs
 
         self.mode: Literal["fail", "warn", "ignore"] = mode
-        """Action taken when a core file is found."""
+        """Action taken for a core dump that does not match any filter."""
 
-        self.filter: str | None = filter
-        """Regular expression to filter core dumps by the executable path."""
+        self.filter: CoredumpFilter = filter if filter is not None else {}
+        """Patterns to classify core dumps by the executable path."""
 
         self._coredumps: list[dict[str, Any]] | None = None
 
@@ -161,6 +204,46 @@ class Coredumpd(MultihostUtility[MultihostHost]):
 
         return artifacts
 
+    @staticmethod
+    def _match(pattern: str, exe: str) -> bool:
+        """
+        Match a single filter pattern against an executable path.
+
+        :param pattern: Filter pattern (see :class:`CoredumpFilter`).
+        :type pattern: str
+        :param exe: Executable path of the core dump.
+        :type exe: str
+        :return: True if the pattern matches the executable path.
+        :rtype: bool
+        """
+        if pattern.startswith("re:"):
+            return re.search(pattern[len("re:") :], exe) is not None
+
+        if "/" in pattern:
+            return fnmatch.fnmatchcase(exe, pattern)
+
+        return fnmatch.fnmatchcase(os.path.basename(exe), pattern)
+
+    def classify(self, exe: str) -> Literal["fail", "warn", "ignore"]:
+        """
+        Classify a core dump into an action based on its executable path.
+
+        A core dump matching the ``fail`` filter always fails and one matching the
+        ``ignore`` filter is always ignored. A core dump that matches neither is
+        handled according to :attr:`mode`.
+
+        :param exe: Executable path of the core dump.
+        :type exe: str
+        :return: Action to take for the core dump.
+        :rtype: Literal["fail", "warn", "ignore"]
+        """
+        if any(self._match(pattern, exe) for pattern in self.filter.get("fail", [])):
+            return "fail"
+        if any(self._match(pattern, exe) for pattern in self.filter.get("ignore", [])):
+            return "ignore"
+
+        return self.mode
+
     def pytest_report_teststatus(
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
     ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
@@ -177,7 +260,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         if report.when != "call":
             return None
 
-        if self.mode == "ignore" or report.outcome == "skipped":
+        if report.outcome == "skipped":
             return None
 
         self.logger.info("Checking for core files")
@@ -188,16 +271,20 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         if not self._coredumps:
             return None
 
-        # Ignore if no core dump's executable matches the filter
-        if self.filter:
-            executables = "\n".join(str(dump.get("exe", "")) for dump in self._coredumps)
-            if re.search(self.filter, executables) is None:
-                return None
+        # Take the most severe action across all collected core dumps.
+        action = "ignore"
+        for dump in self._coredumps:
+            severity = self.classify(str(dump.get("exe", "")))
+            if _SEVERITY_RANK[severity] > _SEVERITY_RANK[action]:
+                action = severity
+
+        if action == "ignore":
+            return None
 
         original_outcome = report.outcome
 
-        # Fail the test if fail mode is selected
-        if report.outcome == "passed" and self.mode == "fail":
+        # Fail the test if the effective action is "fail"
+        if report.outcome == "passed" and action == "fail":
             report.outcome = "failed"
 
         # Count this test into "COREDUMPS" category in the final summary,

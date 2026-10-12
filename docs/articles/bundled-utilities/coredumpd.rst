@@ -35,16 +35,33 @@ Everything else is fully automatic.
             File system manipulation.
             """
 
-            self.coredumpd: Coredumpd = Coredumpd(self.host, self.fs, mode="fail", filter="my_binary")
+            self.coredumpd: Coredumpd = Coredumpd(
+                self.host,
+                self.fs,
+                mode="fail",
+                filter={
+                    "fail": ["sssd*", "/usr/sbin/sssd"],
+                    "ignore": ["unrelated_binary", "re:/usr/lib/.*"],
+                },
+            )
             """
             Coredumpd utilities.
             """
 
-If the ``mode`` is set to ``fail``, it will change the outcome of the test to
-``failed`` even if the test itself was successful. However, the original outcome
-is still visible in the verbose output. You can also set it to ``warn`` to mark
-the test as ``COREDUMP`` but keep the test outcome intact; or to ``ignore`` to
-only collect the core files but do not affect the test outcome or category.
+The ``filter`` classifies core dumps by their executable path. A core dump that
+matches the ``fail`` filter always fails the test and one that matches the
+``ignore`` filter is always ignored (it is still collected as an artifact). Each
+filter takes a list of patterns; a pattern is a bare binary name matched against
+the base name (a shell-style glob, e.g. ``sssd_be`` or ``sssd*``), a full path
+matched against the executable path (a shell-style glob, e.g. ``/usr/sbin/sssd``
+or ``/usr/libexec/sssd/*``) or a regular expression prefixed with ``re:`` (e.g.
+``re:/usr/lib/.*``). A plain string without wildcards matches exactly.
+
+A core dump that matches neither filter (an unexpected core dump in a random
+binary) is handled according to ``mode``: it fails the test if ``mode="fail"``,
+only marks it as ``COREDUMP`` while keeping the outcome intact if ``mode="warn"``
+or is ignored if ``mode="ignore"`` (the default). The original test outcome is
+always visible in the verbose output.
 
 .. code-block:: text
     :caption: Example: Output of pytest run with core file detected
