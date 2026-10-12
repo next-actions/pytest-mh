@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, get_args
 
-from ..conn import ProcessLogLevel
+from ..conn import ProcessErrorBase, ProcessLogLevel
 from .errors import ArtifactsExceptionGroup
 from .misc import sanitize_path, should_collect_artifacts
 from .types import MultihostOSFamily, MultihostOutcome
@@ -278,17 +278,36 @@ class MultihostArtifactsCollector(object):
         match self.host.os_family:
             case MultihostOSFamily.Linux:
                 command = f"""
+                    set -x
                     tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
-                    tar -hczvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
+                    tar -hczf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} 1> /dev/null
                     base64 "$tmp"
-                    rm -f "$tmp" &> /dev/null
+                    rm -f "$tmp" 1> /dev/null
+                """
+
+                fallback_command = f"""
+                    set -x
+                    tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
+                    journalctl --since "@{self.host.test_start_timestamp}" > /var/log/journald.log
+                    tar -hczf "$tmp" /var/log/journald.log 1> /dev/null
+                    base64 "$tmp"
+                    rm -f "$tmp" 1> /dev/null
                 """
             case MultihostOSFamily.Windows:
                 raise NotImplementedError("Artifacts are not supported on Windows machine")
             case _:
                 raise ValueError(f"Unknown operating system: {self.host.os_family}")
 
-        result = self.host.conn.run(command, log_level=ProcessLogLevel.Error)
+        # LogLevel.Error is needed to avoid dumping large b64 content to the log
+        try:
+            result = self.host.conn.run(command, log_level=ProcessLogLevel.Error)
+        except ProcessErrorBase as e:
+            self.logger.warning(
+                "Artifact collection failed, falling back to minimal artifacts list",
+                extra={"data": {"Error": str(e)}},
+            )
+
+            result = self.host.conn.run(fallback_command, log_level=ProcessLogLevel.Error)
 
         # Return if no artifacts were obtained
         if not result.stdout:
