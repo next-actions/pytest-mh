@@ -439,6 +439,52 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
 
         return tmpfile
 
+    def mktmpdir(
+        self,
+        *,
+        path: str = "/tmp/mh.fs.rollback.XXXXXXXXX",
+        mode: str | None = None,
+        user: str | None = None,
+        group: str | None = None,
+    ) -> str:
+        """
+        Create temporary directory on remote host.
+
+        :param path: Directory name template passed to ``mktemp -d``. The
+            template must end with a dot followed by at least three ``X``
+            characters, which are replaced with random characters. The parent
+            directory must already exist. Defaults to
+            ``/tmp/mh.fs.rollback.XXXXXXXXX``
+        :type path: str, optional
+        :param mode: Access mode (chmod value), defaults to None
+        :type mode: str | None, optional
+        :param user: Owner, defaults to None
+        :type user: str | None, optional
+        :param group: Group, defaults to None
+        :type group: str | None, optional
+        :raises pytest_mh.conn.ProcessError: If ``mktemp -d`` fails.
+        :raises OSError: If ``mktemp -d`` returns no directory path.
+        :return: Temporary directory path.
+        :rtype: str
+        """
+
+        self.logger.info("Creating temporary directory")
+        result = self.host.conn.exec(["mktemp", "-d", path], log_level=ProcessLogLevel.Error)
+
+        tmpdir = result.stdout.strip()
+        if not tmpdir:
+            raise OSError("Temporary directory was not created")
+
+        action = f"rm --force --recursive '{tmpdir}'"
+        self.__backup[tmpdir] = (action, "delete")
+        self.__rollback.append(action)
+
+        attrs = self.__gen_chattrs(tmpdir, mode=mode, user=user, group=group)
+        if attrs:
+            self.host.conn.run(attrs, log_level=ProcessLogLevel.Error)
+
+        return tmpdir
+
     def rm(self, path: str) -> None:
         """
         Remove remote file or directory.
