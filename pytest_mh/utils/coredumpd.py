@@ -8,7 +8,7 @@ from typing import Any, Literal, TypedDict
 
 import pytest
 
-from .. import MultihostArtifactsType, MultihostHost, MultihostUtility
+from .. import MHReportTestStatus, MultihostArtifactsType, MultihostHost, MultihostUtility
 from ..conn import ProcessLogLevel
 from .fs import LinuxFileSystem
 
@@ -246,7 +246,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
 
     def pytest_report_teststatus(
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
-    ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+    ) -> MHReportTestStatus | None:
         """
         Report core file found error if found and matches requested filter.
 
@@ -255,7 +255,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         :param config: Pytest config
         :type config: pytest.Config
         :return: Pytest test status
-        :rtype: tuple[str, str, str | tuple[str, dict[str, bool]]] | None
+        :rtype: MHReportTestStatus | None
         """
         if report.when != "call":
             return None
@@ -289,4 +289,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
 
         # Count this test into "COREDUMPS" category in the final summary,
         # mark it with "C"/"COREDUMP" in short/verbose listing.
-        return ("COREDUMPS", "C", f"{original_outcome.upper()}/COREDUMP")
+        return MHReportTestStatus(
+            status=("COREDUMPS", "C", f"{original_outcome.upper()}/COREDUMP"),
+            force_artifacts_collection=True,
+        )

@@ -199,18 +199,21 @@ class MultihostArtifactsCollector(object):
         self.mode: MultihostArtifactsMode = mode
         self.compress: bool = compress
 
-    def should_collect(self, outcome: MultihostOutcome) -> bool:
+    def should_collect(self, outcome: MultihostOutcome, *, force: bool = False) -> bool:
         """
         Match mode and outcome in order to decide if artifacts should be
         collected/written or not.
 
         :param outcome: Test or operation outcome.
         :type outcome: MultihostOutcome
+        :param force: If True, collect artifacts regardless of outcome, unless
+            mode is "never" (which always means never), defaults to False
+        :type force: bool, optional
         :raises ValueError: If mode is not recognized.
         :return: True if artifacts should be collected, False otherwise.
         :rtype: bool
         """
-        return should_collect_artifacts(self.mode, outcome)
+        return should_collect_artifacts(self.mode, outcome, force=force)
 
     def collect(
         self,
@@ -219,6 +222,7 @@ class MultihostArtifactsCollector(object):
         path: str,
         outcome: MultihostOutcome,
         collect_objects: list[MultihostArtifactsCollectable],
+        force: bool = False,
     ) -> None:
         """
         Collect artifacts to $artifacts_dir/$path/$collection_path.
@@ -231,11 +235,14 @@ class MultihostArtifactsCollector(object):
         :type outcome: MultihostOutcome
         :param collect_objects: Objects from which artifacts will be collected.
         :type collect_objects: list[MultihostArtifactCollectionType]
+        :param force: If True, collect artifacts regardless of outcome, unless
+            mode is "never" (which always means never), defaults to False
+        :type force: bool, optional
         :raises Exception: If error happens when obtaining artifacts list.
         :raises NotImplementedError: If an attempt to collect artifacts on Windows host is performed.
         :raises ValueError: If host with unknown operating system is given.
         """
-        if not self.should_collect(outcome):
+        if not self.should_collect(outcome, force=force):
             self.logger.info("Artifacts are not collected")
             return
 

@@ -364,9 +364,20 @@ class MultihostFixture(object):
         for item in self.roles + self.hosts:
             result = mh_utility_pytest_report_teststatus(item, report, config)
             if result is not None:
-                # Change stored outcome since the hook may have changed it.
+                # report.outcome may have been mutated as a side effect by the
+                # utility's hook (e.g. Coredumpd sets it to "failed").
                 self.data.outcome = report.outcome
-                return result
+
+                # Propagate the pytest-mh-internal signal to force artifact
+                # collection regardless of outcome. None is treated as False.
+                self.data.force_artifacts_collection = bool(result.force_artifacts_collection)
+
+                # Only "status" is meaningful to pytest itself; this return
+                # value flows up to MultihostPlugin.pytest_report_teststatus
+                # (the actual pytest hookimpl), which hands it to pytest
+                # unchanged. It may be None if the utility only wanted to
+                # force artifact collection.
+                return result.status
 
         return None
 
@@ -386,6 +397,7 @@ class MultihostFixture(object):
                     path=f"tests/{self.request.node.name}/{host.role}/{host.hostname}",
                     outcome=self.data.outcome,
                     collect_objects=collectable[host],
+                    force=self.data.force_artifacts_collection,
                 )
             except Exception as e:
                 self.logger.error(
