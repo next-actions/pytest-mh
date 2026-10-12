@@ -170,7 +170,7 @@ def sanitize_path(path: str | Path) -> Path:
     return Path(str(path).translate(table))
 
 
-def should_collect_artifacts(mode: MultihostArtifactsMode, outcome: MultihostOutcome) -> bool:
+def should_collect_artifacts(mode: MultihostArtifactsMode, outcome: MultihostOutcome, *, force: bool = False) -> bool:
     """
     Match mode and outcome in order to decide if artifacts should be
     collected/written or not.
@@ -179,13 +179,20 @@ def should_collect_artifacts(mode: MultihostArtifactsMode, outcome: MultihostOut
     :type mode: MultihostArtifactsMode
     :param outcome: Test or operation outcome.
     :type outcome: MultihostOutcome
+    :param force: If True, collect artifacts regardless of outcome, unless
+        mode is "never" (which always means never), defaults to False
+    :type force: bool, optional
     :raises ValueError: If mode is not recognized.
     :return: True if artifacts should be collected, False otherwise.
     :rtype: bool
     """
+    if mode == "never":
+        return False
+
+    if force:
+        return True
+
     match mode:
-        case "never":
-            return False
         case "always":
             return True
         case "on-failure":

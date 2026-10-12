@@ -4,6 +4,7 @@ import datetime
 from abc import ABC, ABCMeta, abstractmethod
 from collections import deque
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any, Generator, Generic, Self, Sequence, Type, TypeVar
@@ -1007,6 +1008,32 @@ class MultihostRole(Generic[HostType], metaclass=_MultihostRoleMeta):
         return self.artifacts
 
 
+@dataclass
+class MHReportTestStatus:
+    """
+    Result of :meth:`MultihostUtility.pytest_report_teststatus`.
+
+    This is a pytest-mh internal structure (not part of pytest's own hookspec)
+    that lets a utility both influence the reported pytest status and signal
+    additional pytest-mh behavior. All fields default to ``None`` (unset), so a
+    utility can set one without the other, and new fields can be added later
+    without breaking existing utilities.
+    """
+
+    status: tuple[str, str, str | tuple[str, dict[str, bool]]] | None = None
+    """
+    The pytest test status (category, short letter, verbose word), see pytest
+    built-in hook :func:`~_pytest.hookspec.pytest_report_teststatus`. If
+    ``None``, the test's reported status/category is left unchanged.
+    """
+
+    force_artifacts_collection: bool | None = None
+    """
+    If True, force artifact collection for this test regardless of outcome,
+    unless the artifacts mode is "never". ``None`` is treated as False.
+    """
+
+
 class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
     """
     Base class for utility functions that operate on remote hosts, such as
@@ -1119,10 +1146,14 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
 
     def pytest_report_teststatus(
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
-    ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+    ) -> MHReportTestStatus | None:
         """
-        See pytest built-in hook
-        :func:`~_pytest.hookspec.pytest_report_teststatus` for more information.
+        Loosely based on pytest built-in hook
+        :func:`~_pytest.hookspec.pytest_report_teststatus`, see it for more
+        information. Unlike the pytest hook, this returns a
+        :class:`MHReportTestStatus` instance (or None), which besides the
+        pytest status also allows requesting additional pytest-mh behavior,
+        such as forcing artifact collection.
 
         .. warning::
 
@@ -1138,14 +1169,14 @@ class MultihostUtility(Generic[HostType], metaclass=_MultihostUtilityMeta):
                         if report.when != 'call':
                             return None
 
-                        return ("error", "X", "MYERROR")
+                        return MHReportTestStatus(status=("error", "X", "MYERROR"))
 
         :param report: Pytest report.
         :type report: pytest.CollectReport | pytest.TestReport
         :param config: Pytest config.
         :type config: pytest.Config
         :return: Test status.
-        :rtype: tuple[str, str, str | tuple[str, Mapping[str, bool]]] | None
+        :rtype: MHReportTestStatus | None
         """
         return None
 
@@ -1519,9 +1550,12 @@ def mh_utility_exit_dependencies(obj: MultihostRole | MultihostHost, where: str)
 
 def mh_utility_pytest_report_teststatus(
     obj: MultihostRole | MultihostHost, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
-) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+) -> MHReportTestStatus | None:
     """
     Run :meth:`MultihostUtility.pytest_report_teststatus` on all utilities.
+
+    The first utility that returns a non-None result wins; remaining utilities
+    are not queried.
 
     :param obj: Multihost role or host object.
     :type obj: MultihostRole | MultihostHost
@@ -1530,7 +1564,7 @@ def mh_utility_pytest_report_teststatus(
     :param config: Pytest config.
     :type config: pytest.Config
     :return: Test status.
-    :rtype: tuple[str, str, str | tuple[str, Mapping[str, bool]]] | None
+    :rtype: MHReportTestStatus | None
     """
     for util in obj._mh_utility_dependencies:
         result = util.pytest_report_teststatus(report, config)

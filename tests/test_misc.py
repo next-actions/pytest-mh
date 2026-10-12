@@ -264,6 +264,21 @@ def test_misc__should_collect_artifacts(mode, outcome, expected):
     assert should_collect_artifacts(mode, outcome) == expected
 
 
+@pytest.mark.parametrize(
+    "mode, outcome, expected",
+    [
+        ("never", "success", False),
+        ("never", "failed", False),
+        ("always", "success", True),
+        ("always", "failed", True),
+        ("on-failure", "success", True),
+        ("on-failure", "failed", True),
+    ],
+)
+def test_misc__should_collect_artifacts__force(mode, outcome, expected):
+    assert should_collect_artifacts(mode, outcome, force=True) == expected
+
+
 def test_misc__should_collect_artifacts__invalid_mode():
     with pytest.raises(ValueError):
         should_collect_artifacts("invalid-mode", "success")
