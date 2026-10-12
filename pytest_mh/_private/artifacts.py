@@ -6,7 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, get_args
 
-from ..conn import ProcessLogLevel
+from ..conn import ProcessErrorBase, ProcessLogLevel
 from .errors import ArtifactsExceptionGroup
 from .misc import sanitize_path, should_collect_artifacts
 from .types import MultihostOSFamily, MultihostOutcome
@@ -199,18 +199,21 @@ class MultihostArtifactsCollector(object):
         self.mode: MultihostArtifactsMode = mode
         self.compress: bool = compress
 
-    def should_collect(self, outcome: MultihostOutcome) -> bool:
+    def should_collect(self, outcome: MultihostOutcome, *, force: bool = False) -> bool:
         """
         Match mode and outcome in order to decide if artifacts should be
         collected/written or not.
 
         :param outcome: Test or operation outcome.
         :type outcome: MultihostOutcome
+        :param force: If True, collect artifacts regardless of outcome, unless
+            mode is "never" (which always means never), defaults to False
+        :type force: bool, optional
         :raises ValueError: If mode is not recognized.
         :return: True if artifacts should be collected, False otherwise.
         :rtype: bool
         """
-        return should_collect_artifacts(self.mode, outcome)
+        return should_collect_artifacts(self.mode, outcome, force=force)
 
     def collect(
         self,
@@ -219,6 +222,7 @@ class MultihostArtifactsCollector(object):
         path: str,
         outcome: MultihostOutcome,
         collect_objects: list[MultihostArtifactsCollectable],
+        force: bool = False,
     ) -> None:
         """
         Collect artifacts to $artifacts_dir/$path/$collection_path.
@@ -231,11 +235,14 @@ class MultihostArtifactsCollector(object):
         :type outcome: MultihostOutcome
         :param collect_objects: Objects from which artifacts will be collected.
         :type collect_objects: list[MultihostArtifactCollectionType]
+        :param force: If True, collect artifacts regardless of outcome, unless
+            mode is "never" (which always means never), defaults to False
+        :type force: bool, optional
         :raises Exception: If error happens when obtaining artifacts list.
         :raises NotImplementedError: If an attempt to collect artifacts on Windows host is performed.
         :raises ValueError: If host with unknown operating system is given.
         """
-        if not self.should_collect(outcome):
+        if not self.should_collect(outcome, force=force):
             self.logger.info("Artifacts are not collected")
             return
 
@@ -278,17 +285,36 @@ class MultihostArtifactsCollector(object):
         match self.host.os_family:
             case MultihostOSFamily.Linux:
                 command = f"""
+                    set -x
                     tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
-                    tar -hczvf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} &> /dev/null
+                    tar -hczf "$tmp" {' '.join([f'$(compgen -G "{x}")' for x in artifacts])} 1> /dev/null
                     base64 "$tmp"
-                    rm -f "$tmp" &> /dev/null
+                    rm -f "$tmp" 1> /dev/null
+                """
+
+                fallback_command = f"""
+                    set -x
+                    tmp=`mktemp /tmp/mh.host.artifacts.XXXXXXXXX`
+                    journalctl --since "@{self.host.test_start_timestamp}" > /var/log/journald.log
+                    tar -hczf "$tmp" /var/log/journald.log 1> /dev/null
+                    base64 "$tmp"
+                    rm -f "$tmp" 1> /dev/null
                 """
             case MultihostOSFamily.Windows:
                 raise NotImplementedError("Artifacts are not supported on Windows machine")
             case _:
                 raise ValueError(f"Unknown operating system: {self.host.os_family}")
 
-        result = self.host.conn.run(command, log_level=ProcessLogLevel.Error)
+        # LogLevel.Error is needed to avoid dumping large b64 content to the log
+        try:
+            result = self.host.conn.run(command, log_level=ProcessLogLevel.Error)
+        except ProcessErrorBase as e:
+            self.logger.warning(
+                "Artifact collection failed, falling back to minimal artifacts list",
+                extra={"data": {"Error": str(e)}},
+            )
+
+            result = self.host.conn.run(fallback_command, log_level=ProcessLogLevel.Error)
 
         # Return if no artifacts were obtained
         if not result.stdout:

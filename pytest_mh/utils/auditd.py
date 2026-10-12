@@ -5,7 +5,7 @@ from typing import Literal
 
 import pytest
 
-from .. import MultihostHost, MultihostUtility
+from .. import MHReportTestStatus, MultihostHost, MultihostUtility
 from ..conn import ProcessLogLevel
 
 __all__ = ["Auditd"]
@@ -106,7 +106,7 @@ class Auditd(MultihostUtility[MultihostHost]):
 
     def pytest_report_teststatus(
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
-    ) -> tuple[str, str, str | tuple[str, dict[str, bool]]] | None:
+    ) -> MHReportTestStatus | None:
         """
         Report AVC denial error if found and matches requested filter.
 
@@ -115,7 +115,7 @@ class Auditd(MultihostUtility[MultihostHost]):
         :param config: Pytest config
         :type config: pytest.Config
         :return: Pytest test status
-        :rtype: tuple[str, str, str | tuple[str, dict[str, bool]]] | None
+        :rtype: MHReportTestStatus | None
         """
         if report.when != "call":
             return None
@@ -149,4 +149,7 @@ class Auditd(MultihostUtility[MultihostHost]):
 
         # Count this test into "AVC DENIALS" category in the final summary,
         # mark it with "A"/"AVC DENIAL" in short/verbose listing.
-        return ("AVC DENIALS", "A", f"{original_outcome.upper()}/AVC DENIAL")
+        return MHReportTestStatus(
+            status=("AVC DENIALS", "A", f"{original_outcome.upper()}/AVC DENIAL"),
+            force_artifacts_collection=True,
+        )
