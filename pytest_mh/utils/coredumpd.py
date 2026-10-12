@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
 import re
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
 
@@ -16,17 +18,13 @@ class Coredumpd(MultihostUtility[MultihostHost]):
     """
     Coredumpd utilities.
 
-    Collects generated core files from /var/lib/systemd/coredump and if there
-    are any, optionally fail the test.
+    Detects core dumps generated during the current test using ``coredumpctl``
+    and, if there are any, optionally fails the test. For each core dump a human
+    readable backtrace and a compressed core file are collected as artifacts.
 
-    .. note::
-
-        In order for this functionality to work correctly, systemd-coredumpd
-        must be configured to store the core files in a directory (default), not
-        in a journal.
-
-        See ``man coredump.conf`` and its ``Storage`` option for more
-        information.
+    Core dumps are matched by their timestamp against
+    :attr:`MultihostHost.test_start_timestamp`, so only core dumps produced
+    during the current test are considered.
     """
 
     def __init__(
@@ -36,7 +34,6 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         *,
         mode: Literal["fail", "warn", "ignore"] = "ignore",
         filter: str | None = None,
-        path: str = "/var/lib/systemd/coredump",
     ) -> None:
         """
         ``mode`` values:
@@ -51,14 +48,14 @@ class Coredumpd(MultihostUtility[MultihostHost]):
 
         :param host: Multihost host.
         :type host: MultihostHost
+        :param fs: Linux file system utility, used to create a temporary
+            directory for the collected artifacts.
+        :type fs: LinuxFileSystem
         :param mode: Action taken when a core file is found.
         :type mode: Literal["fail", "warn", "ignore"]
-        :param filter: Regular expression used to filter the core file names,
-            defaults to None
+        :param filter: Regular expression used to filter the core dumps by the
+            executable path, defaults to None
         :type filter: str | None, optional
-        :param path: Path to the directory where core files are stored, defaults
-            to ``/var/lib/systemd/coredump``
-        :type path: str
         """
         super().__init__(host)
 
@@ -68,66 +65,43 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         """Action taken when a core file is found."""
 
         self.filter: str | None = filter
-        """Regular expression to filter core file names."""
+        """Regular expression to filter core dumps by the executable path."""
 
-        self.path: str = path
-        """Path to the directory where core files are stored."""
+        self._coredumps: list[dict[str, Any]] | None = None
 
-        self._corefiles: list[str] | None = None
-
-    def setup(self) -> None:
+    def list_coredumps(self) -> list[dict[str, Any]]:
         """
-        Backup and remove /var/lib/systemd/coredump.
+        List core dumps produced during the current test.
 
-        This directory will be automatically re-created by systemd-coredumpd if
-        needed.
+        Only core dumps created at or after
+        :attr:`MultihostHost.test_start_timestamp` are returned, so core dumps
+        left over from previous tests are ignored.
+
+        :return: List of ``coredumpctl`` entries (parsed JSON objects).
+        :rtype: list[dict[str, Any]]
         """
-        super().setup()
+        since = self.host.test_start_timestamp
 
-        self.fs.rm("/var/lib/systemd/coredump")
-
-    def list_core_files(self) -> list[str]:
-        """
-        List available core files.
-
-        :return: List of core file names.
-        :rtype: list[str]
-        """
-        # List the folder, exit with 0 if it does not exist (no core files were produced)
+        # coredumpctl exits with non-zero code and prints "No coredumps found."
+        # when there are no matching core dumps.
         result = self.host.conn.run(
-            f"[ -d '{self.path}' ] && ls -N -1 '{self.path}' || :", log_level=ProcessLogLevel.Error
+            f"coredumpctl list --since @{since} --no-legend --json=short",
+            log_level=ProcessLogLevel.Error,
+            raise_on_error=False,
         )
 
-        return result.stdout_lines
+        if result.rc != 0 or not result.stdout.strip():
+            return []
 
-    def parse_core_file_name(self, name: str) -> tuple[str, str]:
-        """
-        Parse core file name and get the PID and timestamp information.
-
-        Expected format is core.{binary}.{bootid}.{pid}.{timestamp}[.zst]
-
-        :param name: Core file name.
-        :type name: str
-        :raises ValueError: If the core file name has unexpected format.
-        :return: Tuple of ``(PID, timestamp)``.
-        :rtype: tuple[str, str] | None
-        """
-        parts = name.split(".")
-        if not parts or len(parts) < 3:
-            raise ValueError(f"Invalid coredump name: {name}")
-
-        # If the file is compressed, remove the extension
-        if not parts[-1].isnumeric():
-            parts.pop()
-
-        pid = parts[-2]
-        timestamp = parts[-1]
-
-        return (pid, timestamp)
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError:
+            self.logger.warning("Unable to parse coredumpctl output")
+            return []
 
     def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
-        Dump backtrace and other information from generated core files for easy access.
+        Collect a backtrace and a compressed core file for each core dump.
 
         :param host: Host where the artifacts are being collected.
         :type host: MultihostHost
@@ -136,32 +110,56 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        if self._corefiles is None:
-            self._corefiles = self.list_core_files()
+        if self._coredumps is None:
+            self._coredumps = self.list_coredumps()
 
-        if not self._corefiles:
+        if not self._coredumps:
             return set()
 
-        # Parse PID and timestamp that we can use to get information for journal
-        for name in self._corefiles:
-            try:
-                pid, timestamp = self.parse_core_file_name(name)
-            except ValueError:
-                self.logger.warn(f"Invalid core file name: {name}")
+        # Core dumps are collected into /var/coredumps so they are clearly
+        # visible in the artifacts list, falling back to a random temporary
+        # directory if that location is not writable. The directory is
+        # automatically removed when the file system utility is torn down,
+        # which happens after the artifacts are collected.
+        outdir = self.fs.mkdtemp(path="/var/coredumps")
+        artifacts: set[str] = set()
+
+        for dump in self._coredumps:
+            pid = dump.get("pid")
+            if pid is None:
                 continue
 
-            # Dump the information
+            exe = dump.get("exe") or "unknown"
+            timestamp = dump.get("time")
+            name = f"core.{os.path.basename(exe)}.{pid}.{timestamp}"
+
+            info_path = f"{outdir}/{name}.info"
+            core_path = f"{outdir}/{name}.core.zst"
+
+            # Dump a human readable backtrace.
             self.host.conn.run(
-                rf"""
-                journalctl --output=verbose          \
-                    'COREDUMP_PID={pid}'             \
-                    'COREDUMP_TIMESTAMP={timestamp}' \
-                    > '{self.path}/{name}.backtrace'
-                """,
+                f"coredumpctl info {pid} > '{info_path}'",
                 log_level=ProcessLogLevel.Error,
+                raise_on_error=False,
+            )
+            artifacts.add(info_path)
+
+            # Dump and compress the core file. The core data may not be available
+            # anymore (e.g. the core file was already removed), in which case
+            # coredumpctl returns non-zero and we only keep the backtrace.
+            result = self.host.conn.run(
+                f"set -o pipefail; coredumpctl dump {pid} 2>/dev/null | zstd -q -o '{core_path}'",
+                log_level=ProcessLogLevel.Error,
+                raise_on_error=False,
             )
 
-        return {self.path}
+            if result.rc == 0:
+                artifacts.add(core_path)
+            else:
+                self.logger.warning(f"Unable to dump core file for PID {pid} ({exe})")
+                self.host.conn.run(f"rm --force '{core_path}'", log_level=ProcessLogLevel.Error, raise_on_error=False)
+
+        return artifacts
 
     def pytest_report_teststatus(
         self, report: pytest.CollectReport | pytest.TestReport, config: pytest.Config
@@ -184,16 +182,16 @@ class Coredumpd(MultihostUtility[MultihostHost]):
 
         self.logger.info("Checking for core files")
 
-        if self._corefiles is None:
-            self._corefiles = self.list_core_files()
+        if self._coredumps is None:
+            self._coredumps = self.list_coredumps()
 
-        if not self._corefiles:
+        if not self._coredumps:
             return None
 
-        # Ignore if no core files matches the filter
+        # Ignore if no core dump's executable matches the filter
         if self.filter:
-            match = re.search(self.filter, "\n".join(self._corefiles))
-            if match is None:
+            executables = "\n".join(str(dump.get("exe", "")) for dump in self._coredumps)
+            if re.search(self.filter, executables) is None:
                 return None
 
         original_outcome = report.outcome
