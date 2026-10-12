@@ -22,23 +22,18 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         """
         super().__init__(host)
 
-        self._test_start: str = ""
-        self._cursor: str = ""
+        self.host: MultihostHost = host
+
+        self._cursor: int | None = None
+        """Start of the current journal window; overrides the test start when set by :meth:`clear`."""
 
     @property
-    def now(self) -> str:
+    def now(self) -> int:
         """
-        :return: Current date and time that can be used to filter the journal.
-        :rtype: str
+        :return: Current UNIX timestamp (UTC seconds) from the host clock.
+        :rtype: int
         """
-        return self.host.conn.exec(["date", "+%Y-%m-%d %H:%M:%S.%N"], log_level=ProcessLogLevel.Error).stdout.strip()
-
-    def setup(self) -> None:
-        """
-        Called before execution of each test.
-        """
-        self._test_start = self.now
-        self._cursor = self._test_start
+        return int(self.host.conn.exec(["date", "+%s"], log_level=ProcessLogLevel.Error).stdout.strip())
 
     def get_artifacts_list(self, host: MultihostHost, artifacts_type: MultihostArtifactsType) -> set[str]:
         """
@@ -51,12 +46,14 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :return: List of artifacts to collect.
         :rtype: set[str]
         """
-        self.host.conn.run(f"journalctl --since '{self._test_start}' > /var/log/journald.log")
+        test_start = self.host.test_start_timestamp
+
+        self.host.conn.run(f"journalctl --since @{test_start} > /var/log/journald.log")
         return {"/var/log/journald.log"}
 
     def clear(self) -> None:
         """
-        Reset timestamp
+        Reset the journal window used by :meth:`journalctl` to the current time.
         """
         self._cursor = self.now
 
@@ -105,8 +102,10 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :rtype: ProcessResult
         """
         cli: CLIBuilder = self.host.cli
+        window_start = self._cursor if self._cursor is not None else self.host.test_start_timestamp
+
         if current:
-            since = since if since else self._cursor
+            since = since if since else f"@{window_start}"
 
         args = args if args else []
         builder: CLIBuilderArgs = {
