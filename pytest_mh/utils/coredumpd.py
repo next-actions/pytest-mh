@@ -67,7 +67,7 @@ class Coredumpd(MultihostUtility[MultihostHost]):
         self.mode: Literal["fail", "warn", "ignore"] = mode
         """Action taken when a core file is found."""
 
-        self.filter: str | None = None
+        self.filter: str | None = filter
         """Regular expression to filter core file names."""
 
         self.path: str = path
