@@ -439,6 +439,80 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
 
         return tmpfile
 
+    def mkdtemp(
+        self,
+        *,
+        path: str | None = None,
+        mode: str | None = None,
+        user: str | None = None,
+        group: str | None = None,
+    ) -> str:
+        """
+        Create temporary directory on remote host.
+
+        :param path: Preferred path of the directory, defaults to None in
+            which case a random directory is created under ``/tmp``. If
+            given, the directory is created at this path instead of a random
+            one, unless the path is not writable (e.g. due to insufficient
+            permissions), in which case a random directory under ``/tmp`` is
+            created instead.
+        :type path: str | None, optional
+        :param mode: Access mode (chmod value), defaults to None
+        :type mode: str | None, optional
+        :param user: Owner, defaults to None
+        :type user: str | None, optional
+        :param group: Group, defaults to None
+        :type group: str | None, optional
+        :raises OSError: If the directory can not be created.
+        :return: Temporary directory path.
+        :rtype: str
+        """
+
+        tmpdir: str | None = None
+
+        if path is not None:
+            self.logger.info(f'Creating directory "{path}"')
+            result = self.host.conn.run(
+                f"""
+                    set -ex
+                    rm -fr '{path}'
+                    mkdir -p '{path}'
+                    test -w '{path}'
+                """,
+                log_level=ProcessLogLevel.Error,
+                raise_on_error=False,
+            )
+
+            if result.rc == 0:
+                tmpdir = path
+            else:
+                self.logger.warning(f'"{path}" is not writable, falling back to a temporary directory')
+
+        if tmpdir is None:
+            self.logger.info("Creating temporary directory")
+            result = self.host.conn.run(
+                """
+                    set -ex
+                    tmp=`mktemp -d /tmp/mh.fs.rollback.XXXXXXXXX`
+                    echo $tmp
+                """,
+                log_level=ProcessLogLevel.Error,
+            )
+
+            tmpdir = result.stdout.strip()
+            if not tmpdir:
+                raise OSError("Temporary directory was not created")
+
+        action = f"rm --force --recursive '{tmpdir}'"
+        self.__backup[tmpdir] = (action, "delete")
+        self.__rollback.append(action)
+
+        attrs = self.__gen_chattrs(tmpdir, mode=mode, user=user, group=group)
+        if attrs:
+            self.host.conn.run(attrs, log_level=ProcessLogLevel.Error)
+
+        return tmpdir
+
     def rm(self, path: str) -> None:
         """
         Remove remote file or directory.
