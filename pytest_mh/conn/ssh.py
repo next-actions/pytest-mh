@@ -304,6 +304,22 @@ class SSHProcess(Process[SSHProcessResult, SSHInputBuffer, SSHProcessTimeoutErro
         This is an internal method called by :meth:`run` after executing
         generic code.
         """
+        try:
+            self._open_exec_and_feed_stdin()
+        except LibsshChannelException as e:
+            # Channel open may succeed on a half-dead session while request_exec
+            # or the initial stdin write still fails with SSH_AGAIN [-2].
+            self.logger.info(
+                self.logger.colorize("SSH exec failed (", c.Style.BRIGHT)
+                + self.logger.colorize(str(e), c.Fore.YELLOW, c.Style.BRIGHT)
+                + self.logger.colorize("); reconnecting", c.Style.BRIGHT)
+            )
+            self._close()
+            self.__client.reconnect()
+            self._open_exec_and_feed_stdin()
+
+    def _open_exec_and_feed_stdin(self) -> None:
+        """Open a channel, request_exec, and optionally write initial stdin."""
         # Prefer client.open_channel so a dead persistent session can reconnect.
         self.__channel = self.__client.open_channel()
         self.__conn = self.__client.session
