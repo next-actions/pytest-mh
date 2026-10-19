@@ -28,6 +28,15 @@ class MultihostItemData(object):
         Test run outcome, available in fixture finalizers.
         """
 
+        self.force_artifacts_collection: bool = False
+        """
+        Set to True if a utility's pytest_report_teststatus hook requested it
+        (see MHReportTestStatus.force_artifacts_collection) for the "call"
+        phase, regardless of the final outcome. Used to force artifact
+        collection even when the outcome is "passed" and the artifacts mode is
+        "on-failure".
+        """
+
         self.result: pytest.TestReport | None = None
         """
         Pytest test result.

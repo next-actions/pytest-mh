@@ -7,10 +7,12 @@ import pytest
 from pytest_mock import MockerFixture
 
 from pytest_mh import (
+    MHReportTestStatus,
     MultihostConfig,
     MultihostDomain,
     MultihostFixture,
     MultihostHost,
+    MultihostItemData,
     MultihostLogger,
     MultihostReentrantUtility,
     MultihostRole,
@@ -919,7 +921,16 @@ def test_multihost__mh_utility_exit_dependencies(
 
 @pytest.mark.parametrize(
     "val1,val2,expected",
-    [(None, None, None), (("a", "b", "c"), None, ("a", "b", "c")), (None, ("a", "b", "c"), ("a", "b", "c"))],
+    [
+        (None, None, None),
+        (MHReportTestStatus(status=("a", "b", "c")), None, MHReportTestStatus(status=("a", "b", "c"))),
+        (None, MHReportTestStatus(status=("a", "b", "c")), MHReportTestStatus(status=("a", "b", "c"))),
+        (
+            MHReportTestStatus(force_artifacts_collection=True),
+            MHReportTestStatus(status=("a", "b", "c")),
+            MHReportTestStatus(force_artifacts_collection=True),
+        ),
+    ],
 )
 def test_multihost__mh_utility_pytest_report_teststatus(
     mocker: MockerFixture, mock_mh: MultihostFixture, mock_host: MultihostHost, val1, val2, expected
@@ -944,3 +955,32 @@ def test_multihost__mh_utility_pytest_report_teststatus(
     ret = mh_utility_pytest_report_teststatus(role, mock_pytest_report, mock_pytest_config)
 
     assert ret == expected
+
+
+@pytest.mark.parametrize(
+    "result,expected_status,expected_force",
+    [
+        (None, None, False),
+        (MHReportTestStatus(status=("a", "b", "c")), ("a", "b", "c"), False),
+        (MHReportTestStatus(force_artifacts_collection=True), None, True),
+        (MHReportTestStatus(status=("a", "b", "c"), force_artifacts_collection=True), ("a", "b", "c"), True),
+    ],
+)
+def test_multihost__MultihostFixture__pytest_report_teststatus(
+    mocker: MockerFixture, result, expected_status, expected_force
+):
+    mocker.patch("pytest_mh._private.fixtures.mh_utility_pytest_report_teststatus", return_value=result)
+
+    mock_pytest_report = mocker.MagicMock(spec=pytest.CollectReport)
+    mock_pytest_report.outcome = "passed"
+    mock_pytest_config = mocker.MagicMock(spec=pytest.Config)
+
+    fake_self = mocker.Mock()
+    fake_self.roles = []
+    fake_self.hosts = [mocker.Mock()]
+    fake_self.data = MultihostItemData(multihost=None, topology_mark=None)
+
+    ret = MultihostFixture._pytest_report_teststatus(fake_self, mock_pytest_report, mock_pytest_config)
+
+    assert ret == expected_status
+    assert fake_self.data.force_artifacts_collection == expected_force
