@@ -199,7 +199,7 @@ class LocalGroup(Group):
         if not members:
             return self
 
-        cmd = "\n".join([f"groupmems --group '{self.name}' --add '{x.name}'" for x in members])
+        cmd = "\n".join([f"gpasswd --add '{x.name}' '{self.name}'" for x in members])
         self.util.host.conn.run("set -ex\n" + cmd, log_level=ProcessLogLevel.Error)
 
         return self
@@ -218,7 +218,7 @@ class LocalGroup(Group):
         if not members:
             return self
 
-        cmd = "\n".join([f"groupmems --group '{self.name}' --delete '{x.name}'" for x in members])
+        cmd = "\n".join([f"gpasswd --delete '{x.name}' '{self.name}'" for x in members])
         self.util.host.conn.run("set -ex\n" + cmd, log_level=ProcessLogLevel.Error)
 
         return self
