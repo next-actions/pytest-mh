@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pytest_mh.cli import CLIBuilder, CLIBuilderArgs
@@ -76,6 +77,11 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         Execute journalctl with given arguments. Show messages only for current test run, by default.
         Note that raise_on_error is False and the command may return non-zero return code.
 
+        When ``grep`` is used together with a ``--since`` bound (the default for
+        current-test queries), matching is done in Python. ``journalctl --grep``
+        can return hits from outside the ``--since`` window on some systemd
+        versions, which breaks negative assertions across tests.
+
         :param current: Show messages only for current test run, defaults to True
         :type current: bool, optional
         :param unit: Show messages for the specified systemd unit, defaults to None
@@ -108,12 +114,16 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
             since = since if since else f"@{window_start}"
 
         args = args if args else []
+        # Prefer client-side grep whenever a time bound is applied.
+        native_grep = grep if (grep is not None and since is None) else None
+        client_grep = grep if (grep is not None and since is not None) else None
+
         builder: CLIBuilderArgs = {
             "unit": (cli.option.VALUE, unit),
             "lines": (cli.option.VALUE, lines),
             "since": (cli.option.VALUE, since),
             "reverse": (cli.option.SWITCH, reverse),
-            "grep": (cli.option.VALUE, grep),
+            "grep": (cli.option.VALUE, native_grep),
             "output": (cli.option.VALUE, output),
             "identifier": (cli.option.VALUE, identifier),
             "system": (cli.option.SWITCH, system),
@@ -121,11 +131,23 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
             "no-pager": (cli.option.SWITCH, True),
         }
 
-        return self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
+        result = self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
+
+        if client_grep is not None:
+            matched = [line for line in result.stdout_lines if self._line_matches(client_grep, line)]
+            result.stdout_lines = matched
+            result.stdout = "\n".join(matched)
+
+        return result
 
     def is_match(self, pattern: str, unit: str | None = None) -> bool:
         """
         Search the logs for a pattern.
+
+        Matching uses journal output bounded by the current test cursor and is
+        evaluated in Python. This avoids two ``journalctl --grep`` pitfalls:
+        matches from outside the ``--since`` window, and exit status 0 with
+        ``-- No entries --`` (which previously made negative asserts fail).
 
         :param pattern: Pattern to be searched for
         :type pattern: str
@@ -134,7 +156,9 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :return: True, if pattern found
         :rtype: bool
         """
-        return self.journalctl(grep=pattern, unit=unit).rc == 0
+        # Do not pass grep to journalctl; filter locally over the --since window.
+        result = self.journalctl(unit=unit)
+        return any(self._line_matches(pattern, line) for line in result.stdout_lines)
 
     def count(self, pattern: str, unit: str | None = None) -> int:
         """
@@ -147,5 +171,12 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         :return: Number of occurrences of the pattern
         :rtype: int
         """
-        process = self.journalctl(grep=pattern, unit=unit)
-        return len(process.stdout_lines) if process.rc == 0 else 0
+        result = self.journalctl(unit=unit)
+        return sum(1 for line in result.stdout_lines if self._line_matches(pattern, line))
+
+    @staticmethod
+    def _line_matches(pattern: str, line: str) -> bool:
+        stripped = line.strip()
+        if not stripped or stripped == "-- No entries --":
+            return False
+        return re.search(pattern, line) is not None
