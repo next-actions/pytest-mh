@@ -77,10 +77,14 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         Execute journalctl with given arguments. Show messages only for current test run, by default.
         Note that raise_on_error is False and the command may return non-zero return code.
 
-        When ``grep`` is used together with a ``--since`` bound (the default for
-        current-test queries), matching is done in Python. ``journalctl --grep``
-        can return hits from outside the ``--since`` window on some systemd
-        versions, which breaks negative assertions across tests.
+        When a ``--since @epoch`` bound is applied (the default for current-test
+        queries):
+
+        * matching is done in Python (``journalctl --grep`` can return hits from
+          outside the ``--since`` window on some systemd versions);
+        * output defaults to ``short-unix`` so entries older than the bound can
+          be dropped in Python (``journalctl --since`` can still return older
+          lines when the host clock has jumped).
 
         :param current: Show messages only for current test run, defaults to True
         :type current: bool, optional
@@ -114,9 +118,13 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
             since = since if since else f"@{window_start}"
 
         args = args if args else []
+        enforce_since = self._parse_since_epoch(since)
         # Prefer client-side grep whenever a time bound is applied.
         native_grep = grep if (grep is not None and since is None) else None
         client_grep = grep if (grep is not None and since is not None) else None
+        # short-unix lets us drop entries older than the bound when --since leaks.
+        if enforce_since is not None and output is None:
+            output = "short-unix"
 
         builder: CLIBuilderArgs = {
             "unit": (cli.option.VALUE, unit),
@@ -133,10 +141,15 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
 
         result = self.host.conn.exec(["journalctl"] + cli.args(builder) + args, raise_on_error=False)
 
+        lines_out = result.stdout_lines
+        if enforce_since is not None:
+            lines_out = self._filter_since(lines_out, enforce_since)
         if client_grep is not None:
-            matched = [line for line in result.stdout_lines if self._line_matches(client_grep, line)]
-            result.stdout_lines = matched
-            result.stdout = "\n".join(matched)
+            lines_out = [line for line in lines_out if self._line_matches(client_grep, line)]
+
+        if lines_out is not result.stdout_lines:
+            result.stdout_lines = lines_out
+            result.stdout = "\n".join(lines_out)
 
         return result
 
@@ -173,6 +186,34 @@ class JournaldUtils(MultihostUtility[MultihostHost]):
         """
         result = self.journalctl(unit=unit)
         return sum(1 for line in result.stdout_lines if self._line_matches(pattern, line))
+
+    @staticmethod
+    def _parse_since_epoch(since: str | None) -> int | None:
+        if since is None or not since.startswith("@"):
+            return None
+        try:
+            return int(float(since[1:]))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_short_unix_ts(line: str) -> int | None:
+        """Parse leading seconds from ``journalctl -o short-unix`` output."""
+        match = re.match(r"^(\d+)(?:\.\d+)?\s+", line)
+        return int(match.group(1)) if match else None
+
+    @classmethod
+    def _filter_since(cls, lines: list[str], since_epoch: int) -> list[str]:
+        kept: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped == "-- No entries --":
+                continue
+            ts = cls._parse_short_unix_ts(line)
+            if ts is not None and ts < since_epoch:
+                continue
+            kept.append(line)
+        return kept
 
     @staticmethod
     def _line_matches(pattern: str, line: str) -> bool:

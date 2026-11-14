@@ -10,10 +10,15 @@ from pytest_mh.utils.journald import JournaldUtils
 
 MATCH_LINE = "service: alert pattern is present in this line"
 OTHER_LINE = "service: unrelated log line"
+SINCE = 1000
 
 
 def _result(stdout_lines: list[str], rc: int = 0) -> ProcessResult:
     return ProcessResult(rc, stdout_lines, [], None)
+
+
+def _unix(ts: int, message: str) -> str:
+    return f"{ts}.0 host.test {message}"
 
 
 @pytest.fixture
@@ -21,7 +26,7 @@ def journald(mocker: MockerFixture) -> JournaldUtils:
     host = mocker.MagicMock()
     host.cli = CLIBuilder(Bash())
     # Non-empty test start enables the --since / client-side grep path.
-    host.test_start_timestamp = 1000
+    host.test_start_timestamp = SINCE
     host.conn.exec.return_value = _result([])
     return JournaldUtils(host)
 
@@ -36,6 +41,19 @@ def test_line_matches_regex() -> None:
     assert JournaldUtils._line_matches(r"alert pattern", MATCH_LINE) is True
     assert JournaldUtils._line_matches(r"alert pattern.*this line", MATCH_LINE) is True
     assert JournaldUtils._line_matches(r"different pattern", MATCH_LINE) is False
+
+
+def test_filter_since_drops_older_short_unix_lines() -> None:
+    lines = [
+        _unix(SINCE - 100, MATCH_LINE),
+        _unix(SINCE, OTHER_LINE),
+        _unix(SINCE + 50, MATCH_LINE),
+        "-- No entries --",
+    ]
+    assert JournaldUtils._filter_since(lines, SINCE) == [
+        _unix(SINCE, OTHER_LINE),
+        _unix(SINCE + 50, MATCH_LINE),
+    ]
 
 
 def test_is_match_false_on_no_entries(journald: JournaldUtils, mocker: MockerFixture) -> None:
@@ -67,16 +85,22 @@ def test_count_matches_lines(journald: JournaldUtils, mocker: MockerFixture) -> 
     assert journald.count(r"alert pattern") == 2
 
 
-def test_journalctl_filters_grep_in_python_when_since_set(
-    journald: JournaldUtils,
-) -> None:
-    """With a --since bound, grep must not rely on journalctl --grep."""
-    journald.host.conn.exec.return_value = _result([OTHER_LINE, MATCH_LINE, "-- No entries --"])
+def test_journalctl_filters_grep_and_since_in_python(journald: JournaldUtils) -> None:
+    """Drop pre-since lines and apply grep in Python (no journalctl --grep)."""
+    journald.host.conn.exec.return_value = _result(
+        [
+            _unix(SINCE - 100, MATCH_LINE),
+            _unix(SINCE + 1, OTHER_LINE),
+            _unix(SINCE + 2, MATCH_LINE),
+            "-- No entries --",
+        ]
+    )
 
     result = journald.journalctl(grep=r"alert pattern", unit="sssd")
 
     argv = journald.host.conn.exec.call_args.args[0]
     assert "--grep" not in argv
     assert "--since" in argv
-    assert result.stdout_lines == [MATCH_LINE]
+    assert "short-unix" in argv
+    assert result.stdout_lines == [_unix(SINCE + 2, MATCH_LINE)]
     assert "alert pattern" in result.stdout
