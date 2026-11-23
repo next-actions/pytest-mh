@@ -543,6 +543,7 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         user: str | None = None,
         group: str | None = None,
         dedent: bool = True,
+        disable_out: bool = False,
     ) -> None:
         """
         Write to a remote file.
@@ -559,12 +560,15 @@ class LinuxFileSystem(MultihostReentrantUtility[MultihostHost]):
         :type group: str | None, optional
         :param dedent: Automatically dedent and strip file contents, defaults to True
         :type dedent: bool, optional
+        :param disable_out: Disable dumping file contents to output/logs, defaults to False
+        :type disable_out: bool, optional
         """
         if dedent:
             contents = textwrap.dedent(contents).strip()
 
         self.backup(path)
-        self.logger.info(f'Writing file "{path}"', extra={"data": {"Contents": contents}})
+        if not disable_out:
+            self.logger.info(f'Writing file "{path}"', extra={"data": {"Contents": contents}})
 
         self.host.conn.run(
             f"""

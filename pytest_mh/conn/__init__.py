@@ -1078,6 +1078,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         *,
         verbose: bool = True,
         raise_on_error: bool = False,
+        log_level: ProcessLogLevel = ProcessLogLevel.Full,
     ) -> ProcessResultType:
         """
         Run expect script.
@@ -1089,11 +1090,17 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         :param raise_on_error: If True, raise :class:`ProcessError` if command
             exited with non-zero return code, defaults to False
         :type raise_on_error: bool, optional
+        :param log_level: Log level, defaults to ProcessLogLevel.Full. Use
+            ProcessLogLevel.Error to keep a script that carries secrets (e.g. a
+            password) out of the logs, as the script is passed on standard input.
+        :type log_level: ProcessLogLevel, optional
         :return: Expect script result.
         :rtype: ProcessResultType
         """
         args = ["-d"] if verbose else []
-        return self.exec(["/bin/expect", *args], input=expect_script, raise_on_error=raise_on_error)
+        return self.exec(
+            ["/bin/expect", *args], input=expect_script, raise_on_error=raise_on_error, log_level=log_level
+        )
 
     def expect_nobody(
         self,
@@ -1101,6 +1108,7 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         *,
         verbose: bool = True,
         raise_on_error: bool = False,
+        log_level: ProcessLogLevel = ProcessLogLevel.Full,
     ) -> ProcessResultType:
         """
         Run expect script as user nobody.
@@ -1115,12 +1123,19 @@ class Connection(ABC, Generic[ProcessType, ProcessResultType]):
         :param raise_on_error: If True, raise :class:`ProcessError` if command
             exited with non-zero return code, defaults to False
         :type raise_on_error: bool, optional
+        :param log_level: Log level, defaults to ProcessLogLevel.Full. Use
+            ProcessLogLevel.Error to keep a script that carries secrets (e.g. a
+            password) out of the logs, as the script is passed on standard input.
+        :type log_level: ProcessLogLevel, optional
         :return: Expect return code.
         :rtype: ProcessResultType
         """
         args = " -d" if verbose else ""
         return self.run(
-            f'su --shell /bin/sh nobody -c "/bin/expect{args}"', input=expect_script, raise_on_error=raise_on_error
+            f'su --shell /bin/sh nobody -c "/bin/expect{args}"',
+            input=expect_script,
+            raise_on_error=raise_on_error,
+            log_level=log_level,
         )
 
     def __enter__(self) -> Connection:
